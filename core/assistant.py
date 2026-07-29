@@ -102,13 +102,76 @@ class NexusAssistant:
 
 
 
+    # ==========================================
+    # START NEXUS
+    # ==========================================
 
+    def start(self):
+
+        print(
+            "\n🤖 N.E.X.U.S 2.0 Online\n"
+        )
+
+
+        while True:
+
+            try:
+
+                user_input = input(
+                    "You: "
+                )
+
+
+                if user_input.lower() in [
+                    "exit",
+                    "quit"
+                ]:
+
+                    print(
+                        "Goodbye 👋"
+                    )
+
+                    break
+
+
+
+                response = self.process_input(
+                    user_input
+                )
+
+
+                print(
+                    "\nNEXUS:",
+                    response,
+                    "\n"
+                )
+
+
+
+            except KeyboardInterrupt:
+
+                print(
+                    "\nGoodbye 👋"
+                )
+
+                break
+
+
+
+            except Exception as e:
+
+                logger.error(
+                    f"Chat loop error: {e}"
+                )
+
+                print(
+                    f"Error: {e}"
+                )
 
     # ==========================================
     # TOOL REGISTRATION
     # ==========================================
-
-
+    
     def register_tools(self):
 
 
