@@ -10,6 +10,18 @@ class MemoryManager:
 
 
 
+    def save_memory(self, text):
+
+        self.db.insert(
+            "memory",
+            text
+        )
+
+
+        return True
+
+
+
     def remember(
         self,
         key,
@@ -20,7 +32,6 @@ class MemoryManager:
             key,
             value
         )
-
 
         return True
 
@@ -42,3 +53,37 @@ class MemoryManager:
 
 
         return results[0][1]
+
+
+
+    def get_context(self):
+
+        results = self.db.search(
+            "memory"
+        )
+
+
+        memories = []
+
+
+        for item in results:
+
+            memories.append(
+                item[1]
+            )
+
+
+        return memories
+
+
+
+    def save_conversation(
+        self,
+        user,
+        assistant
+    ):
+
+        self.db.insert(
+            "conversation",
+            f"User: {user}\nAssistant: {assistant}"
+        )
