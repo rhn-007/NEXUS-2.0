@@ -1,3 +1,9 @@
+"""
+NEXUS Memory Detector
+
+Extracts user facts from messages.
+"""
+
 import re
 
 
@@ -5,56 +11,116 @@ import re
 class MemoryDetector:
 
 
+
     def detect(
         self,
         text
     ):
 
+
         if not text:
 
-            return None
+            return []
 
 
 
-        text = text.lower().strip()
+        text = text.strip()
+
+
+
+        memories = []
 
 
 
         patterns = [
 
-            r"remember my (.+?) is (.+)",
 
-            r"my (.+?) is (.+)",
+            (
+                r"my name is (.+)",
+                "name"
+            ),
 
-            r"remember that my (.+?) is (.+)"
+
+
+            (
+                r"i am (.+)",
+                "name"
+            ),
+
+
+
+            (
+                r"my favourite colour is (.+)",
+                "favorite_colour"
+            ),
+
+
+
+            (
+                r"my favorite colour is (.+)",
+                "favorite_colour"
+            ),
+
+
+
+            (
+                r"my favourite color is (.+)",
+                "favorite_colour"
+            ),
+
+
+
+            (
+                r"i like (.+)",
+                "interest"
+            ),
+
+
+
+            (
+                r"i love (.+)",
+                "interest"
+            )
 
         ]
 
 
 
-        for pattern in patterns:
+        lower = text.lower()
+
+
+
+        for pattern, key in patterns:
 
 
             match = re.search(
+
                 pattern,
-                text
+
+                lower
+
             )
 
 
             if match:
 
-                key = match.group(1).strip()
 
-                value = match.group(2).strip()
-
-
-                return {
-
-                    "key": key,
-
-                    "value": value
-
-                }
+                value = match.group(1).strip()
 
 
-        return None
+
+                memories.append(
+
+                    {
+
+                        "key": key,
+
+                        "value": value
+
+                    }
+
+                )
+
+
+
+        return memories
