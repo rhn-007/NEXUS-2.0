@@ -4,9 +4,7 @@ NEXUS Core Assistant
 Main brain controller.
 """
 
-
 from dotenv import load_dotenv
-
 
 from ai.ollama import OllamaClient
 
@@ -43,18 +41,23 @@ class NexusAssistant:
         )
 
 
+        # MEMORY
+
         self.memory = MemoryManager()
 
+
+
+        # AI
 
         self.llm = OllamaClient()
 
 
 
+        # TOOLS
+
         self.tool_registry = ToolRegistry()
 
-
         self.register_tools()
-
 
 
         self.tool_router = ToolRouter(
@@ -78,6 +81,11 @@ class NexusAssistant:
 
 
 
+    # =====================================
+    # START
+    # =====================================
+
+
     def start(self):
 
 
@@ -89,44 +97,69 @@ class NexusAssistant:
         while True:
 
 
-            user_input = input(
-                "You: "
-            )
+            try:
 
 
-            if user_input.lower() in [
+                user_input = input(
+                    "You: "
+                )
 
-                "exit",
 
-                "quit"
+                if user_input.lower() in [
 
-            ]:
+                    "exit",
 
+                    "quit"
+
+                ]:
+
+
+                    print(
+                        "Goodbye 👋"
+                    )
+
+                    break
+
+
+
+                response = self.process_input(
+
+                    user_input
+
+                )
+
+
+
+                print(
+
+                    "\nNEXUS:",
+
+                    response,
+
+                    "\n"
+
+                )
+
+
+
+            except KeyboardInterrupt:
+
+
+                print(
+                    "\nGoodbye 👋"
+                )
 
                 break
 
 
 
-            response = self.process_input(
-
-                user_input
-
-            )
-
-
-            print(
-
-                "\nNEXUS:",
-
-                response,
-
-                "\n"
-
-            )
 
 
 
 
+    # =====================================
+    # TOOLS
+    # =====================================
 
 
     def register_tools(self):
@@ -143,6 +176,11 @@ class NexusAssistant:
 
 
 
+    # =====================================
+    # STATUS
+    # =====================================
+
+
     def get_status(self):
 
         return self.status
@@ -153,293 +191,9 @@ class NexusAssistant:
 
 
 
-    # ==================================
-    # MEMORY ROUTING
-    # ==================================
-
-
-
-    def check_memory(
-        self,
-        user_input
-    ):
-    
-    
-        text = user_input.lower()
-    
-    
-    
-        # Normalize spelling
-    
-        text = text.replace(
-            "colour",
-            "color"
-        )
-    
-    
-    
-        # ==========================
-        # PROFILE MEMORY
-        # ==========================
-    
-    
-        profile_keywords = [
-    
-            "what do you know",
-    
-            "what do u know",
-    
-            "tell me about myself",
-    
-            "tell me about me",
-    
-            "what can you tell me about myself",
-    
-            "what do you remember about me",
-    
-            "what do u remember about me",
-    
-            "describe me",
-    
-            "who am i",
-    
-            "do you know me",
-    
-            "how well do you know me",
-    
-            "what information do you have about me",
-    
-            "what facts do you know about me",
-    
-            "summarize me",
-    
-            "give me my profile",
-    
-            "show my profile",
-    
-            "my profile",
-    
-            "my details",
-    
-            "my information",
-    
-            "recall my details"
-    
-        ]
-    
-    
-    
-        if any(
-    
-            word in text
-    
-            for word in profile_keywords
-    
-        ):
-    
-    
-    
-            memories = self.memory.get_memory_context()
-    
-    
-    
-            profile = []
-    
-    
-    
-            for key, value, category in memories:
-    
-    
-                if category != "conversation":
-    
-    
-                    profile.append(
-    
-                        f"{key.replace('_',' ')}: {value}"
-    
-                    )
-    
-    
-    
-            if profile:
-    
-    
-                return (
-    
-                    "Here is what I know about you:\n\n"
-    
-                    +
-    
-                    "\n".join(profile)
-    
-                )
-    
-    
-    
-    
-    
-        # ==========================
-        # CONVERSATION RECALL
-        # ==========================
-    
-    
-        recall_keywords = [
-    
-            "recall",
-    
-            "remember",
-    
-            "do you remember",
-    
-            "what do you remember",
-    
-            "what did we talk about",
-    
-            "what did we discuss",
-    
-            "what have we discussed",
-    
-            "what was our conversation about",
-    
-            "summarize our conversation",
-    
-            "conversation summary",
-    
-            "chat summary",
-    
-            "previous chat",
-    
-            "old chat",
-    
-            "past conversation",
-    
-            "earlier conversation",
-    
-            "our previous conversation",
-    
-            "our last conversation",
-    
-            "what happened before",
-    
-            "what did i tell you",
-    
-            "what have i told you",
-    
-            "what information did i give you",
-    
-            "continue from where we left",
-    
-            "where did we stop",
-    
-            "what were we talking about"
-    
-        ]
-    
-    
-    
-        if any(
-    
-            word in text
-    
-            for word in recall_keywords
-    
-        ):
-    
-    
-    
-            conversations = self.memory.get_context()
-    
-    
-    
-            if conversations:
-    
-    
-                response = [
-    
-                    "Here is what I remember from our previous conversation:\n"
-    
-                ]
-    
-    
-    
-                for key, value, category in conversations[-10:]:
-    
-    
-                    if key == "user":
-    
-    
-                        response.append(
-    
-                            f"You: {value}"
-    
-                        )
-    
-    
-                    elif key == "assistant":
-    
-    
-                        response.append(
-    
-                            f"NEXUS: {value}"
-    
-                        )
-    
-    
-    
-                return "\n".join(response)
-    
-    
-    
-            else:
-    
-    
-                return (
-    
-                    "I don't have any previous conversation stored yet."
-    
-                )
-    
-    
-    
-    
-    
-        # ==========================
-        # SPECIFIC MEMORY SEARCH
-        # ==========================
-    
-    
-        memories = self.memory.get_memory_context()
-    
-    
-    
-        for key, value, category in memories:
-    
-    
-    
-            key_text = key.replace(
-    
-                "_",
-    
-                " "
-    
-            )
-    
-    
-    
-            if key_text in text:
-    
-    
-                return (
-    
-                    f"Your {key_text} is {value}."
-    
-                )
-    
-    
-    
-        return None
-        
-
+    # =====================================
+    # MAIN PROCESSOR
+    # =====================================
 
 
     def process_input(
@@ -451,21 +205,15 @@ class NexusAssistant:
     ):
 
 
-
-        if not user_input:
-
-            return "Please enter something."
+        if not user_input.strip():
 
 
+            return (
 
-        self.status = "PROCESSING"
+                "Please enter something."
 
+            )
 
-        set_status(
-
-            "Processing"
-
-        )
 
 
         logger.info(
@@ -476,48 +224,76 @@ class NexusAssistant:
 
 
 
+        self.status = "PROCESSING"
+
+
+
+        set_status(
+
+            "Thinking"
+
+        )
+
+
+
         try:
 
 
 
-            # ======================
-            # SAVE MEMORY
-            # ======================
+            # --------------------------------
+            # STORE MEMORY
+            # --------------------------------
 
 
-            self.memory.process_memory(
-
-                user_input
-
-            )
-
-
-
-
-            # ======================
-            # MEMORY LOOKUP
-            # ======================
-
-
-            memory_answer = self.check_memory(
+            learned = self.memory.process_memory(
 
                 user_input
 
             )
 
 
-            if memory_answer:
+
+            if learned:
 
 
-                return memory_answer
+                return self.memory_confirmation(
+
+                    user_input
+
+                )
 
 
 
 
 
-            # ======================
+
+
+            # --------------------------------
+            # MEMORY QUESTIONS
+            # --------------------------------
+
+
+            memory_response = self.memory.handle_memory_query(
+
+                user_input
+
+            )
+
+
+            if memory_response:
+
+
+                return memory_response
+
+
+
+
+
+
+
+            # --------------------------------
             # TOOLS
-            # ======================
+            # --------------------------------
 
 
             tool_result = self.tool_router.execute(
@@ -525,7 +301,6 @@ class NexusAssistant:
                 user_input
 
             )
-
 
 
             if tool_result.success:
@@ -537,12 +312,49 @@ class NexusAssistant:
 
 
 
-            # ======================
+
+
+            # --------------------------------
             # AI RESPONSE
-            # ======================
+            # --------------------------------
 
 
             context = self.memory.get_context()
+
+
+
+            personality = """
+
+You are NEXUS, a personal AI assistant.
+
+Personality:
+- Calm
+- Intelligent
+- Professional
+- Slightly witty when appropriate
+- Helpful and concise
+
+Speak naturally like a personal assistant.
+
+Do not say:
+- "I am just an AI"
+- "I don't have memories"
+- "This is our first conversation"
+
+If user information exists in context, use it naturally.
+
+"""
+
+
+
+            full_context = {
+
+                "personality": personality,
+
+                "memory": context
+
+            }
+
 
 
 
@@ -550,7 +362,7 @@ class NexusAssistant:
 
                 user_input,
 
-                context
+                full_context
 
             )
 
@@ -572,6 +384,7 @@ class NexusAssistant:
 
 
 
+
         except Exception as e:
 
 
@@ -582,7 +395,11 @@ class NexusAssistant:
             )
 
 
-            return f"Error: {e}"
+            return (
+
+                f"Error: {e}"
+
+            )
 
 
 
@@ -591,4 +408,63 @@ class NexusAssistant:
 
             self.status = "READY"
 
+
             clear_status()
+
+
+
+
+
+
+
+    # =====================================
+    # MEMORY ACKNOWLEDGEMENT
+    # =====================================
+
+
+    def memory_confirmation(
+
+        self,
+
+        text
+
+    ):
+
+
+        lower = text.lower()
+
+
+
+        if "name" in lower:
+
+
+            return (
+
+                "Nice to meet you. "
+
+                "I'll remember your name."
+
+            )
+
+
+
+        if "like" in lower or "love" in lower:
+
+
+            return (
+
+                "Got it. "
+
+                "I'll remember that."
+
+            )
+
+
+
+        return (
+
+            "Understood. "
+
+            "I'll keep that in mind."
+
+        )
