@@ -6,6 +6,7 @@ from memory.detector import MemoryDetector
 class MemoryManager:
 
 
+
     def __init__(self):
 
         self.db = MemoryDatabase()
@@ -14,8 +15,10 @@ class MemoryManager:
 
 
 
+
+
     # =====================================
-    # PROCESS USER INPUT FOR MEMORY
+    # PROCESS USER MEMORY
     # =====================================
 
     def process_memory(
@@ -25,104 +28,210 @@ class MemoryManager:
 
 
         memory = self.detector.detect(
-
             text
+        )
+
+
+        if not memory:
+
+            return False
+
+
+
+        self.db.insert(
+
+            memory["key"],
+
+            memory["value"],
+
+            "fact"
 
         )
 
 
-        if memory:
+        return True
 
 
-            self.remember(
-
-                memory["key"],
-
-                memory["value"]
-
-            )
-
-
-            return True
-
-
-
-        return False
 
 
 
 
     # =====================================
-    # SAVE MEMORY FACT
+    # NATURAL MEMORY RESPONSE
     # =====================================
 
-    def remember(
-        self,
-        key,
-        value
-    ):
-
-
-        return self.db.insert(
-
-            key,
-
-            value,
-
-            "memory"
-
-        )
-
-
-
-
-    # =====================================
-    # RECALL MEMORY
-    # =====================================
-
-    def recall(
-        self,
-        key
-    ):
-
-
-        results = self.db.search(
-
-            key
-
-        )
-
-
-        if not results:
-
-            return None
-
-
-
-        return results[0][1]
-
-
-
-
-    # =====================================
-    # OLD COMPATIBILITY FUNCTION
-    # =====================================
-
-    def save_memory(
+    def handle_memory_query(
         self,
         text
     ):
 
 
-        return self.db.insert(
+        text = text.lower()
 
-            "memory",
 
-            text,
 
-            "memory"
+        # -----------------------------
+        # USER PROFILE
+        # -----------------------------
 
-        )
+        profile_words = [
+
+            "what do you know about me",
+
+            "what do u know about me",
+
+            "tell me about myself",
+
+            "tell me about me",
+
+            "who am i",
+
+            "what can you remember about me",
+
+            "what do you remember about me",
+
+            "describe me",
+
+            "my profile",
+
+            "my details"
+
+        ]
+
+
+
+        if any(
+
+            word in text
+
+            for word in profile_words
+
+        ):
+
+
+            facts = self.db.get_facts()
+
+
+
+            if not facts:
+
+
+                return (
+
+                    "I haven't learned much about you yet."
+
+                )
+
+
+
+            response = (
+
+                "From what you've shared with me, "
+
+                "here is what I know about you:\n\n"
+
+            )
+
+
+
+            for key, value in facts:
+
+
+                response += (
+
+                    f"• Your {key} is {value}.\n"
+
+                )
+
+
+            return response.strip()
+
+
+
+
+
+
+        # -----------------------------
+        # CONVERSATION RECALL
+        # -----------------------------
+
+
+        recall_words = [
+
+            "what did we talk about",
+
+            "what did we discuss",
+
+            "previous conversation",
+
+            "previous conversations",
+
+            "our last conversation",
+
+            "what do you recall",
+
+            "what do u recall",
+
+            "remember our chat",
+
+            "summarize our conversation",
+
+            "what have i told you"
+
+        ]
+
+
+
+        if any(
+
+            word in text
+
+            for word in recall_words
+
+        ):
+
+
+            chats = self.db.get_conversations()
+
+
+
+            if not chats:
+
+
+                return (
+
+                    "I don't have any previous conversations stored yet."
+
+                )
+
+
+
+            response = (
+
+                "From our previous conversations, "
+
+                "I remember that:\n\n"
+
+            )
+
+
+            for key, value in reversed(chats):
+
+
+                response += (
+
+                    f"{key}: {value}\n\n"
+
+                )
+
+
+            return response.strip()
+
+
+
+        return None
+
+
 
 
 
@@ -132,28 +241,14 @@ class MemoryManager:
     # =====================================
 
     def save_conversation(
+
         self,
+
         user,
+
         assistant
+
     ):
-
-
-        blocked_phrases = [
-
-            "i don't have personal relationships",
-
-            "i don't actually know you",
-
-            "our conversation just started",
-
-            "i don't have personal memories",
-
-            "i am a conversational ai",
-
-            "i don't have access to previous"
-
-        ]
-
 
 
         self.db.insert(
@@ -167,31 +262,24 @@ class MemoryManager:
         )
 
 
+        self.db.insert(
 
-        if not any(
+            "assistant",
 
-            phrase in assistant.lower()
+            assistant,
 
-            for phrase in blocked_phrases
+            "conversation"
 
-        ):
+        )
 
 
-            self.db.insert(
 
-                "assistant",
-
-                assistant,
-
-                "conversation"
-
-            )
 
 
 
 
     # =====================================
-    # GET CONVERSATION CONTEXT
+    # SEARCH CONTEXT FOR AI
     # =====================================
 
     def get_context(
@@ -199,29 +287,93 @@ class MemoryManager:
     ):
 
 
-        results = self.db.search(
+        facts = self.db.get_facts()
 
-            "conversation"
+
+        conversations = self.db.get_conversations(
+            6
+        )
+
+
+        context = {
+
+            "facts": facts,
+
+            "recent_conversations": conversations
+
+        }
+
+
+        return context
+
+
+
+
+
+
+    # =====================================
+    # COMPATIBILITY FUNCTIONS
+    # =====================================
+
+    def remember(
+
+        self,
+
+        key,
+
+        value
+
+    ):
+
+
+        return self.db.insert(
+
+            key,
+
+            value,
+
+            "fact"
 
         )
 
 
-        return results[-10:]
 
 
+    def recall(
+
+        self,
+
+        key
+
+    ):
 
 
-    # =====================================
-    # GET ALL USER MEMORY
-    # =====================================
+        results = self.db.search(
+
+            key
+
+        )
+
+
+        if results:
+
+
+            return results[0][1]
+
+
+        return None
+
+
 
     def get_memory_context(
+
         self
+
     ):
 
 
         return self.db.search(
 
-            "memory"
+            ""
 
         )
