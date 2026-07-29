@@ -1,8 +1,7 @@
 """
-NEXUS Memory Detector
-
-Extracts user facts from messages.
+NEXUS Intelligent Memory Detector
 """
+
 
 import re
 
@@ -18,9 +17,12 @@ class MemoryDetector:
     ):
 
 
+        memories = []
+
+
         if not text:
 
-            return []
+            return memories
 
 
 
@@ -28,76 +30,62 @@ class MemoryDetector:
 
 
 
-        memories = []
-
-
-
         patterns = [
 
 
             (
-                r"my name is (.+)",
-                "name"
+                r"(?:my name is|i am)\s+([a-zA-Z]+)",
+                "name",
+                "profile"
             ),
 
 
 
             (
-                r"i am (.+)",
-                "name"
+                r"my (?:favorite|favourite) (?:color|colour) is\s+(.+)",
+                "favorite_colour",
+                "profile"
             ),
 
 
 
             (
-                r"my favourite colour is (.+)",
-                "favorite_colour"
-            ),
-
-
-
-            (
-                r"my favorite colour is (.+)",
-                "favorite_colour"
-            ),
-
-
-
-            (
-                r"my favourite color is (.+)",
-                "favorite_colour"
-            ),
-
-
-
-            (
-                r"i like (.+)",
+                r"(?:i like|i love|i enjoy)\s+(.+)",
+                "interest",
                 "interest"
             ),
 
 
 
             (
-                r"i love (.+)",
+                r"(?:i am building|i am making|working on)\s+(.+)",
+                "project",
+                "project"
+            ),
+
+
+
+            (
+                r"i use\s+(.+)",
+                "technology",
                 "interest"
             )
+
 
         ]
 
 
 
-        lower = text.lower()
-
-
-
-        for pattern, key in patterns:
+        for pattern, key, category in patterns:
 
 
             match = re.search(
 
                 pattern,
 
-                lower
+                text,
+
+                re.IGNORECASE
 
             )
 
@@ -108,14 +96,15 @@ class MemoryDetector:
                 value = match.group(1).strip()
 
 
-
                 memories.append(
 
                     {
 
                         "key": key,
 
-                        "value": value
+                        "value": value,
+
+                        "category": category
 
                     }
 
