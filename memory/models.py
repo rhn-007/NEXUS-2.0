@@ -1,11 +1,34 @@
-from dataclasses import dataclass
+"""
+NEXUS Memory Models
+"""
 
 
-@dataclass
 class MemoryItem:
 
-    key: str
 
-    value: str
+    def __init__(
+        self,
+        key,
+        value,
+        category="profile"
+    ):
 
-    category: str = "general"
+        self.key = key
+
+        self.value = value
+
+        self.category = category
+
+
+
+    def to_dict(self):
+
+        return {
+
+            "key": self.key,
+
+            "value": self.value,
+
+            "category": self.category
+
+        }
