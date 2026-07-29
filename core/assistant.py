@@ -1,80 +1,193 @@
-from utils.logger import setup_logger
+"""
+NEXUS Core Assistant
+
+Main brain controller.
+
+Responsibilities:
+- Manage AI conversation
+- Manage memory
+- Route tools
+- Handle user requests
+"""
+
+
+from dotenv import load_dotenv
+
 
 from ai.ollama import OllamaClient
 
-from core.conversation import ConversationManager
+from memory.manager import MemoryManager
 
-from memory.memory_manager import MemoryManager
-from memory.detector import MemoryDetector
+from tools.registry import ToolRegistry
+from tools.router import ToolRouter
+from tools.browser import BrowserTool
+
+
+from utils.logger import setup_logger
+
+
+
+load_dotenv()
+
 
 
 logger = setup_logger(__name__)
 
 
 
-class NexusAssistant:
+
+
+class PersonalAssistant:
+
 
 
     def __init__(self):
 
+
         logger.info(
-            "Starting NEXUS core..."
+            "Initializing NEXUS..."
         )
 
 
+        # ==========================
+        # MEMORY
+        # ==========================
+
+
+        self.memory = MemoryManager()
+
+
+
+        # ==========================
         # AI MODEL
+        # ==========================
+
 
         self.llm = OllamaClient()
 
 
 
-        # CONVERSATION MEMORY
-
-        self.conversation = ConversationManager()
-
-
-
-        # LONG TERM MEMORY
-
-        self.memory = MemoryManager()
+        # ==========================
+        # TOOLS
+        # ==========================
 
 
-        self.memory_detector = MemoryDetector()
+        self.tool_registry = ToolRegistry()
+
+
+        self.register_tools()
+
+
+
+        self.tool_router = ToolRouter(
+
+            self.tool_registry
+
+        )
+
+
+
+        # ==========================
+        # STATUS
+        # ==========================
+
+
+        self.status = "READY"
 
 
 
         logger.info(
-            "NEXUS core initialized"
+            "NEXUS initialized successfully."
         )
 
 
 
-    # =====================================================
-    # START ASSISTANT
-    # =====================================================
 
-    def start(self):
 
-        print(
-            "\n🤖 N.E.X.U.S 2.0 Online\n"
+    # ==========================================
+    # TOOL REGISTRATION
+    # ==========================================
+
+
+    def register_tools(self):
+
+
+        self.tool_registry.register(
+
+            BrowserTool()
+
         )
 
 
-        self.chat_loop()
+        logger.info(
+            "Tools loaded."
+        )
 
 
 
-    # =====================================================
+
+
+    # ==========================================
+    # GET STATUS
+    # ==========================================
+
+
+    def get_status(self):
+
+
+        return self.status
+
+
+
+
+
+    # ==========================================
+    # MEMORY SAVE
+    # ==========================================
+
+
+    def remember(
+        self,
+        text
+    ):
+
+
+        try:
+
+
+            self.memory.save_memory(
+
+                text
+
+            )
+
+
+        except Exception as e:
+
+
+            logger.error(
+
+                f"Memory save failed: {e}"
+
+            )
+
+
+
+
+
+    # ==========================================
     # PROCESS USER INPUT
-    # =====================================================
+    # ==========================================
 
-    def process(
+
+    def process_input(
         self,
         user_input
     ):
 
 
         if not user_input:
+
 
             return (
                 "Please enter something."
@@ -86,228 +199,125 @@ class NexusAssistant:
 
 
 
-        # =================================================
-        # MEMORY SAVE DETECTION
-        # =================================================
+        self.status = "PROCESSING"
 
-        memory = self.memory_detector.detect(
-            user_input
+
+
+        logger.info(
+
+            f"User: {user_input}"
+
         )
 
 
 
-        if memory:
+        try:
 
 
-            self.memory.remember(
+            # --------------------------
+            # MEMORY
+            # --------------------------
 
-                memory["key"],
 
-                memory["value"]
+            self.remember(
+
+                user_input
+
+            )
+
+
+
+            # --------------------------
+            # TOOL ROUTING
+            # --------------------------
+
+
+            tool_result = self.tool_router.execute(
+
+                user_input
 
             )
 
 
-            logger.info(
 
-                f"Memory saved: "
-                f"{memory['key']} = {memory['value']}"
+            if tool_result.success:
+
+
+                self.status = "READY"
+
+
+                return tool_result.message
+
+
+
+
+
+            # --------------------------
+            # AI RESPONSE
+            # --------------------------
+
+
+            context = self.memory.get_context()
+
+
+
+            response = self.llm.generate_response(
+
+                user_input,
+
+                context
 
             )
+
+
+
+            self.memory.save_conversation(
+
+                user_input,
+
+                response
+
+            )
+
+
+
+            self.status = "READY"
+
+
+
+            return response
+
+
+
+
+
+        except Exception as e:
+
+
+
+            logger.error(
+
+                f"NEXUS processing error: {e}"
+
+            )
+
+
+
+            self.status = "ERROR"
+
 
 
             return (
 
-                f"I will remember that your "
-                f"{memory['key']} is "
-                f"{memory['value']}."
+                f"Error: {e}"
 
             )
 
 
 
-        # =================================================
-        # MEMORY RECALL
-        # =================================================
+        finally:
 
-        lower_input = user_input.lower()
 
+            if self.status != "ERROR":
 
-
-        if (
-
-            "what is my" in lower_input
-
-            or
-
-            "what's my" in lower_input
-
-        ):
-
-
-            key = (
-
-                lower_input
-
-                .replace(
-                    "what is my",
-                    ""
-                )
-
-                .replace(
-                    "what's my",
-                    ""
-                )
-
-                .replace(
-                    "?",
-                    ""
-                )
-
-                .strip()
-
-            )
-
-
-
-            result = self.memory.recall(
-                key
-            )
-
-
-
-            if result:
-
-
-                logger.info(
-
-                    f"Memory recalled: "
-                    f"{key} = {result}"
-
-                )
-
-
-                return (
-
-                    f"Your {key} is {result}."
-
-                )
-
-
-
-        # =================================================
-        # NORMAL AI CHAT
-        # =================================================
-
-
-        self.conversation.add_user_message(
-            user_input
-        )
-
-
-
-        context = self.conversation.get_context()
-
-
-
-        response = self.llm.generate(
-            context
-        )
-
-
-
-        self.conversation.add_assistant_message(
-            response
-        )
-
-
-
-        return response
-
-
-
-
-    # =====================================================
-    # CHAT LOOP
-    # =====================================================
-
-    def chat_loop(self):
-
-
-        while True:
-
-
-            try:
-
-
-                user_input = input(
-                    "You: "
-                )
-
-
-
-                if user_input.lower() in [
-
-                    "exit",
-
-                    "quit"
-
-                ]:
-
-
-                    print(
-                        "Goodbye 👋"
-                    )
-
-
-                    break
-
-
-
-                response = self.process(
-                    user_input
-                )
-
-
-
-                print(
-
-                    "\nNEXUS:",
-
-                    response,
-
-                    "\n"
-
-                )
-
-
-
-            except KeyboardInterrupt:
-
-
-                print(
-                    "\nGoodbye 👋"
-                )
-
-
-                break
-
-
-
-            except Exception as e:
-
-
-                logger.error(
-
-                    f"Assistant error: {e}"
-
-                )
-
-
-                print(
-
-                    "Error:",
-
-                    e
-
-                )
+                self.status = "READY"
