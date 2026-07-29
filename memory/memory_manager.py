@@ -1,4 +1,5 @@
 from memory.database import MemoryDatabase
+from memory.detector import MemoryDetector
 
 
 
@@ -9,10 +10,50 @@ class MemoryManager:
 
         self.db = MemoryDatabase()
 
+        self.detector = MemoryDetector()
+
 
 
     # =====================================
-    # SAVE A MEMORY FACT
+    # PROCESS USER INPUT FOR MEMORY
+    # =====================================
+
+    def process_memory(
+        self,
+        text
+    ):
+
+
+        memory = self.detector.detect(
+
+            text
+
+        )
+
+
+        if memory:
+
+
+            self.remember(
+
+                memory["key"],
+
+                memory["value"]
+
+            )
+
+
+            return True
+
+
+
+        return False
+
+
+
+
+    # =====================================
+    # SAVE MEMORY FACT
     # =====================================
 
     def remember(
@@ -20,6 +61,7 @@ class MemoryManager:
         key,
         value
     ):
+
 
         return self.db.insert(
 
@@ -33,14 +75,16 @@ class MemoryManager:
 
 
 
+
     # =====================================
-    # RECALL SPECIFIC MEMORY
+    # RECALL MEMORY
     # =====================================
 
     def recall(
         self,
         key
     ):
+
 
         results = self.db.search(
 
@@ -59,14 +103,16 @@ class MemoryManager:
 
 
 
+
     # =====================================
-    # SAVE AUTOMATIC MEMORY
+    # OLD COMPATIBILITY FUNCTION
     # =====================================
 
     def save_memory(
         self,
         text
     ):
+
 
         return self.db.insert(
 
@@ -80,8 +126,9 @@ class MemoryManager:
 
 
 
+
     # =====================================
-    # SAVE CONVERSATIONS
+    # SAVE CONVERSATION
     # =====================================
 
     def save_conversation(
@@ -109,8 +156,6 @@ class MemoryManager:
 
 
 
-        # Save user message
-
         self.db.insert(
 
             "user",
@@ -122,8 +167,6 @@ class MemoryManager:
         )
 
 
-
-        # Avoid storing useless AI replies
 
         if not any(
 
@@ -146,8 +189,9 @@ class MemoryManager:
 
 
 
+
     # =====================================
-    # GET CHAT CONTEXT
+    # GET CONVERSATION CONTEXT
     # =====================================
 
     def get_context(
@@ -166,8 +210,9 @@ class MemoryManager:
 
 
 
+
     # =====================================
-    # GET ALL MEMORY FACTS
+    # GET ALL USER MEMORY
     # =====================================
 
     def get_memory_context(
@@ -175,11 +220,8 @@ class MemoryManager:
     ):
 
 
-        results = self.db.search(
+        return self.db.search(
 
             "memory"
 
         )
-
-
-        return results
