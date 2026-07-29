@@ -1,6 +1,7 @@
 from memory.database import MemoryDatabase
 
 
+
 class MemoryManager:
 
 
@@ -10,30 +11,16 @@ class MemoryManager:
 
 
 
-    def save_memory(self, text):
-
-        self.db.insert(
-            "memory",
-            text
-        )
-
-
-        return True
-
-
-
     def remember(
         self,
         key,
         value
     ):
 
-        self.db.insert(
+        return self.db.insert(
             key,
             value
         )
-
-        return True
 
 
 
@@ -56,24 +43,15 @@ class MemoryManager:
 
 
 
-    def get_context(self):
+    def save_memory(
+        self,
+        text
+    ):
 
-        results = self.db.search(
-            "memory"
+        return self.db.insert(
+            "memory",
+            text
         )
-
-
-        memories = []
-
-
-        for item in results:
-
-            memories.append(
-                item[1]
-            )
-
-
-        return memories
 
 
 
@@ -84,6 +62,26 @@ class MemoryManager:
     ):
 
         self.db.insert(
-            "conversation",
-            f"User: {user}\nAssistant: {assistant}"
+            "user",
+            user
         )
+
+
+        self.db.insert(
+            "assistant",
+            assistant
+        )
+
+
+
+    def get_context(
+        self
+    ):
+
+
+        results = self.db.search(
+            ""
+        )
+
+
+        return results[-10:]
