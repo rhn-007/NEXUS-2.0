@@ -2,9 +2,7 @@ import re
 
 
 
-
 class MemoryDetector:
-
 
 
     def detect(
@@ -25,57 +23,40 @@ class MemoryDetector:
 
         patterns = [
 
-            (
-                r"my name is (.+)",
-                "name"
-            ),
+            # my name is rohan
+            r"my name is (.+)",
 
-            (
-                r"i am (.+)",
-                "name"
-            ),
 
-            (
-                r"i'm (.+)",
-                "name"
-            ),
+            # i am rohan
+            r"i am (.+)",
 
-            (
-                r"i like (.+)",
-                "interest"
-            ),
 
-            (
-                r"i love (.+)",
-                "interest"
-            ),
+            # i like anime
+            r"i like (.+)",
 
-            (
-                r"my favorite (.+?) is (.+)",
-                None
-            ),
 
-            (
-                r"my favourite (.+?) is (.+)",
-                None
-            ),
+            # i love python
+            r"i love (.+)",
 
-            (
-                r"remember that my (.+?) is (.+)",
-                None
-            ),
 
-            (
-                r"my (.+?) is (.+)",
-                None
-            )
+            # my favourite colour is black
+            r"my favorite (.+?) is (.+)",
+
+
+            # my favourite colour is black (British spelling)
+            r"my favourite (.+?) is (.+)",
+
+
+            # remember that my hobby is coding
+            r"remember (?:that )?my (.+?) is (.+)",
+
 
         ]
 
 
 
-        for pattern, forced_key in patterns:
 
+        for pattern in patterns:
 
 
             match = re.search(
@@ -87,38 +68,76 @@ class MemoryDetector:
             )
 
 
-
             if match:
 
 
+                groups = match.groups()
 
-                # Example:
-                # my name is rohan
 
-                if forced_key:
+
+                # --------------------------
+                # Name
+                # --------------------------
+
+                if "name" in pattern:
 
 
                     return {
 
-                        "key": forced_key,
+                        "key": "name",
 
-                        "value": match.group(1).strip()
+                        "value": groups[0].strip()
 
                     }
 
 
 
-                # Example:
-                # my favourite color is black
+                # --------------------------
+                # Likes
+                # --------------------------
 
-                if len(match.groups()) == 2:
+                if "like" in pattern or "love" in pattern:
 
 
                     return {
 
-                        "key": match.group(1).strip(),
+                        "key": "interest",
 
-                        "value": match.group(2).strip()
+                        "value": groups[0].strip()
+
+                    }
+
+
+
+                # --------------------------
+                # Favourite things
+                # --------------------------
+
+                if "favorite" in pattern or "favourite" in pattern:
+
+
+                    return {
+
+                        "key": groups[0].strip(),
+
+                        "value": groups[1].strip()
+
+                    }
+
+
+
+                # --------------------------
+                # General memory
+                # --------------------------
+
+                if len(groups) == 2:
+
+
+                    return {
+
+                        "key": groups[0].strip(),
+
+                        "value": groups[1].strip()
 
                     }
 
