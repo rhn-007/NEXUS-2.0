@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 
 from ai.ollama import OllamaClient
 
-from memory.manager import MemoryManager
+from memory.memory_manager import MemoryManager
 
 from tools.registry import ToolRegistry
 from tools.router import ToolRouter
