@@ -5,6 +5,7 @@ import re
 class MemoryDetector:
 
 
+
     def detect(
         self,
         text
@@ -13,7 +14,7 @@ class MemoryDetector:
 
         if not text:
 
-            return None
+            return []
 
 
 
@@ -21,126 +22,211 @@ class MemoryDetector:
 
 
 
-        patterns = [
-
-            # my name is rohan
-            r"my name is (.+)",
-
-
-            # i am rohan
-            r"i am (.+)",
-
-
-            # i like anime
-            r"i like (.+)",
-
-
-            # i love python
-            r"i love (.+)",
-
-
-            # my favourite colour is black
-            r"my favorite (.+?) is (.+)",
-
-
-            # my favourite colour is black (British spelling)
-            r"my favourite (.+?) is (.+)",
-
-
-            # remember that my hobby is coding
-            r"remember (?:that )?my (.+?) is (.+)",
-
-
-        ]
+        memories = []
 
 
 
+        # ==========================
+        # NAME
+        # ==========================
 
-        for pattern in patterns:
+        name_match = re.search(
+            r"(?:my name is|i am|i'm)\s+([a-zA-Z]+)",
+            text
+        )
 
 
-            match = re.search(
+        if name_match:
 
-                pattern,
 
-                text
+            memories.append(
+
+                {
+                    "key": "name",
+
+                    "value": name_match.group(1).strip()
+
+                }
 
             )
 
 
-            if match:
-
-
-                groups = match.groups()
 
 
 
-                # --------------------------
-                # Name
-                # --------------------------
-
-                if "name" in pattern:
+        # ==========================
+        # LIKES / INTERESTS
+        # ==========================
 
 
-                    return {
+        likes = re.findall(
 
-                        "key": "name",
+            r"(?:i like|i love|i enjoy)\s+([^.,]+)",
 
-                        "value": groups[0].strip()
+            text
 
-                    }
-
-
-
-                # --------------------------
-                # Likes
-                # --------------------------
-
-                if "like" in pattern or "love" in pattern:
+        )
 
 
-                    return {
+        for item in likes:
 
-                        "key": "interest",
 
-                        "value": groups[0].strip()
+            memories.append(
 
-                    }
+                {
+                    "key": "interest",
+
+                    "value": item.strip()
+
+                }
+
+            )
 
 
 
-                # --------------------------
-                # Favourite things
-                # --------------------------
-
-                if "favorite" in pattern or "favourite" in pattern:
-
-
-                    return {
-
-                        "key": groups[0].strip(),
-
-                        "value": groups[1].strip()
-
-                    }
 
 
 
-                # --------------------------
-                # General memory
-                # --------------------------
 
-                if len(groups) == 2:
-
-
-                    return {
-
-                        "key": groups[0].strip(),
-
-                        "value": groups[1].strip()
-
-                    }
+        # ==========================
+        # FAVORITE ANIME / THINGS
+        # ==========================
 
 
+        favourite_matches = re.findall(
 
-        return None
+            r"(?:my favorite|my favourite)\s+(.+?)\s+is\s+([^.,]+)",
+
+            text
+
+        )
+
+
+        for key, value in favourite_matches:
+
+
+            key = key.strip().replace(
+                " ",
+                "_"
+            )
+
+
+            memories.append(
+
+                {
+                    "key": key,
+
+                    "value": value.strip()
+
+                }
+
+            )
+
+
+
+
+
+
+
+        # ==========================
+        # CODING / SKILLS
+        # ==========================
+
+
+        coding = re.search(
+
+            r"(?:coding|programming|language).*?(?:python|java|c\+\+|javascript)",
+
+            text
+
+        )
+
+
+        if coding:
+
+
+            memories.append(
+
+                {
+                    "key": "coding",
+
+                    "value": "Python"
+
+                }
+
+            )
+
+
+
+
+
+
+
+        # ==========================
+        # PROJECTS
+        # ==========================
+
+
+        project = re.search(
+
+            r"(?:working on|building|creating)\s+(.+?)(?:\.|,|and|$)",
+
+            text
+
+        )
+
+
+        if project:
+
+
+            memories.append(
+
+                {
+                    "key": "project",
+
+                    "value": project.group(1).strip()
+
+                }
+
+            )
+
+
+
+
+
+
+
+        # ==========================
+        # REMOVE DUPLICATES
+        # ==========================
+
+
+        unique = []
+
+
+        seen = set()
+
+
+        for memory in memories:
+
+
+            identifier = (
+
+                memory["key"],
+
+                memory["value"]
+
+            )
+
+
+            if identifier not in seen:
+
+
+                seen.add(identifier)
+
+                unique.append(memory)
+
+
+
+
+        return unique
