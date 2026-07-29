@@ -1,18 +1,6 @@
-"""
-NEXUS Animation System
-
-Safe terminal animation manager.
-
-Rules:
-- Animation only runs during processing
-- Never fights with input()
-- Clears its own line
-- Thread safe
-"""
-
-import sys
 import threading
 import time
+import sys
 
 from ui.status import get_status
 
@@ -26,8 +14,6 @@ class NexusAnimation:
         self.running = False
 
         self.thread = None
-
-        self.lock = threading.RLock()
 
 
         self.frames = [
@@ -44,58 +30,40 @@ class NexusAnimation:
 
 
 
-    # ==========================================
-    # START
-    # ==========================================
-
     def start(self):
 
-        with self.lock:
+
+        if self.running:
+
+            return
 
 
-            if self.running:
-
-                return
+        self.running = True
 
 
-            self.running = True
+        self.thread = threading.Thread(
+
+            target=self.loop,
+
+            daemon=True
+
+        )
 
 
-            self.thread = threading.Thread(
-
-                target=self._loop,
-
-                daemon=True
-
-            )
-
-
-            self.thread.start()
+        self.thread.start()
 
 
 
-    # ==========================================
-    # LOOP
-    # ==========================================
+    def loop(self):
 
-    def _loop(self):
 
         index = 0
 
 
-        while True:
-
-
-            with self.lock:
-
-                if not self.running:
-
-                    break
-
+        while self.running:
 
 
             status = get_status()
-
 
 
             if status:
@@ -104,14 +72,16 @@ class NexusAnimation:
                 frame = self.frames[index]
 
 
-                sys.stderr.write(
+                sys.stdout.write(
 
-                    f"\r[NEXUS] {frame} {status}..."
+                    "\r"
+
+                    f"[NEXUS] {frame} {status}..."
 
                 )
 
 
-                sys.stderr.flush()
+                sys.stdout.flush()
 
 
 
@@ -122,42 +92,36 @@ class NexusAnimation:
                 ) % len(self.frames)
 
 
-
-            time.sleep(
-                0.25
-            )
+            else:
 
 
-
-    # ==========================================
-    # CLEAR LINE
-    # ==========================================
-
-    def clear(self):
+                self.clear_line()
 
 
-        sys.stderr.write(
 
-            "\r" + (" " * 100) + "\r"
+            time.sleep(0.25)
+
+
+
+
+    def clear_line(self):
+
+
+        sys.stdout.write(
+
+            "\r" + (" " * 80) + "\r"
 
         )
 
-
-        sys.stderr.flush()
-
+        sys.stdout.flush()
 
 
-    # ==========================================
-    # STOP
-    # ==========================================
+
 
     def stop(self):
 
 
-        with self.lock:
-
-
-            self.running = False
+        self.running = False
 
 
 
@@ -175,7 +139,7 @@ class NexusAnimation:
 
 
 
-        self.clear()
+        self.clear_line()
 
 
 
