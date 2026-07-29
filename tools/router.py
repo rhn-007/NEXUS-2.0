@@ -1,25 +1,33 @@
 """
 NEXUS Tool Router
 
-Finds the correct tool for a user request.
+Decides which tool handles a request.
 """
 
 
-
-import logging
-
-
-from tools.response import ToolResponse
+from tools.calculator import CalculatorTool
 
 
 
-logger = logging.getLogger(__name__)
+
+class ToolResult:
+
+
+    def __init__(
+        self,
+        success=False,
+        message=""
+    ):
+
+        self.success = success
+
+        self.message = message
+
 
 
 
 
 class ToolRouter:
-
 
 
     def __init__(
@@ -29,119 +37,71 @@ class ToolRouter:
 
         self.registry = registry
 
+        self.calculator = CalculatorTool()
 
 
-    # ==========================================
-    # FIND TOOL
-    # ==========================================
 
-    def find_tool(
+
+    def execute(
         self,
-        query
+        text
     ):
 
 
-        if not query:
-
-            return None
-
-
-
-        for tool in self.registry.all():
+        # ==========================
+        # CALCULATOR
+        # ==========================
 
 
-            try:
+        if self.calculator.can_handle(
+            text
+        ):
 
 
-                if tool.can_handle(
-                    query
-                ):
-
-                    return tool
+            result = self.calculator.execute(
+                text
+            )
 
 
+            if result is not None:
 
-            except Exception as e:
 
+                return ToolResult(
 
-                logger.error(
+                    True,
 
-                    f"Tool detection error: {e}"
+                    result
 
                 )
 
 
 
-        return None
+        # ==========================
+        # REGISTERED TOOLS
+        # ==========================
 
 
+        for tool in self.registry.tools:
 
 
-    # ==========================================
-    # EXECUTE
-    # ==========================================
-
-    def execute(
-        self,
-        query
-    ):
-
-
-        tool = self.find_tool(
-            query
-        )
-
-
-
-        if not tool:
-
-
-            return ToolResponse.failure(
-
-                "No matching tool found."
-
-            )
-
-
-
-        try:
-
-
-            result = tool.execute(
-                query
-            )
-
-
-
-            if isinstance(
-                result,
-                ToolResponse
+            if tool.can_handle(
+                text
             ):
 
-                return result
+
+                result = tool.execute(
+                    text
+                )
+
+
+                return ToolResult(
+
+                    True,
+
+                    result
+
+                )
 
 
 
-            return ToolResponse.success(
-
-                str(result)
-
-            )
-
-
-
-        except Exception as e:
-
-
-            logger.error(
-
-                f"Tool execution failed: {e}"
-
-            )
-
-
-            return ToolResponse.failure(
-
-                str(e)
-
-            )
+        return ToolResult()
