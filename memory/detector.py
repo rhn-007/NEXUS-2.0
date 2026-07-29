@@ -21,7 +21,6 @@ class MemoryDetector:
         text = text.lower().strip()
 
 
-
         memories = []
 
 
@@ -30,36 +29,50 @@ class MemoryDetector:
         # NAME
         # ==========================
 
-        name_match = re.search(
-            r"(?:my name is|i am|i'm)\s+([a-zA-Z]+)",
+        name = re.search(
+            r"(?:my name is|i am|i'm)\s+([a-z]+)",
             text
         )
 
 
-        if name_match:
+        if name:
 
 
-            memories.append(
+            value = name.group(1)
 
-                {
-                    "key": "name",
 
-                    "value": name_match.group(1).strip()
+            if value not in [
 
-                }
+                "currently",
+                "working",
+                "a",
+                "the"
 
-            )
+            ]:
+
+
+                memories.append(
+
+                    {
+                        "key": "name",
+
+                        "value": value
+
+                    }
+
+                )
+
+
 
 
 
 
 
         # ==========================
-        # LIKES / INTERESTS
+        # INTERESTS
         # ==========================
 
-
-        likes = re.findall(
+        interests = re.findall(
 
             r"(?:i like|i love|i enjoy)\s+([^.,]+)",
 
@@ -68,7 +81,7 @@ class MemoryDetector:
         )
 
 
-        for item in likes:
+        for item in interests:
 
 
             memories.append(
@@ -89,32 +102,28 @@ class MemoryDetector:
 
 
         # ==========================
-        # FAVORITE ANIME / THINGS
+        # FAVORITES
         # ==========================
 
+        favorites = re.findall(
 
-        favourite_matches = re.findall(
-
-            r"(?:my favorite|my favourite)\s+(.+?)\s+is\s+([^.,]+)",
+            r"my favorite ([a-z ]+) is ([^.,]+)",
 
             text
 
         )
 
 
-        for key, value in favourite_matches:
-
-
-            key = key.strip().replace(
-                " ",
-                "_"
-            )
+        for key,value in favorites:
 
 
             memories.append(
 
                 {
-                    "key": key,
+                    "key": key.strip().replace(
+                        " ",
+                        "_"
+                    ),
 
                     "value": value.strip()
 
@@ -129,32 +138,31 @@ class MemoryDetector:
 
 
         # ==========================
-        # CODING / SKILLS
+        # CODING
         # ==========================
 
+        if re.search(
 
-        coding = re.search(
-
-            r"(?:coding|programming|language).*?(?:python|java|c\+\+|javascript)",
+            r"coding|programming|python",
 
             text
 
-        )
+        ):
 
 
-        if coding:
+            if "python" in text:
 
 
-            memories.append(
+                memories.append(
 
-                {
-                    "key": "coding",
+                    {
+                        "key": "coding",
 
-                    "value": "Python"
+                        "value": "python"
 
-                }
+                    }
 
-            )
+                )
 
 
 
@@ -163,20 +171,16 @@ class MemoryDetector:
 
 
         # ==========================
-        # PROJECTS
+        # PROJECT
         # ==========================
 
+        if re.search(
 
-        project = re.search(
-
-            r"(?:working on|building|creating)\s+(.+?)(?:\.|,|and|$)",
+            r"working on a project|working on my project",
 
             text
 
-        )
-
-
-        if project:
+        ):
 
 
             memories.append(
@@ -184,7 +188,7 @@ class MemoryDetector:
                 {
                     "key": "project",
 
-                    "value": project.group(1).strip()
+                    "value": "a personal project"
 
                 }
 
@@ -200,9 +204,7 @@ class MemoryDetector:
         # REMOVE DUPLICATES
         # ==========================
 
-
-        unique = []
-
+        result = []
 
         seen = set()
 
@@ -210,7 +212,7 @@ class MemoryDetector:
         for memory in memories:
 
 
-            identifier = (
+            check = (
 
                 memory["key"],
 
@@ -219,14 +221,13 @@ class MemoryDetector:
             )
 
 
-            if identifier not in seen:
+            if check not in seen:
 
 
-                seen.add(identifier)
+                seen.add(check)
 
-                unique.append(memory)
-
-
+                result.append(memory)
 
 
-        return unique
+
+        return result
