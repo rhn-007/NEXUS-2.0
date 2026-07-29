@@ -350,50 +350,115 @@ class NexusAssistant:
 
 
     def check_memory(
-
-        self,
-
-        user_input
-
+            self,
+            user_input
     ):
-
-
+    
+    
         text = user_input.lower()
-
-
-
-        if "what do you know about me" in text or "what do u know about me" in text:
-
-
+    
+    
+    
+        profile_keywords = [
+    
+            "what do you know about me",
+    
+            "what do u know about me",
+    
+            "tell me about myself",
+    
+            "who am i",
+    
+            "my profile",
+    
+            "my details"
+    
+        ]
+    
+    
+    
+        if any(
+    
+            keyword in text
+    
+            for keyword in profile_keywords
+    
+        ):
+    
+    
             memories = self.memory.get_memory_context()
-
-
-
-            if memories:
-
-
-                result = [
-
-                    "Here's what I know about you:\n"
-
-                ]
-
-
-                for key,value,category in memories:
-
-
+    
+    
+    
+            if not memories:
+    
+    
+                return (
+                    "I don't have any stored information about you yet."
+                )
+    
+    
+    
+            profile = []
+    
+    
+    
+            for item in memories:
+    
+    
+                try:
+    
+    
+                    key = item[0]
+    
+                    value = item[1]
+    
+                    category = item[2]
+    
+    
+    
                     if category != "conversation":
-
-
-                        result.append(
-
-                            f"• {key}: {value}"
-
+    
+    
+                        profile.append(
+    
+                            f"• {key.replace('_',' ').title()}: {value}"
+    
                         )
-
-
-                return "\n".join(result)
-
-
-
+    
+    
+                except Exception:
+    
+    
+                    continue
+    
+    
+    
+    
+    
+            if profile:
+    
+    
+                return (
+    
+                    "Here's what I know about you:\n\n"
+    
+                    +
+    
+                    "\n".join(profile)
+    
+                )
+    
+    
+    
+            return (
+    
+                "I have memories stored, but no personal details about you yet."
+    
+            )
+    
+    
+    
+    
+    
         return None
