@@ -1,8 +1,6 @@
 from utils.logger import setup_logger
 
-from core.config import Config
-
-from ai.llm import OllamaClient
+from ai.ollama import OllamaClient
 
 from core.conversation import ConversationManager
 
@@ -16,19 +14,15 @@ class NexusAssistant:
 
     def __init__(self):
 
-
-        self.name = Config.APP_NAME
-
-        self.version = Config.VERSION
-
+        logger.info(
+            "Starting NEXUS core..."
+        )
 
 
         self.llm = OllamaClient()
 
 
-        self.conversation = ConversationManager(
-            self.llm
-        )
+        self.conversation = ConversationManager()
 
 
         logger.info(
@@ -39,12 +33,6 @@ class NexusAssistant:
 
     def start(self):
 
-
-        logger.info(
-            f"{self.name} {self.version} ready."
-        )
-
-
         print(
             "\n🤖 N.E.X.U.S 2.0 Online\n"
         )
@@ -54,23 +42,48 @@ class NexusAssistant:
 
 
 
-    def chat_loop(self):
+    def process(
+        self,
+        user_input
+    ):
 
+
+        self.conversation.add_user_message(
+            user_input
+        )
+
+
+        context = self.conversation.get_context()
+
+
+        response = self.llm.generate(
+            context
+        )
+
+
+        self.conversation.add_assistant_message(
+            response
+        )
+
+
+        return response
+
+
+
+    def chat_loop(self):
 
         while True:
 
-
             try:
 
-                user = input(
+                user_input = input(
                     "You: "
                 )
 
 
-                if user.lower() in [
+                if user_input.lower() in [
 
                     "exit",
-
                     "quit"
 
                 ]:
@@ -83,8 +96,8 @@ class NexusAssistant:
 
 
 
-                response = self.conversation.chat(
-                    user
+                response = self.process(
+                    user_input
                 )
 
 
@@ -95,9 +108,7 @@ class NexusAssistant:
                 )
 
 
-
             except KeyboardInterrupt:
-
 
                 print(
                     "\nGoodbye 👋"
