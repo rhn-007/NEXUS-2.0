@@ -25,30 +25,35 @@ class MemoryManager:
         self,
         text
     ):
-
-
-        memory = self.detector.detect(
+    
+    
+        memories = self.detector.detect(
             text
         )
-
-
-        if not memory:
-
+    
+    
+        if not memories:
+    
             return False
-
-
-
+    
+    
+    
         for memory in memories:
-
+    
+    
             self.db.insert(
+    
                 memory["key"],
+    
                 memory["value"],
+    
                 "fact"
+    
             )
-
-
+    
+    
+    
         return True
-
 
 
 
