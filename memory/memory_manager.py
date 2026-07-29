@@ -1,4 +1,14 @@
+"""
+NEXUS Memory Manager
+
+Controls:
+- User facts
+- Preferences
+- Conversation history
+"""
+
 from memory.database import MemoryDatabase
+from memory.detector import MemoryDetector
 
 
 
@@ -9,7 +19,47 @@ class MemoryManager:
 
         self.db = MemoryDatabase()
 
+        self.detector = MemoryDetector()
 
+
+
+    # ==========================================
+    # PROCESS MEMORY INPUT
+    # ==========================================
+
+    def process_memory(
+        self,
+        text
+    ):
+
+
+        detected = self.detector.detect(
+            text
+        )
+
+
+        if not detected:
+
+            return False
+
+
+
+        self.remember(
+
+            detected["key"],
+
+            detected["value"]
+
+        )
+
+
+        return True
+
+
+
+    # ==========================================
+    # SAVE FACT / PREFERENCE
+    # ==========================================
 
     def remember(
         self,
@@ -17,17 +67,28 @@ class MemoryManager:
         value
     ):
 
+
         return self.db.insert(
+
             key,
-            value
+
+            value,
+
+            category="fact"
+
         )
 
 
+
+    # ==========================================
+    # RECALL MEMORY
+    # ==========================================
 
     def recall(
         self,
         key
     ):
+
 
         results = self.db.search(
             key
@@ -43,17 +104,9 @@ class MemoryManager:
 
 
 
-    def save_memory(
-        self,
-        text
-    ):
-
-        return self.db.insert(
-            "memory",
-            text
-        )
-
-
+    # ==========================================
+    # SAVE CONVERSATION
+    # ==========================================
 
     def save_conversation(
         self,
@@ -61,27 +114,53 @@ class MemoryManager:
         assistant
     ):
 
+
         self.db.insert(
+
             "user",
-            user
+
+            user,
+
+            category="conversation"
+
         )
 
 
         self.db.insert(
+
             "assistant",
-            assistant
+
+            assistant,
+
+            category="conversation"
+
         )
 
 
+
+    # ==========================================
+    # GET CHAT HISTORY
+    # ==========================================
 
     def get_context(
+        self,
+        limit=10
+    ):
+
+
+        return self.db.get_conversations(
+            limit
+        )
+
+
+
+    # ==========================================
+    # GET USER FACTS
+    # ==========================================
+
+    def get_memory_context(
         self
     ):
 
 
-        results = self.db.search(
-            ""
-        )
-
-
-        return results[-10:]
+        return self.db.get_facts()
