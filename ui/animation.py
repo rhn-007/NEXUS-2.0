@@ -1,8 +1,21 @@
+"""
+NEXUS Animation System
+
+Safe terminal animation manager.
+
+Rules:
+- Animation only runs during processing
+- Never fights with input()
+- Clears its own line
+- Thread safe
+"""
+
+import sys
 import threading
 import time
-import sys
 
 from ui.status import get_status
+
 
 
 class NexusAnimation:
@@ -14,6 +27,7 @@ class NexusAnimation:
 
         self.thread = None
 
+        self.lock = threading.RLock()
 
 
         self.frames = [
@@ -22,43 +36,62 @@ class NexusAnimation:
 
             "○──●──○",
 
-            "●──○──○"
+            "●──○──○",
+
+            "○──●──○"
 
         ]
 
 
 
+    # ==========================================
+    # START
+    # ==========================================
+
     def start(self):
 
-
-        if self.running:
-
-            return
+        with self.lock:
 
 
-        self.running = True
+            if self.running:
+
+                return
 
 
-        self.thread = threading.Thread(
-
-            target=self.loop,
-
-            daemon=True
-
-        )
+            self.running = True
 
 
-        self.thread.start()
+            self.thread = threading.Thread(
+
+                target=self._loop,
+
+                daemon=True
+
+            )
+
+
+            self.thread.start()
 
 
 
-    def loop(self):
+    # ==========================================
+    # LOOP
+    # ==========================================
 
+    def _loop(self):
 
         index = 0
 
 
-        while self.running:
+        while True:
+
+
+            with self.lock:
+
+                if not self.running:
+
+                    break
+
 
 
             status = get_status()
@@ -71,14 +104,14 @@ class NexusAnimation:
                 frame = self.frames[index]
 
 
-                sys.stdout.write(
+                sys.stderr.write(
 
                     f"\r[NEXUS] {frame} {status}..."
 
                 )
 
 
-                sys.stdout.flush()
+                sys.stderr.flush()
 
 
 
@@ -90,29 +123,61 @@ class NexusAnimation:
 
 
 
-            time.sleep(0.3)
+            time.sleep(
+                0.25
+            )
 
 
+
+    # ==========================================
+    # CLEAR LINE
+    # ==========================================
+
+    def clear(self):
+
+
+        sys.stderr.write(
+
+            "\r" + (" " * 100) + "\r"
+
+        )
+
+
+        sys.stderr.flush()
+
+
+
+    # ==========================================
+    # STOP
+    # ==========================================
 
     def stop(self):
 
 
-        self.running = False
+        with self.lock:
+
+
+            self.running = False
 
 
 
         if self.thread:
 
+
             self.thread.join(
+
                 timeout=1
+
             )
 
 
-        sys.stdout.write(
-            "\r" + " " * 80 + "\r"
-        )
+            self.thread = None
 
-        sys.stdout.flush()
+
+
+        self.clear()
+
+
 
 
 
