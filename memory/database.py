@@ -1,206 +1,107 @@
-import sqlite3
-import threading
-
-from datetime import datetime
+import requests
+from utils.logger import setup_logger
 
 
+logger = setup_logger(__name__)
 
 
-class MemoryDatabase:
+class OllamaClient:
 
 
+    def __init__(self):
 
-    def __init__(
+        self.url = "http://localhost:11434/api/chat"
 
-        self,
+        self.model = "llama3"
 
-        path="nexus_memory.db"
-
-    ):
-
-
-        self.connection = sqlite3.connect(
-
-            path,
-
-            check_same_thread=False
-
+        logger.info(
+            "Ollama client ready"
         )
 
 
-        self.lock = threading.Lock()
 
-
-        self.create_tables()
-
-
-
-
-
-    def create_tables(self):
-
-
-        with self.lock:
-
-
-            cursor = self.connection.cursor()
-
-
-
-            cursor.execute(
-
-                """
-                CREATE TABLE IF NOT EXISTS memories(
-
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-                    key TEXT,
-
-                    value TEXT,
-
-                    category TEXT,
-
-                    created_at TEXT
-
-                )
-                """
-
-            )
-
-
-
-            self.connection.commit()
-
-
-
-
-
-    def insert(
-
+    def generate_response(
         self,
-
-        key,
-
-        value,
-
-        category="general"
-
+        message,
+        context=None
     ):
 
 
-        with self.lock:
+        try:
 
 
-            cursor = self.connection.cursor()
+            messages = []
 
 
+            if context:
 
-            cursor.execute(
-
-                """
-
-                INSERT INTO memories
-
-                (
-                    key,
-                    value,
-                    category,
-                    created_at
+                messages.append(
+                    {
+                        "role": "system",
+                        "content": str(context)
+                    }
                 )
 
-                VALUES (?,?,?,?)
 
-                """,
+            messages.append(
+                {
+                    "role": "user",
+                    "content": message
+                }
+            )
 
-                (
 
-                    key,
 
-                    value,
+            payload = {
 
-                    category,
+                "model": self.model,
 
-                    datetime.now().isoformat()
+                "messages": messages,
 
-                )
+                "stream": False
+
+            }
+
+
+
+            logger.info(
+                "Sending request to Ollama..."
+            )
+
+
+            response = requests.post(
+
+                self.url,
+
+                json=payload,
+
+                timeout=120
 
             )
 
 
-            self.connection.commit()
+            response.raise_for_status()
 
 
 
-
-
-    def search(
-
-        self,
-
-        keyword
-
-    ):
-
-
-        with self.lock:
-
-
-            cursor = self.connection.cursor()
+            data = response.json()
 
 
 
-            cursor.execute(
+            return data["message"]["content"]
 
-                """
 
-                SELECT key,value,category
 
-                FROM memories
+        except Exception as e:
 
-                WHERE value LIKE ?
 
-                OR key LIKE ?
+            logger.error(
 
-                ORDER BY id DESC
-
-                """,
-
-                (
-
-                    f"%{keyword}%",
-
-                    f"%{keyword}%"
-
-                )
+                f"Ollama error: {e}"
 
             )
 
 
-            return cursor.fetchall()
-
-
-
-
-
-    def get_all(self):
-
-
-        cursor = self.connection.cursor()
-
-
-        cursor.execute(
-
-            """
-
-            SELECT key,value,category
-
-            FROM memories
-
-            ORDER BY id
-
-            """
-
-        )
-
-
-        return cursor.fetchall()
+            return (
+                f"Ollama error: {e}"
+            )
