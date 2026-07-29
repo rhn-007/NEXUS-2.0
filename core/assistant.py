@@ -169,74 +169,78 @@ class NexusAssistant:
     
     
     
-        keywords = [
+        # Normalize spelling
     
-            "my name",
+        text = text.replace(
+            "colour",
+            "color"
+        )
     
-            "my favourite",
     
-            "my favorite",
+    
+        # ==========================
+        # PROFILE MEMORY
+        # ==========================
+    
+    
+        profile_keywords = [
     
             "what do you know",
     
             "what do u know",
     
-            "recall",
+            "tell me about myself",
     
-            "remember",
+            "tell me about me",
     
-            "previous conversation",
+            "what can you tell me about myself",
     
-            "earlier",
+            "what do you remember about me",
     
-            "about me"
+            "what do u remember about me",
+    
+            "describe me",
+    
+            "who am i",
+    
+            "do you know me",
+    
+            "how well do you know me",
+    
+            "what information do you have about me",
+    
+            "what facts do you know about me",
+    
+            "summarize me",
+    
+            "give me my profile",
+    
+            "show my profile",
+    
+            "my profile",
+    
+            "my details",
+    
+            "my information",
+    
+            "recall my details"
     
         ]
     
     
     
-        if not any(
+        if any(
     
             word in text
     
-            for word in keywords
+            for word in profile_keywords
     
         ):
     
-            return None
     
     
+            memories = self.memory.get_memory_context()
     
-    
-        memories = self.memory.get_memory_context()
-    
-    
-    
-        if not memories:
-    
-            return None
-    
-    
-    
-    
-        # ==========================
-        # FULL PROFILE SUMMARY
-        # ==========================
-    
-    
-        if (
-    
-            "what do you know" in text
-    
-            or
-    
-            "what do u know" in text
-    
-            or
-    
-            "about me" in text
-    
-        ):
     
     
             profile = []
@@ -275,34 +279,166 @@ class NexusAssistant:
     
     
         # ==========================
+        # CONVERSATION RECALL
+        # ==========================
+    
+    
+        recall_keywords = [
+    
+            "recall",
+    
+            "remember",
+    
+            "do you remember",
+    
+            "what do you remember",
+    
+            "what did we talk about",
+    
+            "what did we discuss",
+    
+            "what have we discussed",
+    
+            "what was our conversation about",
+    
+            "summarize our conversation",
+    
+            "conversation summary",
+    
+            "chat summary",
+    
+            "previous chat",
+    
+            "old chat",
+    
+            "past conversation",
+    
+            "earlier conversation",
+    
+            "our previous conversation",
+    
+            "our last conversation",
+    
+            "what happened before",
+    
+            "what did i tell you",
+    
+            "what have i told you",
+    
+            "what information did i give you",
+    
+            "continue from where we left",
+    
+            "where did we stop",
+    
+            "what were we talking about"
+    
+        ]
+    
+    
+    
+        if any(
+    
+            word in text
+    
+            for word in recall_keywords
+    
+        ):
+    
+    
+    
+            conversations = self.memory.get_context()
+    
+    
+    
+            if conversations:
+    
+    
+                response = [
+    
+                    "Here is what I remember from our previous conversation:\n"
+    
+                ]
+    
+    
+    
+                for key, value, category in conversations[-10:]:
+    
+    
+                    if key == "user":
+    
+    
+                        response.append(
+    
+                            f"You: {value}"
+    
+                        )
+    
+    
+                    elif key == "assistant":
+    
+    
+                        response.append(
+    
+                            f"NEXUS: {value}"
+    
+                        )
+    
+    
+    
+                return "\n".join(response)
+    
+    
+    
+            else:
+    
+    
+                return (
+    
+                    "I don't have any previous conversation stored yet."
+    
+                )
+    
+    
+    
+    
+    
+        # ==========================
         # SPECIFIC MEMORY SEARCH
         # ==========================
+    
+    
+        memories = self.memory.get_memory_context()
+    
     
     
         for key, value, category in memories:
     
     
     
-            if key.replace(
+            key_text = key.replace(
     
                 "_",
     
                 " "
     
-            ) in text:
+            )
     
+    
+    
+            if key_text in text:
     
     
                 return (
     
-                    f"Your {key.replace('_',' ')} is {value}."
+                    f"Your {key_text} is {value}."
     
                 )
     
     
     
         return None
-    
+        
 
 
 
