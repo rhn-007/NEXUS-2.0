@@ -9,7 +9,6 @@ from tools.calculator import CalculatorTool
 
 
 
-
 class ToolResult:
 
 
@@ -53,14 +52,10 @@ class ToolRouter:
         # ==========================
 
 
-        if self.calculator.can_handle(
-            text
-        ):
+        if self.calculator.can_handle(text):
 
 
-            result = self.calculator.execute(
-                text
-            )
+            result = self.calculator.execute(text)
 
 
             if result is not None:
@@ -81,17 +76,27 @@ class ToolRouter:
         # ==========================
 
 
-        for tool in self.registry.tools:
+        tools = self.registry.tools
 
 
-            if tool.can_handle(
-                text
-            ):
+        # Handle dictionary registry
+
+        if isinstance(
+            tools,
+            dict
+        ):
+
+            tools = tools.values()
 
 
-                result = tool.execute(
-                    text
-                )
+
+        for tool in tools:
+
+
+            if tool.can_handle(text):
+
+
+                result = tool.execute(text)
 
 
                 return ToolResult(
