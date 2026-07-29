@@ -1,7 +1,3 @@
-"""
-NEXUS Memory Database
-"""
-
 import sqlite3
 import threading
 
@@ -13,9 +9,13 @@ from datetime import datetime
 class MemoryDatabase:
 
 
+
     def __init__(
+
         self,
+
         path="nexus_memory.db"
+
     ):
 
 
@@ -36,6 +36,7 @@ class MemoryDatabase:
 
 
 
+
     def create_tables(self):
 
 
@@ -43,6 +44,7 @@ class MemoryDatabase:
 
 
             cursor = self.connection.cursor()
+
 
 
             cursor.execute(
@@ -66,16 +68,23 @@ class MemoryDatabase:
             )
 
 
+
             self.connection.commit()
 
 
 
 
+
     def insert(
+
         self,
+
         key,
+
         value,
-        category="profile"
+
+        category="general"
+
     ):
 
 
@@ -85,10 +94,13 @@ class MemoryDatabase:
             cursor = self.connection.cursor()
 
 
+
             cursor.execute(
 
                 """
+
                 INSERT INTO memories
+
                 (
                     key,
                     value,
@@ -120,9 +132,13 @@ class MemoryDatabase:
 
 
 
+
     def search(
+
         self,
-        key
+
+        keyword
+
     ):
 
 
@@ -132,14 +148,18 @@ class MemoryDatabase:
             cursor = self.connection.cursor()
 
 
+
             cursor.execute(
 
                 """
+
                 SELECT key,value,category
 
                 FROM memories
 
-                WHERE key LIKE ?
+                WHERE value LIKE ?
+
+                OR key LIKE ?
 
                 ORDER BY id DESC
 
@@ -147,7 +167,9 @@ class MemoryDatabase:
 
                 (
 
-                    f"%{key}%",
+                    f"%{keyword}%",
+
+                    f"%{keyword}%"
 
                 )
 
@@ -159,68 +181,26 @@ class MemoryDatabase:
 
 
 
-    def get_profile(self):
+
+    def get_all(self):
 
 
-        with self.lock:
+        cursor = self.connection.cursor()
 
 
-            cursor = self.connection.cursor()
+        cursor.execute(
+
+            """
+
+            SELECT key,value,category
+
+            FROM memories
+
+            ORDER BY id
+
+            """
+
+        )
 
 
-            cursor.execute(
-
-                """
-                SELECT key,value
-
-                FROM memories
-
-                WHERE category='profile'
-
-                """
-
-            )
-
-
-            return cursor.fetchall()
-
-
-
-
-    def get_conversations(
-        self,
-        limit=10
-    ):
-
-
-        with self.lock:
-
-
-            cursor = self.connection.cursor()
-
-
-            cursor.execute(
-
-                """
-                SELECT key,value
-
-                FROM memories
-
-                WHERE category='conversation'
-
-                ORDER BY id DESC
-
-                LIMIT ?
-
-                """,
-
-                (
-
-                    limit,
-
-                )
-
-            )
-
-
-            return cursor.fetchall()
+        return cursor.fetchall()
