@@ -1,11 +1,16 @@
 import requests
+
 from utils.logger import setup_logger
 
 
 logger = setup_logger(__name__)
 
 
+
+
+
 class OllamaClient:
+
 
 
     def __init__(self):
@@ -14,9 +19,14 @@ class OllamaClient:
 
         self.model = "llama3"
 
+
         logger.info(
             "Ollama client ready"
         )
+
+
+
+
 
 
 
@@ -33,40 +43,90 @@ class OllamaClient:
             messages = []
 
 
+
+            # ==========================
+            # SYSTEM + MEMORY + HISTORY
+            # ==========================
+
+
             if context:
 
-                messages.append(
-                    {
-                        "role": "system",
-                        "content": str(context)
-                    }
-                )
+
+                if isinstance(
+                    context,
+                    list
+                ):
+
+
+                    messages.extend(
+                        context
+                    )
+
+
+                else:
+
+
+                    messages.append(
+
+                        {
+                            "role": "system",
+
+                            "content": str(context)
+
+                        }
+
+                    )
+
+
+
+
+
+            # ==========================
+            # USER MESSAGE
+            # ==========================
 
 
             messages.append(
+
                 {
                     "role": "user",
+
                     "content": message
+
                 }
+
             )
+
+
 
 
 
             payload = {
 
+
                 "model": self.model,
+
 
                 "messages": messages,
 
+
                 "stream": False
+
 
             }
 
 
 
+
+
             logger.info(
+
                 "Sending request to Ollama..."
+
             )
+
+
+
 
 
             response = requests.post(
@@ -78,6 +138,9 @@ class OllamaClient:
                 timeout=120
 
             )
+
+
+
 
 
             response.raise_for_status()
@@ -92,7 +155,12 @@ class OllamaClient:
 
 
 
+
+
+
+
         except Exception as e:
+
 
 
             logger.error(
@@ -103,5 +171,7 @@ class OllamaClient:
 
 
             return (
+
                 f"Ollama error: {e}"
+
             )
