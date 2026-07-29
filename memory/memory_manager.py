@@ -38,15 +38,13 @@ class MemoryManager:
 
 
 
-        self.db.insert(
+        for memory in memories:
 
-            memory["key"],
-
-            memory["value"],
-
-            "fact"
-
-        )
+            self.db.insert(
+                memory["key"],
+                memory["value"],
+                "fact"
+            )
 
 
         return True
