@@ -12,6 +12,7 @@ from ai.ollama import OllamaClient
 
 from memory.memory_manager import MemoryManager
 
+from core.response_style import ResponseStyleController
 from core.conversation import ConversationManager
 
 from tools.registry import ToolRegistry
@@ -58,6 +59,8 @@ class NexusAssistant:
         # ==========================
 
         self.conversation = ConversationManager()
+
+        self.response_style = ResponseStyleController()
 
 
 
@@ -290,11 +293,13 @@ class NexusAssistant:
 
 
             response = self.llm.generate_response(
-
                 user_input,
-
                 context
 
+            )
+
+            response = self.response_style.refine(
+                response
             )
 
 
