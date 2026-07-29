@@ -1,107 +1,188 @@
-import requests
-from utils.logger import setup_logger
+import sqlite3
+from datetime import datetime
 
 
-logger = setup_logger(__name__)
+class MemoryDatabase:
 
 
-class OllamaClient:
+    def __init__(
+        self,
+        path="nexus_memory.db"
+    ):
+
+        self.connection = sqlite3.connect(
+            path,
+            check_same_thread=False
+        )
+
+        self.create_tables()
 
 
-    def __init__(self):
 
-        self.url = "http://localhost:11434/api/chat"
+    def create_tables(self):
 
-        self.model = "llama3"
+        cursor = self.connection.cursor()
 
-        logger.info(
-            "Ollama client ready"
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS memories (
+
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                key TEXT NOT NULL,
+
+                value TEXT NOT NULL,
+
+                type TEXT NOT NULL,
+
+                created_at TEXT
+
+            )
+            """
         )
 
 
+        self.connection.commit()
 
-    def generate_response(
+
+
+
+    # =====================================
+    # INSERT MEMORY
+    # =====================================
+
+    def insert(
         self,
-        message,
-        context=None
+        key,
+        value,
+        memory_type="fact"
     ):
 
 
-        try:
+        cursor = self.connection.cursor()
 
 
-            messages = []
+        cursor.execute(
+            """
+            INSERT INTO memories
+            (key, value, type, created_at)
 
+            VALUES (?, ?, ?, ?)
 
-            if context:
+            """,
 
-                messages.append(
-                    {
-                        "role": "system",
-                        "content": str(context)
-                    }
-                )
-
-
-            messages.append(
-                {
-                    "role": "user",
-                    "content": message
-                }
+            (
+                key,
+                value,
+                memory_type,
+                datetime.now().isoformat()
             )
 
+        )
 
 
-            payload = {
-
-                "model": self.model,
-
-                "messages": messages,
-
-                "stream": False
-
-            }
+        self.connection.commit()
 
 
 
-            logger.info(
-                "Sending request to Ollama..."
+
+    # =====================================
+    # SEARCH MEMORY
+    # =====================================
+
+    def search(
+        self,
+        keyword
+    ):
+
+
+        cursor = self.connection.cursor()
+
+
+        cursor.execute(
+            """
+            SELECT key, value, type
+            FROM memories
+
+            WHERE key LIKE ?
+            OR value LIKE ?
+
+            ORDER BY id ASC
+
+            """,
+
+            (
+                f"%{keyword}%",
+                f"%{keyword}%"
             )
 
+        )
 
-            response = requests.post(
 
-                self.url,
+        return cursor.fetchall()
 
-                json=payload,
 
-                timeout=120
 
+
+    # =====================================
+    # GET ALL FACTS
+    # =====================================
+
+    def get_facts(self):
+
+
+        cursor = self.connection.cursor()
+
+
+        cursor.execute(
+            """
+            SELECT key, value
+            FROM memories
+
+            WHERE type='fact'
+
+            """
+
+        )
+
+
+        return cursor.fetchall()
+
+
+
+
+    # =====================================
+    # GET RECENT CONVERSATIONS
+    # =====================================
+
+    def get_conversations(
+        self,
+        limit=10
+    ):
+
+
+        cursor = self.connection.cursor()
+
+
+        cursor.execute(
+            """
+            SELECT key, value
+            FROM memories
+
+            WHERE type='conversation'
+
+            ORDER BY id DESC
+
+            LIMIT ?
+
+            """,
+
+            (
+                limit,
             )
 
-
-            response.raise_for_status()
-
+        )
 
 
-            data = response.json()
-
-
-
-            return data["message"]["content"]
-
-
-
-        except Exception as e:
-
-
-            logger.error(
-
-                f"Ollama error: {e}"
-
-            )
-
-
-            return (
-                f"Ollama error: {e}"
-            )
+        return cursor.fetchall()
