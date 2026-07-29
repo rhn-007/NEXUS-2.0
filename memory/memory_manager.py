@@ -1,8 +1,3 @@
-"""
-NEXUS Memory Manager
-"""
-
-
 from memory.database import MemoryDatabase
 
 from memory.detector import MemoryDetector
@@ -25,17 +20,18 @@ class MemoryManager:
 
 
 
+
     def process_memory(
+
         self,
+
         text
+
     ):
 
 
-        memories = self.detector.detect(
+        memories = self.detector.detect(text)
 
-            text
-
-        )
 
 
         for memory in memories:
@@ -45,59 +41,75 @@ class MemoryManager:
 
                 memory["key"],
 
-                memory["value"]
+                memory["value"],
+
+                memory["category"]
 
             )
 
 
 
+
+
     def remember(
+
         self,
+
         key,
-        value
+
+        value,
+
+        category="general"
+
     ):
 
 
-        return self.db.insert(
+        self.db.insert(
 
             key,
 
             value,
 
-            "profile"
+            category
 
         )
+
 
 
 
 
     def recall(
+
         self,
-        key
+
+        keyword
+
     ):
 
 
-        result = self.db.search(
-
-            key
-
-        )
+        return self.db.search(keyword)
 
 
-        if result:
-
-            return result[0][1]
 
 
-        return None
+
+    def get_memory_context(self):
+
+
+        return self.db.get_all()
+
 
 
 
 
     def save_conversation(
+
         self,
+
         user,
+
         assistant
+
     ):
 
 
@@ -125,19 +137,12 @@ class MemoryManager:
 
 
 
-    def get_context(
-        self
-    ):
+
+    def get_context(self):
 
 
-        return self.db.get_conversations()
+        return self.db.search(
 
+            "conversation"
 
-
-
-    def get_memory_context(
-        self
-    ):
-
-
-        return self.db.get_profile()
+        )
