@@ -1,5 +1,7 @@
 from utils.logger import setup_logger
 
+from ai.prompts import SYSTEM_PROMPT
+
 
 logger = setup_logger(__name__)
 
@@ -8,88 +10,70 @@ logger = setup_logger(__name__)
 class ConversationManager:
 
 
-    def __init__(
-        self,
-        llm
-    ):
-
-        self.llm = llm
-
+    def __init__(self):
 
         self.history = []
 
 
-
         logger.info(
-            "Conversation manager initialized"
+            "Conversation manager ready"
         )
 
 
 
-    def chat(
+    def add_user_message(
         self,
-        user_input
+        message
     ):
-
 
         self.history.append(
 
             {
                 "role": "user",
-                "content": user_input
+                "content": message
             }
 
         )
 
 
-        prompt = self.build_prompt()
 
-
-
-        response = self.llm.generate(
-            prompt
-        )
-
+    def add_assistant_message(
+        self,
+        message
+    ):
 
         self.history.append(
 
             {
                 "role": "assistant",
-                "content": response
+                "content": message
             }
 
         )
 
 
-        return response
+
+    def get_context(self):
+
+        messages = [
+
+            {
+                "role": "system",
+                "content": SYSTEM_PROMPT
+            }
+
+        ]
+
+
+        messages.extend(
+            self.history[-20:]
+        )
+
+
+        return messages
 
 
 
-    def build_prompt(self):
+    def clear(self):
 
-
-        prompt = """
-
-You are NEXUS, a personal AI assistant.
-
-Respond naturally and helpfully.
-
-Conversation:
-
-"""
-
-
-        for message in self.history:
-
-            prompt += (
-
-                f"{message['role']}: "
-                f"{message['content']}\n"
-
-            )
-
-
-        prompt += "\nassistant:"
-
-
-        return prompt
+        self.history.clear()
