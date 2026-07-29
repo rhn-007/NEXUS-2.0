@@ -158,91 +158,151 @@ class NexusAssistant:
     # ==================================
 
 
+
     def check_memory(
-
         self,
-
         user_input
-
     ):
-
-
+    
+    
         text = user_input.lower()
-
-
-
+    
+    
+    
         keywords = [
-
+    
             "my name",
-
+    
             "my favourite",
-
+    
             "my favorite",
-
+    
             "what do you know",
-
+    
             "what do u know",
-
+    
             "recall",
-
+    
             "remember",
-
+    
             "previous conversation",
-
-            "earlier"
-
+    
+            "earlier",
+    
+            "about me"
+    
         ]
-
-
-
+    
+    
+    
         if not any(
-
+    
             word in text
-
+    
             for word in keywords
-
+    
         ):
-
+    
             return None
-
-
-
-
+    
+    
+    
+    
         memories = self.memory.get_memory_context()
-
-
-
+    
+    
+    
         if not memories:
-
+    
             return None
-
-
-
-
-        for key, value in memories:
-
-
-            if key.replace(
-
-                "_",
-
-                " "
-
-            ) in text:
-
-
+    
+    
+    
+    
+        # ==========================
+        # FULL PROFILE SUMMARY
+        # ==========================
+    
+    
+        if (
+    
+            "what do you know" in text
+    
+            or
+    
+            "what do u know" in text
+    
+            or
+    
+            "about me" in text
+    
+        ):
+    
+    
+            profile = []
+    
+    
+    
+            for key, value, category in memories:
+    
+    
+                if category != "conversation":
+    
+    
+                    profile.append(
+    
+                        f"{key.replace('_',' ')}: {value}"
+    
+                    )
+    
+    
+    
+            if profile:
+    
+    
                 return (
-
-                    f"Your {key.replace('_',' ')} is {value}."
-
+    
+                    "Here is what I know about you:\n\n"
+    
+                    +
+    
+                    "\n".join(profile)
+    
                 )
-
-
-
+    
+    
+    
+    
+    
+        # ==========================
+        # SPECIFIC MEMORY SEARCH
+        # ==========================
+    
+    
+        for key, value, category in memories:
+    
+    
+    
+            if key.replace(
+    
+                "_",
+    
+                " "
+    
+            ) in text:
+    
+    
+    
+                return (
+    
+                    f"Your {key.replace('_',' ')} is {value}."
+    
+                )
+    
+    
+    
         return None
-
-
-
+    
 
 
 
