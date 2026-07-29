@@ -1,11 +1,8 @@
 import requests
-
 from utils.logger import setup_logger
-from core.config import Config
 
 
 logger = setup_logger(__name__)
-
 
 
 class OllamaClient:
@@ -13,10 +10,9 @@ class OllamaClient:
 
     def __init__(self):
 
-        self.url = Config.OLLAMA_URL
+        self.url = "http://localhost:11434/api/chat"
 
-        self.model = Config.OLLAMA_MODEL
-
+        self.model = "llama3"
 
         logger.info(
             "Ollama client ready"
@@ -24,31 +20,60 @@ class OllamaClient:
 
 
 
-    def generate(
+    def generate_response(
         self,
-        messages
+        message,
+        context=None
     ):
+
 
         try:
 
-            prompt = self._format_messages(
-                messages
+
+            messages = []
+
+
+            if context:
+
+                messages.append(
+                    {
+                        "role": "system",
+                        "content": str(context)
+                    }
+                )
+
+
+            messages.append(
+                {
+                    "role": "user",
+                    "content": message
+                }
+            )
+
+
+
+            payload = {
+
+                "model": self.model,
+
+                "messages": messages,
+
+                "stream": False
+
+            }
+
+
+
+            logger.info(
+                "Sending request to Ollama..."
             )
 
 
             response = requests.post(
 
-                f"{self.url}/api/generate",
+                self.url,
 
-                json={
-
-                    "model": self.model,
-
-                    "prompt": prompt,
-
-                    "stream": False
-
-                },
+                json=payload,
 
                 timeout=120
 
@@ -58,49 +83,25 @@ class OllamaClient:
             response.raise_for_status()
 
 
+
             data = response.json()
 
 
-            return data.get(
-                "response",
-                ""
-            )
+
+            return data["message"]["content"]
+
 
 
         except Exception as e:
 
+
             logger.error(
+
                 f"Ollama error: {e}"
+
             )
 
 
             return (
-                "I am unable to reach my AI model right now."
+                f"Ollama error: {e}"
             )
-
-
-
-    def _format_messages(
-        self,
-        messages
-    ):
-
-        text = ""
-
-
-        for message in messages:
-
-            role = message["role"]
-
-            content = message["content"]
-
-
-            text += (
-                f"{role}: {content}\n"
-            )
-
-
-        text += "\nassistant:"
-
-
-        return text
