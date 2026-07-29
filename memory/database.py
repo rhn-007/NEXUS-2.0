@@ -1,4 +1,17 @@
+"""
+NEXUS Memory Database
+
+Handles persistent storage.
+
+Stores:
+- User memories
+- Conversations
+"""
+
 import sqlite3
+import threading
+from datetime import datetime
+
 
 
 class MemoryDatabase:
@@ -14,35 +27,49 @@ class MemoryDatabase:
             check_same_thread=False
         )
 
+        self.lock = threading.RLock()
+
         self.create_tables()
 
 
 
+    # ==========================================
+    # CREATE TABLES
+    # ==========================================
+
     def create_tables(self):
 
-        cursor = self.connection.cursor()
+        with self.lock:
+
+            cursor = self.connection.cursor()
 
 
-        cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS memories (
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS memories (
 
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-                key TEXT NOT NULL,
+                    key TEXT NOT NULL,
 
-                value TEXT NOT NULL,
+                    value TEXT NOT NULL,
 
-                category TEXT
+                    category TEXT DEFAULT 'general',
 
+                    created_at TEXT
+
+                )
+                """
             )
-            """
-        )
 
 
-        self.connection.commit()
+            self.connection.commit()
 
 
+
+    # ==========================================
+    # INSERT MEMORY
+    # ==========================================
 
     def insert(
         self,
@@ -51,55 +78,160 @@ class MemoryDatabase:
         category="general"
     ):
 
-        cursor = self.connection.cursor()
+
+        with self.lock:
 
 
-        cursor.execute(
+            cursor = self.connection.cursor()
 
-            """
-            INSERT INTO memories
-            (key,value,category)
 
-            VALUES (?,?,?)
+            cursor.execute(
 
-            """,
+                """
+                INSERT INTO memories
+                (
+                    key,
+                    value,
+                    category,
+                    created_at
+                )
 
-            (
-                key,
-                value,
-                category
+                VALUES (?,?,?,?)
+
+                """,
+
+                (
+                    key,
+                    value,
+                    category,
+                    datetime.now().isoformat()
+                )
+
             )
 
-        )
+
+            self.connection.commit()
 
 
-        self.connection.commit()
 
-
+    # ==========================================
+    # SEARCH MEMORY
+    # ==========================================
 
     def search(
         self,
         key
     ):
 
-        cursor = self.connection.cursor()
+
+        with self.lock:
 
 
-        cursor.execute(
+            cursor = self.connection.cursor()
 
-            """
-            SELECT key,value,category
-            FROM memories
-            WHERE key LIKE ?
 
-            """,
+            cursor.execute(
 
-            (
-                f"%{key}%",
+                """
+                SELECT
+                    key,
+                    value,
+                    category
+
+                FROM memories
+
+                WHERE key LIKE ?
+
+                ORDER BY id DESC
+
+                """,
+
+                (
+                    f"%{key}%",
+                )
 
             )
 
-        )
+
+            return cursor.fetchall()
 
 
-        return cursor.fetchall()
+
+    # ==========================================
+    # GET CONVERSATIONS
+    # ==========================================
+
+    def get_conversations(
+        self,
+        limit=10
+    ):
+
+
+        with self.lock:
+
+
+            cursor = self.connection.cursor()
+
+
+            cursor.execute(
+
+                """
+                SELECT
+                    key,
+                    value
+
+                FROM memories
+
+                WHERE category='conversation'
+
+                ORDER BY id DESC
+
+                LIMIT ?
+
+                """,
+
+                (
+                    limit,
+                )
+
+            )
+
+
+            return cursor.fetchall()
+
+
+
+    # ==========================================
+    # GET FACTS
+    # ==========================================
+
+    def get_facts(
+        self
+    ):
+
+
+        with self.lock:
+
+
+            cursor = self.connection.cursor()
+
+
+            cursor.execute(
+
+                """
+                SELECT
+                    key,
+                    value
+
+                FROM memories
+
+                WHERE category!='conversation'
+
+                ORDER BY id DESC
+
+                """
+
+            )
+
+
+            return cursor.fetchall()
