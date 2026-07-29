@@ -1,9 +1,5 @@
-"""
-NEXUS Intelligent Memory Detector
-"""
-
-
 import re
+
 
 
 
@@ -17,99 +13,115 @@ class MemoryDetector:
     ):
 
 
-        memories = []
-
-
         if not text:
 
-            return memories
+            return None
 
 
 
-        text = text.strip()
+        text = text.lower().strip()
 
 
 
         patterns = [
 
-
             (
-                r"(?:my name is|i am)\s+([a-zA-Z]+)",
-                "name",
-                "profile"
+                r"my name is (.+)",
+                "name"
             ),
 
-
-
             (
-                r"my (?:favorite|favourite) (?:color|colour) is\s+(.+)",
-                "favorite_colour",
-                "profile"
+                r"i am (.+)",
+                "name"
             ),
 
-
+            (
+                r"i'm (.+)",
+                "name"
+            ),
 
             (
-                r"(?:i like|i love|i enjoy)\s+(.+)",
-                "interest",
+                r"i like (.+)",
                 "interest"
             ),
 
-
-
             (
-                r"(?:i am building|i am making|working on)\s+(.+)",
-                "project",
-                "project"
+                r"i love (.+)",
+                "interest"
             ),
 
-
+            (
+                r"my favorite (.+?) is (.+)",
+                None
+            ),
 
             (
-                r"i use\s+(.+)",
-                "technology",
-                "interest"
+                r"my favourite (.+?) is (.+)",
+                None
+            ),
+
+            (
+                r"remember that my (.+?) is (.+)",
+                None
+            ),
+
+            (
+                r"my (.+?) is (.+)",
+                None
             )
-
 
         ]
 
 
 
-        for pattern, key, category in patterns:
+        for pattern, forced_key in patterns:
+
 
 
             match = re.search(
 
                 pattern,
 
-                text,
-
-                re.IGNORECASE
+                text
 
             )
+
 
 
             if match:
 
 
-                value = match.group(1).strip()
+
+                # Example:
+                # my name is rohan
+
+                if forced_key:
 
 
-                memories.append(
+                    return {
 
-                    {
+                        "key": forced_key,
 
-                        "key": key,
-
-                        "value": value,
-
-                        "category": category
+                        "value": match.group(1).strip()
 
                     }
 
-                )
+
+
+                # Example:
+                # my favourite color is black
+
+                if len(match.groups()) == 2:
+
+
+                    return {
+
+                        "key": match.group(1).strip(),
+
+                        "value": match.group(2).strip()
+
+                    }
 
 
 
-        return memories
+        return None
