@@ -1,117 +1,115 @@
 from memory.database import MemoryDatabase
 
-from memory.detector import MemoryDetector
-
-
-
 
 
 class MemoryManager:
 
 
-
     def __init__(self):
-
 
         self.db = MemoryDatabase()
 
-        self.detector = MemoryDetector()
 
 
-
-
-
-    def process_memory(
-
-        self,
-
-        text
-
-    ):
-
-
-        memories = self.detector.detect(text)
-
-
-
-        for memory in memories:
-
-
-            self.remember(
-
-                memory["key"],
-
-                memory["value"],
-
-                memory["category"]
-
-            )
-
-
-
-
+    # =====================================
+    # SAVE A MEMORY FACT
+    # =====================================
 
     def remember(
-
         self,
-
         key,
-
-        value,
-
-        category="general"
-
+        value
     ):
 
-
-        self.db.insert(
+        return self.db.insert(
 
             key,
 
             value,
 
-            category
+            "memory"
 
         )
 
 
 
-
+    # =====================================
+    # RECALL SPECIFIC MEMORY
+    # =====================================
 
     def recall(
-
         self,
-
-        keyword
-
+        key
     ):
 
+        results = self.db.search(
 
-        return self.db.search(keyword)
+            key
 
-
-
-
-
-    def get_memory_context(self):
+        )
 
 
-        return self.db.get_all()
+        if not results:
 
+            return None
 
 
 
+        return results[0][1]
+
+
+
+    # =====================================
+    # SAVE AUTOMATIC MEMORY
+    # =====================================
+
+    def save_memory(
+        self,
+        text
+    ):
+
+        return self.db.insert(
+
+            "memory",
+
+            text,
+
+            "memory"
+
+        )
+
+
+
+    # =====================================
+    # SAVE CONVERSATIONS
+    # =====================================
 
     def save_conversation(
-
         self,
-
         user,
-
         assistant
-
     ):
 
+
+        blocked_phrases = [
+
+            "i don't have personal relationships",
+
+            "i don't actually know you",
+
+            "our conversation just started",
+
+            "i don't have personal memories",
+
+            "i am a conversational ai",
+
+            "i don't have access to previous"
+
+        ]
+
+
+
+        # Save user message
 
         self.db.insert(
 
@@ -124,25 +122,64 @@ class MemoryManager:
         )
 
 
-        self.db.insert(
 
-            "assistant",
+        # Avoid storing useless AI replies
 
-            assistant,
+        if not any(
+
+            phrase in assistant.lower()
+
+            for phrase in blocked_phrases
+
+        ):
+
+
+            self.db.insert(
+
+                "assistant",
+
+                assistant,
+
+                "conversation"
+
+            )
+
+
+
+    # =====================================
+    # GET CHAT CONTEXT
+    # =====================================
+
+    def get_context(
+        self
+    ):
+
+
+        results = self.db.search(
 
             "conversation"
 
         )
 
 
+        return results[-10:]
 
 
 
-    def get_context(self):
+    # =====================================
+    # GET ALL MEMORY FACTS
+    # =====================================
+
+    def get_memory_context(
+        self
+    ):
 
 
-        return self.db.search(
+        results = self.db.search(
 
-            "conversation"
+            "memory"
 
         )
+
+
+        return results
