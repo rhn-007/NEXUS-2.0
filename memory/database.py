@@ -1,16 +1,12 @@
 """
 NEXUS Memory Database
-
-Handles persistent storage.
-
-Stores:
-- User memories
-- Conversations
 """
 
 import sqlite3
 import threading
+
 from datetime import datetime
+
 
 
 
@@ -22,44 +18,51 @@ class MemoryDatabase:
         path="nexus_memory.db"
     ):
 
+
         self.connection = sqlite3.connect(
+
             path,
+
             check_same_thread=False
+
         )
 
-        self.lock = threading.RLock()
+
+        self.lock = threading.Lock()
+
 
         self.create_tables()
 
 
 
-    # ==========================================
-    # CREATE TABLES
-    # ==========================================
 
     def create_tables(self):
 
+
         with self.lock:
+
 
             cursor = self.connection.cursor()
 
 
             cursor.execute(
+
                 """
-                CREATE TABLE IF NOT EXISTS memories (
+                CREATE TABLE IF NOT EXISTS memories(
 
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-                    key TEXT NOT NULL,
+                    key TEXT,
 
-                    value TEXT NOT NULL,
+                    value TEXT,
 
-                    category TEXT DEFAULT 'general',
+                    category TEXT,
 
                     created_at TEXT
 
                 )
                 """
+
             )
 
 
@@ -67,15 +70,12 @@ class MemoryDatabase:
 
 
 
-    # ==========================================
-    # INSERT MEMORY
-    # ==========================================
 
     def insert(
         self,
         key,
         value,
-        category="general"
+        category="profile"
     ):
 
 
@@ -101,10 +101,15 @@ class MemoryDatabase:
                 """,
 
                 (
+
                     key,
+
                     value,
+
                     category,
+
                     datetime.now().isoformat()
+
                 )
 
             )
@@ -114,9 +119,6 @@ class MemoryDatabase:
 
 
 
-    # ==========================================
-    # SEARCH MEMORY
-    # ==========================================
 
     def search(
         self,
@@ -133,10 +135,7 @@ class MemoryDatabase:
             cursor.execute(
 
                 """
-                SELECT
-                    key,
-                    value,
-                    category
+                SELECT key,value,category
 
                 FROM memories
 
@@ -147,7 +146,9 @@ class MemoryDatabase:
                 """,
 
                 (
+
                     f"%{key}%",
+
                 )
 
             )
@@ -157,9 +158,34 @@ class MemoryDatabase:
 
 
 
-    # ==========================================
-    # GET CONVERSATIONS
-    # ==========================================
+
+    def get_profile(self):
+
+
+        with self.lock:
+
+
+            cursor = self.connection.cursor()
+
+
+            cursor.execute(
+
+                """
+                SELECT key,value
+
+                FROM memories
+
+                WHERE category='profile'
+
+                """
+
+            )
+
+
+            return cursor.fetchall()
+
+
+
 
     def get_conversations(
         self,
@@ -176,9 +202,7 @@ class MemoryDatabase:
             cursor.execute(
 
                 """
-                SELECT
-                    key,
-                    value
+                SELECT key,value
 
                 FROM memories
 
@@ -191,45 +215,10 @@ class MemoryDatabase:
                 """,
 
                 (
+
                     limit,
+
                 )
-
-            )
-
-
-            return cursor.fetchall()
-
-
-
-    # ==========================================
-    # GET FACTS
-    # ==========================================
-
-    def get_facts(
-        self
-    ):
-
-
-        with self.lock:
-
-
-            cursor = self.connection.cursor()
-
-
-            cursor.execute(
-
-                """
-                SELECT
-                    key,
-                    value
-
-                FROM memories
-
-                WHERE category!='conversation'
-
-                ORDER BY id DESC
-
-                """
 
             )
 
