@@ -1,6 +1,16 @@
-from voice.speaker import speaker
+import pyttsx3
 
 
-speaker.speak(
-    "Hello Rohan. NEXUS voice system is online."
-)
+engine = pyttsx3.init()
+
+
+voices = engine.getProperty("voices")
+
+
+for index, voice in enumerate(voices):
+
+    print(
+        index,
+        voice.name,
+        voice.id
+    )
