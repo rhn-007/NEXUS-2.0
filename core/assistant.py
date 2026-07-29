@@ -37,7 +37,7 @@ logger = setup_logger(__name__)
 
 
 
-class PersonalAssistant:
+class NexusAssistant:
 
 
 
