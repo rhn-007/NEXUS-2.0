@@ -4,11 +4,15 @@ NEXUS Core Assistant
 Main brain controller.
 """
 
+
 from dotenv import load_dotenv
+
 
 from ai.ollama import OllamaClient
 
 from memory.memory_manager import MemoryManager
+
+from core.conversation import ConversationManager
 
 from tools.registry import ToolRegistry
 from tools.router import ToolRouter
@@ -41,19 +45,33 @@ class NexusAssistant:
         )
 
 
+        # ==========================
         # MEMORY
+        # ==========================
 
         self.memory = MemoryManager()
 
 
 
-        # AI
+        # ==========================
+        # CONVERSATION
+        # ==========================
+
+        self.conversation = ConversationManager()
+
+
+
+        # ==========================
+        # AI MODEL
+        # ==========================
 
         self.llm = OllamaClient()
 
 
 
+        # ==========================
         # TOOLS
+        # ==========================
 
         self.tool_registry = ToolRegistry()
 
@@ -81,11 +99,6 @@ class NexusAssistant:
 
 
 
-    # =====================================
-    # START
-    # =====================================
-
-
     def start(self):
 
 
@@ -97,69 +110,46 @@ class NexusAssistant:
         while True:
 
 
-            try:
+            user_input = input(
+                "You: "
+            )
 
 
-                user_input = input(
-                    "You: "
-                )
+            if user_input.lower() in [
 
+                "exit",
+                "quit"
 
-                if user_input.lower() in [
-
-                    "exit",
-
-                    "quit"
-
-                ]:
-
-
-                    print(
-                        "Goodbye 👋"
-                    )
-
-                    break
-
-
-
-                response = self.process_input(
-
-                    user_input
-
-                )
-
-
+            ]:
 
                 print(
-
-                    "\nNEXUS:",
-
-                    response,
-
-                    "\n"
-
-                )
-
-
-
-            except KeyboardInterrupt:
-
-
-                print(
-                    "\nGoodbye 👋"
+                    "Goodbye 👋"
                 )
 
                 break
 
 
 
+            response = self.process_input(
+
+                user_input
+
+            )
+
+
+            print(
+
+                "\nNEXUS:",
+
+                response,
+
+                "\n"
+
+            )
 
 
 
 
-    # =====================================
-    # TOOLS
-    # =====================================
 
 
     def register_tools(self):
@@ -176,26 +166,6 @@ class NexusAssistant:
 
 
 
-    # =====================================
-    # STATUS
-    # =====================================
-
-
-    def get_status(self):
-
-        return self.status
-
-
-
-
-
-
-
-    # =====================================
-    # MAIN PROCESSOR
-    # =====================================
-
-
     def process_input(
 
         self,
@@ -205,15 +175,19 @@ class NexusAssistant:
     ):
 
 
+
         if not user_input.strip():
 
+            return "Please enter something."
 
-            return (
 
-                "Please enter something."
 
-            )
+        self.status = "PROCESSING"
 
+
+        set_status(
+            "Thinking"
+        )
 
 
         logger.info(
@@ -224,28 +198,14 @@ class NexusAssistant:
 
 
 
-        self.status = "PROCESSING"
-
-
-
-        set_status(
-
-            "Thinking"
-
-        )
-
-
-
         try:
 
 
+            # ======================
+            # ADD USER MESSAGE
+            # ======================
 
-            # --------------------------------
-            # STORE MEMORY
-            # --------------------------------
-
-
-            learned = self.memory.process_memory(
+            self.conversation.add_user_message(
 
                 user_input
 
@@ -253,27 +213,23 @@ class NexusAssistant:
 
 
 
-            if learned:
+            # ======================
+            # SAVE MEMORY
+            # ======================
 
+            self.memory.process_memory(
 
-                return self.memory_confirmation(
+                user_input
 
-                    user_input
-
-                )
-
-
-
-
+            )
 
 
 
-            # --------------------------------
-            # MEMORY QUESTIONS
-            # --------------------------------
+            # ======================
+            # CHECK MEMORY
+            # ======================
 
-
-            memory_response = self.memory.handle_memory_query(
+            memory_response = self.check_memory(
 
                 user_input
 
@@ -283,18 +239,22 @@ class NexusAssistant:
             if memory_response:
 
 
+                self.conversation.add_assistant_message(
+
+                    memory_response
+
+                )
+
+
                 return memory_response
 
 
 
 
 
-
-
-            # --------------------------------
+            # ======================
             # TOOLS
-            # --------------------------------
-
+            # ======================
 
             tool_result = self.tool_router.execute(
 
@@ -306,6 +266,13 @@ class NexusAssistant:
             if tool_result.success:
 
 
+                self.conversation.add_assistant_message(
+
+                    tool_result.message
+
+                )
+
+
                 return tool_result.message
 
 
@@ -313,48 +280,12 @@ class NexusAssistant:
 
 
 
-
-            # --------------------------------
+            # ======================
             # AI RESPONSE
-            # --------------------------------
+            # ======================
 
 
-            context = self.memory.get_context()
-
-
-
-            personality = """
-
-You are NEXUS, a personal AI assistant.
-
-Personality:
-- Calm
-- Intelligent
-- Professional
-- Slightly witty when appropriate
-- Helpful and concise
-
-Speak naturally like a personal assistant.
-
-Do not say:
-- "I am just an AI"
-- "I don't have memories"
-- "This is our first conversation"
-
-If user information exists in context, use it naturally.
-
-"""
-
-
-
-            full_context = {
-
-                "personality": personality,
-
-                "memory": context
-
-            }
-
+            context = self.conversation.get_context()
 
 
 
@@ -362,7 +293,15 @@ If user information exists in context, use it naturally.
 
                 user_input,
 
-                full_context
+                context
+
+            )
+
+
+
+            self.conversation.add_assistant_message(
+
+                response
 
             )
 
@@ -395,11 +334,7 @@ If user information exists in context, use it naturally.
             )
 
 
-            return (
-
-                f"Error: {e}"
-
-            )
+            return f"Error: {e}"
 
 
 
@@ -408,63 +343,57 @@ If user information exists in context, use it naturally.
 
             self.status = "READY"
 
-
             clear_status()
 
 
 
 
 
-
-
-    # =====================================
-    # MEMORY ACKNOWLEDGEMENT
-    # =====================================
-
-
-    def memory_confirmation(
+    def check_memory(
 
         self,
 
-        text
+        user_input
 
     ):
 
 
-        lower = text.lower()
+        text = user_input.lower()
 
 
 
-        if "name" in lower:
+        if "what do you know about me" in text or "what do u know about me" in text:
 
 
-            return (
-
-                "Nice to meet you. "
-
-                "I'll remember your name."
-
-            )
+            memories = self.memory.get_memory_context()
 
 
 
-        if "like" in lower or "love" in lower:
+            if memories:
 
 
-            return (
+                result = [
 
-                "Got it. "
+                    "Here's what I know about you:\n"
 
-                "I'll remember that."
-
-            )
+                ]
 
 
+                for key,value,category in memories:
 
-        return (
 
-            "Understood. "
+                    if category != "conversation":
 
-            "I'll keep that in mind."
 
-        )
+                        result.append(
+
+                            f"• {key}: {value}"
+
+                        )
+
+
+                return "\n".join(result)
+
+
+
+        return None
