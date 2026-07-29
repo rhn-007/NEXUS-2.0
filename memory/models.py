@@ -1,8 +1,3 @@
-"""
-NEXUS Memory Models
-"""
-
-
 class MemoryItem:
 
 
@@ -10,7 +5,7 @@ class MemoryItem:
         self,
         key,
         value,
-        category="profile"
+        category="general"
     ):
 
         self.key = key
