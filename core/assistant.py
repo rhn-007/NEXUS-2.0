@@ -21,6 +21,7 @@ from memory.memory_manager import MemoryManager
 from tools.registry import ToolRegistry
 from tools.router import ToolRouter
 from tools.browser import BrowserTool
+from ui.status import set_status, clear_status
 
 
 from utils.logger import setup_logger
@@ -264,6 +265,10 @@ class NexusAssistant:
 
         self.status = "PROCESSING"
 
+        set_status(
+            "Thinking"
+        )
+
 
 
         logger.info(
@@ -346,7 +351,7 @@ class NexusAssistant:
 
             self.status = "READY"
 
-
+            clear_status()
 
             return response
 
