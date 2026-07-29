@@ -47,16 +47,16 @@ class NexusSpeaker:
 
         if voices:
 
-
-            # Try to use a better sounding voice
-
-            self.engine.setProperty(
-
-                "voice",
-
-                voices[0].id
-
-            )
+            for voice in voices:
+        
+                if "Hazel" in voice.name:
+        
+                    self.engine.setProperty(
+                        "voice",
+                        voice.id
+                    )
+        
+                    break
 
 
 
@@ -64,7 +64,7 @@ class NexusSpeaker:
 
             "rate",
 
-            170
+            155
 
         )
 
