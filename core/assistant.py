@@ -9,7 +9,9 @@ Responsibilities:
 - Tool routing
 """
 
+
 from dotenv import load_dotenv
+
 
 from ai.ollama import OllamaClient
 
@@ -24,45 +26,71 @@ from ui.status import set_status
 from utils.logger import setup_logger
 
 
+
 load_dotenv()
+
 
 
 logger = setup_logger(__name__)
 
 
+
+
+
 class NexusAssistant:
 
 
+
     def __init__(self):
+
 
         logger.info(
             "Initializing NEXUS..."
         )
 
 
-        # Memory
+
+        # ==============================
+        # MEMORY
+        # ==============================
+
 
         self.memory = MemoryManager()
 
 
 
-        # AI
+        # ==============================
+        # AI MODEL
+        # ==============================
+
 
         self.llm = OllamaClient()
 
 
 
-        # Tools
+        # ==============================
+        # TOOLS
+        # ==============================
+
 
         self.tool_registry = ToolRegistry()
+
 
         self.register_tools()
 
 
+
         self.tool_router = ToolRouter(
+
             self.tool_registry
+
         )
 
+
+
+        # ==============================
+        # STATUS
+        # ==============================
 
 
         self.status = "READY"
@@ -75,14 +103,20 @@ class NexusAssistant:
 
 
 
-    # ==============================
+
+
+    # ==========================================
     # TOOL REGISTRATION
-    # ==============================
+    # ==========================================
+
 
     def register_tools(self):
 
+
         self.tool_registry.register(
+
             BrowserTool()
+
         )
 
 
@@ -92,19 +126,60 @@ class NexusAssistant:
 
 
 
-    # ==============================
-    # STATUS
-    # ==============================
+
+
+    # ==========================================
+    # GET STATUS
+    # ==========================================
+
 
     def get_status(self):
+
 
         return self.status
 
 
 
-    # ==============================
+
+
+    # ==========================================
+    # MEMORY CAPTURE
+    # ==========================================
+
+
+    def remember(
+        self,
+        text
+    ):
+
+
+        try:
+
+
+            self.memory.save_memory(
+
+                text
+
+            )
+
+
+        except Exception as e:
+
+
+            logger.error(
+
+                f"Memory save failed: {e}"
+
+            )
+
+
+
+
+
+    # ==========================================
     # PROCESS INPUT
-    # ==============================
+    # ==========================================
+
 
     def process_input(
         self,
@@ -114,77 +189,125 @@ class NexusAssistant:
 
         if not user_input:
 
-            return "Please enter something."
+
+            return (
+                "Please enter something."
+            )
 
 
 
         user_input = user_input.strip()
 
 
+
         self.status = "PROCESSING"
 
 
+
         logger.info(
+
             f"User: {user_input}"
+
         )
+
 
 
         try:
 
 
+
             set_status(
+
                 "Processing"
+
             )
 
 
-            # Memory capture
+
+            # --------------------------
+            # MEMORY SAVE
+            # --------------------------
+
 
             self.remember(
+
                 user_input
+
             )
 
 
 
-            # Tools first
+            # --------------------------
+            # TOOL ROUTING
+            # --------------------------
+
 
             tool_result = (
+
                 self.tool_router.execute(
+
                     user_input
+
                 )
+
             )
 
 
 
             if (
+
                 tool_result
+
                 and
+
                 tool_result.success
+
             ):
 
-                return tool_result.message
+
+                return (
+
+                    tool_result.message
+
+                )
 
 
 
-            # AI response
+
+
+            # --------------------------
+            # AI RESPONSE
+            # --------------------------
 
 
             context = (
+
                 self.memory.get_context()
+
             )
 
 
+
             response = (
+
                 self.llm.generate_response(
+
                     user_input,
+
                     context
+
                 )
+
             )
 
 
 
             self.memory.save_conversation(
+
                 user_input,
+
                 response
+
             )
 
 
@@ -193,20 +316,32 @@ class NexusAssistant:
 
 
 
+
+
         except Exception as e:
 
 
+
             logger.error(
+
                 f"NEXUS error: {e}"
+
             )
+
 
 
             return (
+
                 f"Error: {e}"
+
             )
 
 
+
+
+
         finally:
+
 
 
             self.status = "READY"
