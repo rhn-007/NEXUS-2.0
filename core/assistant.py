@@ -14,6 +14,7 @@ from memory.memory_manager import MemoryManager
 
 from core.response_style import ResponseStyleController
 from core.conversation import ConversationManager
+from voice.speaker import Speaker
 
 from tools.registry import ToolRegistry
 from tools.router import ToolRouter
@@ -69,6 +70,7 @@ class NexusAssistant:
         # ==========================
 
         self.llm = OllamaClient()
+        self.speaker = Speaker()
 
 
 
