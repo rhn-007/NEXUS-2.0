@@ -1,11 +1,15 @@
 """
-NEXUS Voice Speaker
+NEXUS Piper Voice System
 
-Handles text-to-speech output.
+Handles natural offline speech.
 """
 
 
-import pyttsx3
+from pathlib import Path
+import subprocess
+import tempfile
+import threading
+import os
 
 from utils.logger import setup_logger
 
@@ -15,78 +19,72 @@ logger = setup_logger(__name__)
 
 
 
-
 class NexusSpeaker:
-
 
 
     def __init__(self):
 
 
-        self.engine = pyttsx3.init()
+        self.base_path = Path(__file__).parent.parent
 
 
-        self.setup_voice()
+        self.piper = (
+
+            self.base_path
+            /
+            "piper"
+            /
+            "piper.exe"
+
+        )
+
+
+        self.model = (
+
+            self.base_path
+            /
+            "voice"
+            /
+            "models"
+            /
+            "en_US-ryan-high.onnx"
+
+        )
+
+
+        self.lock = threading.Lock()
+
+
+
+        if not self.piper.exists():
+
+            raise FileNotFoundError(
+
+                "Piper executable missing."
+
+            )
+
+
+
+        if not self.model.exists():
+
+            raise FileNotFoundError(
+
+                "Piper voice model missing."
+
+            )
+
 
 
         logger.info(
-            "Voice system ready"
+            "NEXUS Piper voice ready."
         )
 
 
 
 
 
-    def setup_voice(self):
-
-
-        voices = self.engine.getProperty(
-            "voices"
-        )
-
-
-        if voices:
-
-            for voice in voices:
-        
-                if "Hazel" in voice.name:
-        
-                    self.engine.setProperty(
-                        "voice",
-                        voice.id
-                    )
-        
-                    break
-
-
-
-        self.engine.setProperty(
-
-            "rate",
-
-            155
-
-        )
-
-
-        self.engine.setProperty(
-
-            "volume",
-
-            1.0
-
-        )
-
-
-
-
-
-
-
-    def speak(
-        self,
-        text
-    ):
+    def speak(self, text):
 
 
         if not text:
@@ -95,28 +93,67 @@ class NexusSpeaker:
 
 
 
-        try:
+        with self.lock:
 
 
-            self.engine.say(
-
-                text
-
-            )
+            try:
 
 
-            self.engine.runAndWait()
+                output = tempfile.NamedTemporaryFile(
+
+                    suffix=".wav",
+
+                    delete=False
+
+                )
+
+
+                output.close()
 
 
 
-        except Exception as e:
+                subprocess.run(
+
+                    [
+
+                        str(self.piper),
+
+                        "--model",
+
+                        str(self.model),
+
+                        "--output_file",
+
+                        output.name
+
+                    ],
+
+                    input=text,
+
+                    text=True,
+
+                    check=True
+
+                )
 
 
-            logger.error(
 
-                f"Speech error: {e}"
+                os.startfile(
 
-            )
+                    output.name
+
+                )
+
+
+
+            except Exception as e:
+
+
+                logger.error(
+
+                    f"Piper error: {e}"
+
+                )
 
 
 
