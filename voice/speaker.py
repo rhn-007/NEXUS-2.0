@@ -19,7 +19,7 @@ class Speaker:
         )
 
         self.model = Path(
-            "voice/models/en_GB-northern_english_male-medium.onnx"
+            "voice/models/en_GB-alan-medium.onnx"
         )
 
         logger.info(
@@ -35,11 +35,11 @@ class Speaker:
 
         replacements = {
 
-            "Rohan": "Row-hen",
+            "Rohan": "Row-hn",
 
-            "rohan": "Row-hen",
+            "rohan": "Row-hn",
 
-            "ROHAN": "Row-han",
+            "ROHAN": "Row-hn",
 
             "NEXUS": "Nexus",
 
@@ -104,7 +104,7 @@ class Speaker:
                 str(output),
 
                 "--length_scale",
-                "1.08",
+                "0.90",
 
                 "--noise_scale",
                 "0.15",
