@@ -35,11 +35,11 @@ class Speaker:
 
         replacements = {
 
-            "Rohan": "Row-han",
+            "Rohan": "Row-hen",
 
-            "rohan": "Row-han",
+            "rohan": "Row-hen",
 
-            "ROHAN": "Row-han",
+            "ROHAN": "Row-hen",
 
             "NEXUS": "Nexus",
 
