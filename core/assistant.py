@@ -324,8 +324,11 @@ class NexusAssistant:
 
 
 
+            self.speaker.speak(
+                response
+            )
+            
             return response
-
 
 
 
