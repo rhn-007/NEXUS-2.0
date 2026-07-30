@@ -404,7 +404,9 @@ class NexusAssistant:
     
     
                 return (
+    
                     "I don't have any stored information about you yet."
+    
                 )
     
     
@@ -432,7 +434,7 @@ class NexusAssistant:
     
                         profile.append(
     
-                            f"• {key.replace('_',' ').title()}: {value}"
+                            f"{key.replace('_',' ')}: {value}"
     
                         )
     
@@ -445,17 +447,38 @@ class NexusAssistant:
     
     
     
-    
             if profile:
     
     
-                return (
+                memory_text = "\n".join(profile)
     
-                    "Here's what I know about you:\n\n"
     
-                    +
     
-                    "\n".join(profile)
+                prompt = f"""
+    You are NEXUS, Rohan's personal AI assistant.
+    
+    These are stored facts about Rohan:
+    
+    {memory_text}
+    
+    Rohan asked:
+    "{user_input}"
+    
+    Create a short, natural response.
+    
+    Rules:
+    - Address him as Rohan.
+    - Do not use bullet points.
+    - Do not mention memory, databases, or stored facts.
+    - Sound professional and conversational.
+    - Do not exaggerate.
+    """
+    
+    
+    
+                return self.llm.generate_response(
+    
+                    prompt
     
                 )
     
@@ -463,11 +486,9 @@ class NexusAssistant:
     
             return (
     
-                "I have memories stored, but no personal details about you yet."
+                "I have information available, but no personal details about you yet."
     
             )
-    
-    
     
     
     
