@@ -35,9 +35,9 @@ class Speaker:
 
         replacements = {
 
-            "Rohan": "Row-han",
+            "Rohan": "Row-hen",
 
-            "rohan": "Row-han",
+            "rohan": "Row-hen",
 
             "ROHAN": "Row-han",
 
@@ -104,16 +104,16 @@ class Speaker:
                 str(output),
 
                 "--length_scale",
-                "1.15",
+                "1.08",
 
                 "--noise_scale",
-                "0.25",
+                "0.15",
 
                 "--noise_w",
-                "0.5",
+                "0.3",
 
                 "--sentence_silence",
-                "0.4"
+                "0.2"
 
             ]
 
