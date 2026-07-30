@@ -104,7 +104,7 @@ class Speaker:
                 str(output),
 
                 "--length_scale",
-                "0.85",
+                "0.92",
 
                 "--noise_scale",
                 "0.15",
