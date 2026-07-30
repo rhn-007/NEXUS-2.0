@@ -26,6 +26,31 @@ class Speaker:
             "Voice system ready"
         )
 
+    def fix_pronunciation(self, text):
+
+        replacements = {
+    
+            "Rohan": "Row-han",
+    
+            "ROHAN": "Row-han",
+    
+            "NEXUS": "Nexus",
+    
+            "Python": "Pie-thon"
+    
+        }
+    
+    
+        for word, replacement in replacements.items():
+    
+            text = text.replace(
+                word,
+                replacement
+            )
+
+
+    return text
+
 
 
     def speak(
@@ -37,6 +62,7 @@ class Speaker:
         if not text:
 
             return
+            text = self.fix_pronunciation(text)
 
 
 
@@ -70,10 +96,13 @@ class Speaker:
                 "1.1",
 
                 "--noise_scale",
-                "0.55",
+                "0.25",
 
                 "--sentence_silence",
                 "0.4"
+
+                "--noise_w",
+                "0.5",
 
             ]
 
