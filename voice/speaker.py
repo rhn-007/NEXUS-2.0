@@ -26,30 +26,38 @@ class Speaker:
             "Voice system ready"
         )
 
-    def fix_pronunciation(self, text):
+
+
+    def fix_pronunciation(
+        self,
+        text
+    ):
 
         replacements = {
-    
+
             "Rohan": "Row-han",
-    
+
+            "rohan": "Row-han",
+
             "ROHAN": "Row-han",
-    
+
             "NEXUS": "Nexus",
-    
+
             "Python": "Pie-thon"
-    
+
         }
-    
-    
+
+
         for word, replacement in replacements.items():
-    
+
             text = text.replace(
                 word,
                 replacement
             )
 
 
-    return text
+        return text
+
 
 
 
@@ -62,14 +70,19 @@ class Speaker:
         if not text:
 
             return
-            text = self.fix_pronunciation(text)
+
+
+
+        # Fix pronunciation before TTS
+
+        text = self.fix_pronunciation(
+            text
+        )
 
 
 
         try:
 
-
-            # Create temporary audio file
 
             filename = (
                 f"voice_{uuid.uuid4().hex}.wav"
@@ -79,8 +92,6 @@ class Speaker:
             output = Path(filename)
 
 
-
-            # Piper settings
 
             command = [
 
@@ -93,16 +104,16 @@ class Speaker:
                 str(output),
 
                 "--length_scale",
-                "1.1",
+                "1.15",
 
                 "--noise_scale",
                 "0.25",
 
-                "--sentence_silence",
-                "0.4"
-
                 "--noise_w",
                 "0.5",
+
+                "--sentence_silence",
+                "0.4"
 
             ]
 
@@ -122,8 +133,6 @@ class Speaker:
 
 
 
-            # Play audio
-
             winsound.PlaySound(
 
                 str(output),
@@ -133,8 +142,6 @@ class Speaker:
             )
 
 
-
-            # Delete file
 
             output.unlink()
 
