@@ -70,6 +70,7 @@ class NexusAssistant:
         # ==========================
 
         self.llm = OllamaClient()
+
         self.speaker = Speaker()
 
 
@@ -104,6 +105,7 @@ class NexusAssistant:
 
 
 
+
     def start(self):
 
 
@@ -126,6 +128,7 @@ class NexusAssistant:
                 "quit"
 
             ]:
+
 
                 print(
                     "Goodbye 👋"
@@ -157,6 +160,7 @@ class NexusAssistant:
 
 
 
+
     def register_tools(self):
 
 
@@ -165,6 +169,7 @@ class NexusAssistant:
             BrowserTool()
 
         )
+
 
 
 
@@ -206,6 +211,7 @@ class NexusAssistant:
         try:
 
 
+
             # ======================
             # ADD USER MESSAGE
             # ======================
@@ -241,6 +247,7 @@ class NexusAssistant:
             )
 
 
+
             if memory_response:
 
 
@@ -251,7 +258,15 @@ class NexusAssistant:
                 )
 
 
+                self.speaker.speak(
+
+                    memory_response
+
+                )
+
+
                 return memory_response
+
 
 
 
@@ -268,6 +283,7 @@ class NexusAssistant:
             )
 
 
+
             if tool_result.success:
 
 
@@ -278,7 +294,15 @@ class NexusAssistant:
                 )
 
 
+                self.speaker.speak(
+
+                    tool_result.message
+
+                )
+
+
                 return tool_result.message
+
 
 
 
@@ -295,13 +319,18 @@ class NexusAssistant:
 
 
             response = self.llm.generate_response(
+
                 user_input,
+
                 context
 
             )
 
+
             response = self.response_style.refine(
+
                 response
+
             )
 
 
@@ -325,9 +354,13 @@ class NexusAssistant:
 
 
             self.speaker.speak(
+
                 response
+
             )
-            
+
+
+
             return response
 
 
@@ -359,137 +392,153 @@ class NexusAssistant:
 
 
 
+
+
     def check_memory(
+
             self,
+
             user_input
+
     ):
-    
-    
+
+
         text = user_input.lower()
-    
-    
-    
+
+
+
         profile_keywords = [
-    
+
+
             "what do you know about me",
-    
+
+
             "what do u know about me",
-    
+
+
             "tell me about myself",
-    
+
+
             "who am i",
-    
+
+
             "my profile",
-    
+
+
             "my details"
-    
+
+
         ]
-    
-    
-    
+
+
+
         if any(
-    
+
+
             keyword in text
-    
+
+
             for keyword in profile_keywords
-    
+
+
         ):
-    
-    
+
+
+
             memories = self.memory.get_memory_context()
-    
-    
-    
+
+
+
             if not memories:
-    
-    
+
+
                 return (
-    
+
                     "I don't have any stored information about you yet."
-    
+
                 )
-    
-    
-    
+
+
+
             profile = []
-    
-    
-    
+
+
+
             for item in memories:
-    
-    
+
+
                 try:
-    
-    
+
+
                     key = item[0]
-    
+
                     value = item[1]
-    
+
                     category = item[2]
-    
-    
-    
+
+
+
                     if category != "conversation":
-    
-    
+
+
                         profile.append(
-    
+
                             f"{key.replace('_',' ')}: {value}"
-    
+
                         )
-    
-    
+
+
                 except Exception:
-    
-    
+
+
                     continue
-    
-    
-    
-    
+
+
+
+
+
             if profile:
-    
-    
+
+
                 memory_text = "\n".join(profile)
-    
-    
-    
+
+
+
                 prompt = f"""
-    You are NEXUS, Rohan's personal AI assistant.
-    
-    These are stored facts about Rohan:
-    
-    {memory_text}
-    
-    Rohan asked:
-    "{user_input}"
-    
-    Create a short, natural response.
-    
-    Rules:
-    - Address him as Rohan.
-    - Do not use bullet points.
-    - Do not mention memory, databases, or stored facts.
-    - Sound professional and conversational.
-    - Do not exaggerate.
-    """
-    
-    
-    
+You are NEXUS, Rohan's personal AI assistant.
+
+These are stored facts about Rohan:
+
+{memory_text}
+
+Rohan asked:
+"{user_input}"
+
+Create a short, natural response.
+
+Rules:
+- Address him as Rohan.
+- Do not use bullet points.
+- Do not mention databases or stored facts.
+- Sound professional and conversational.
+"""
+
+
+
                 return self.llm.generate_response(
-    
+
                     prompt
-    
+
                 )
-    
-    
-    
+
+
+
             return (
-    
-                "I have information available, but no personal details about you yet."
-    
+
+                "I have memories stored, but no personal details about you yet."
+
             )
-    
-    
-    
+
+
+
         return None
