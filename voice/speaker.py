@@ -1,15 +1,7 @@
-"""
-NEXUS Piper Voice System
-
-Handles natural offline speech.
-"""
-
-
-from pathlib import Path
 import subprocess
-import tempfile
-import threading
-import os
+import uuid
+from pathlib import Path
+import winsound
 
 from utils.logger import setup_logger
 
@@ -17,74 +9,29 @@ from utils.logger import setup_logger
 logger = setup_logger(__name__)
 
 
-
-
-class NexusSpeaker:
+class Speaker:
 
 
     def __init__(self):
 
-
-        self.base_path = Path(__file__).parent.parent
-
-
-        self.piper = (
-
-            self.base_path
-            /
-            "piper"
-            /
-            "piper.exe"
-
+        self.piper = Path(
+            "piper/piper.exe"
         )
 
-
-        self.model = (
-
-            self.base_path
-            /
-            "voice"
-            /
-            "models"
-            /
-            "en_US-ryan-high.onnx"
-
+        self.model = Path(
+            "voice/models/en_GB-northern_english_male-medium.onnx"
         )
-
-
-        self.lock = threading.Lock()
-
-
-
-        if not self.piper.exists():
-
-            raise FileNotFoundError(
-
-                "Piper executable missing."
-
-            )
-
-
-
-        if not self.model.exists():
-
-            raise FileNotFoundError(
-
-                "Piper voice model missing."
-
-            )
-
-
 
         logger.info(
-            "NEXUS Piper voice ready."
+            "Voice system ready"
         )
 
 
 
-
-
-    def speak(self, text):
+    def speak(
+        self,
+        text
+    ):
 
 
         if not text:
@@ -93,70 +40,82 @@ class NexusSpeaker:
 
 
 
-        with self.lock:
+        try:
 
 
-            try:
+            # Create temporary audio file
+
+            filename = (
+                f"voice_{uuid.uuid4().hex}.wav"
+            )
 
 
-                output = tempfile.NamedTemporaryFile(
-
-                    suffix=".wav",
-
-                    delete=False
-
-                )
-
-
-                output.close()
+            output = Path(filename)
 
 
 
-                subprocess.run(
+            # Piper settings
 
-                    [
+            command = [
 
-                        str(self.piper),
+                str(self.piper),
 
-                        "--model",
+                "--model",
+                str(self.model),
 
-                        str(self.model),
+                "--output_file",
+                str(output),
 
-                        "--output_file",
+                "--length_scale",
+                "1.1",
 
-                        output.name
+                "--noise_scale",
+                "0.55",
 
-                    ],
+                "--sentence_silence",
+                "0.4"
 
-                    input=text,
-
-                    text=True,
-
-                    check=True
-
-                )
-
-
-
-                os.startfile(
-
-                    output.name
-
-                )
+            ]
 
 
 
-            except Exception as e:
+            subprocess.run(
+
+                command,
+
+                input=text,
+
+                text=True,
+
+                check=True
+
+            )
 
 
-                logger.error(
 
-                    f"Piper error: {e}"
+            # Play audio
 
-                )
+            winsound.PlaySound(
+
+                str(output),
+
+                winsound.SND_FILENAME
+
+            )
 
 
 
+            # Delete file
+
+            output.unlink()
 
 
-speaker = NexusSpeaker()
+
+        except Exception as e:
+
+
+            logger.error(
+
+                f"Voice error: {e}"
+
+            )
