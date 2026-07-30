@@ -1,6 +1,51 @@
-from voice.speaker import speaker
+import subprocess
+from pathlib import Path
 
 
-speaker.speak(
-    "Hello Rohan. I am NEXUS. All voice systems are now online."
+piper = Path("piper/piper.exe")
+
+model = Path(
+    "voice/models/en_US-ryan-high.onnx"
+)
+
+
+output = "test_voice.wav"
+
+
+
+text = """
+Hello Rohan.
+I am NEXUS.
+All systems are now online.
+"""
+
+
+subprocess.run(
+
+    [
+
+        str(piper),
+
+        "--model",
+
+        str(model),
+
+        "--output_file",
+
+        output
+
+    ],
+
+    input=text,
+
+    text=True,
+
+    check=True
+
+)
+
+
+print(
+    "Voice generated:",
+    output
 )
