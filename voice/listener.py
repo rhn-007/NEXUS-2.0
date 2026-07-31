@@ -235,13 +235,23 @@ class Listener:
             "rohan": "Rohan",
 
 
+            "lexus": "NEXUS",
+
+            "lexis": "NEXUS",
+        
             "nexus": "NEXUS",
-
+        
+            "nex us": "NEXUS",
+        
             "next us": "NEXUS",
+        
+            "nextus": "NEXUS",
+        
+            "nexis": "NEXUS",
+        
+            "nexis": "NEXUS",
 
-            "nex sis": "NEXUS",
-
-            "next is": "NEXUS",
+            
 
 
             "ollama": "Ollama",
