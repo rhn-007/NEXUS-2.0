@@ -1,8 +1,7 @@
 """
 NEXUS Input Manager
 
-Handles voice and keyboard input modes.
-Voice mode is the default.
+Voice-first input system with keyboard fallback.
 """
 
 
@@ -16,18 +15,23 @@ logger = setup_logger(__name__)
 
 
 
+
 class InputManager:
 
 
     def __init__(self):
 
+
         self.mode = "voice"
 
         self.listener = Listener()
 
+
         logger.info(
             "Input manager initialized in voice mode"
         )
+
+
 
 
 
@@ -38,9 +42,11 @@ class InputManager:
         while True:
 
 
+
             if self.mode == "voice":
 
                 text = self.voice_input()
+
 
             else:
 
@@ -52,13 +58,14 @@ class InputManager:
 
                 continue
 
-            print("RAW INPUT:", text)
 
 
 
-            # Handle system commands
+            command_handled = self.handle_command(text)
 
-            if self.check_mode_command(text):
+
+
+            if command_handled:
 
                 continue
 
@@ -70,40 +77,26 @@ class InputManager:
 
 
 
+
     def voice_input(self):
 
 
-        try:
-
-
-            text = self.listener.listen()
-
-
-            if text:
-
-
-                print(
-
-                    f"\nYou: {text}"
-
-                )
-
-
-            return text
+        text = self.listener.listen()
 
 
 
-        except Exception as e:
+        if text:
 
 
-            logger.error(
+            print(
 
-                f"Voice input error: {e}"
+                f"\nYou: {text}"
 
             )
 
 
-            return ""
+
+        return text
 
 
 
@@ -124,12 +117,11 @@ class InputManager:
 
 
 
-    def check_mode_command(self, text):
+
+    def handle_command(self, text):
 
 
         command = text.lower().strip()
-
-        print("MODE CHECK:", command)
 
 
 
@@ -152,7 +144,8 @@ class InputManager:
 
 
 
-        elif command == "voice mode":
+
+        if command == "voice mode":
 
 
             self.mode = "voice"
@@ -166,6 +159,7 @@ class InputManager:
 
 
             return True
+
 
 
 
