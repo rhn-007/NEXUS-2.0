@@ -1,16 +1,20 @@
 """
 NEXUS Speech Recognition System
-Faster-Whisper Listener
+Faster-Whisper Listener with Voice Activity Detection
 """
 
 
 from faster_whisper import WhisperModel
 
 import sounddevice as sd
+import numpy as np
 import scipy.io.wavfile as wav
+
+import webrtcvad
 
 from pathlib import Path
 import tempfile
+import time
 
 
 
@@ -25,11 +29,27 @@ class Listener:
 
         self.model = WhisperModel(
 
-            "small.en",
+            "medium.en",
 
             device="cpu",
 
             compute_type="int8"
+
+        )
+
+
+        self.vad = webrtcvad.Vad()
+
+        self.vad.set_mode(2)
+
+
+        self.sample_rate = 16000
+
+        self.frame_duration = 30
+
+        self.frame_size = int(
+
+            self.sample_rate * self.frame_duration / 1000
 
         )
 
@@ -39,53 +59,119 @@ class Listener:
 
 
 
-    def record_audio(
-
-        self,
-
-        duration=5,
-
-        samplerate=16000
-
-    ):
+    def is_speech(self, frame):
 
 
-        print("\nListening...")
+        return self.vad.is_speech(
 
+            frame,
 
-        audio = sd.rec(
-
-            int(duration * samplerate),
-
-            samplerate=samplerate,
-
-            channels=1,
-
-            dtype="float32"
+            self.sample_rate
 
         )
 
 
-        sd.wait()
+
+
+    def record_until_silence(self):
+
+
+        print("\nWaiting...")
+
+
+        audio_frames = []
+
+        silence_count = 0
+
+        speech_started = False
+
+
+
+        stream = sd.RawInputStream(
+
+            samplerate=self.sample_rate,
+
+            blocksize=self.frame_size,
+
+            dtype="int16",
+
+            channels=1
+
+        )
+
+
+
+        with stream:
+
+
+            while True:
+
+
+                frame, overflow = stream.read(
+
+                    self.frame_size
+
+                )
+
+
+                frame_bytes = bytes(frame)
+
+
+
+                speech = self.is_speech(
+
+                    frame_bytes
+
+                )
+
+
+
+                if speech:
+
+
+                    speech_started = True
+
+                    silence_count = 0
+
+                    audio_frames.append(frame)
+
+
+
+                elif speech_started:
+
+
+                    silence_count += 1
+
+                    audio_frames.append(frame)
+
+
+
+                    # roughly 1 second silence
+
+                    if silence_count > 33:
+
+                        break
+
 
 
         print("Processing...")
 
 
-        return audio.flatten()
+        audio = np.frombuffer(
+
+            b"".join(audio_frames),
+
+            dtype=np.int16
+
+        )
+
+
+        return audio
 
 
 
 
-    def transcribe(
-
-        self,
-
-        audio,
-
-        samplerate=16000
-
-    ):
+    def transcribe(self, audio):
 
 
         temp_file = Path(
@@ -100,7 +186,7 @@ class Listener:
 
             temp_file,
 
-            samplerate,
+            self.sample_rate,
 
             audio
 
@@ -148,17 +234,14 @@ class Listener:
 
             "rohan": "Rohan",
 
-            "Rohan": "Rohan",
 
+            "nexus": "NEXUS",
 
-            "nexus" : "NEXUS",
+            "next us": "NEXUS",
 
-            "next us" : "NEXUS",
+            "nex sis": "NEXUS",
 
-            "nex sis" : "NEXUS",
-
-            "next is" : "NEXUS",
-            
+            "next is": "NEXUS",
 
 
             "ollama": "Ollama",
@@ -191,17 +274,17 @@ class Listener:
     def listen(self):
 
 
-        audio = self.record_audio()
+        audio = self.record_until_silence()
 
 
-        text = self.transcribe(
+        if len(audio) == 0:
 
-            audio
-
-        )
+            return ""
 
 
-        return text
+
+        return self.transcribe(audio)
+
 
 
 
@@ -221,10 +304,13 @@ if __name__ == "__main__":
 
 
 
-        print(
+        if text:
 
-            "\nYou said:",
 
-            text
+            print(
 
-        )
+                "\nYou said:",
+
+                text
+
+            )
