@@ -1,9 +1,8 @@
 """
 NEXUS Input Manager
 
-Voice-first input system with keyboard fallback.
+Handles voice and keyboard input modes.
 """
-
 
 from voice.listener import Listener
 
@@ -11,7 +10,6 @@ from utils.logger import setup_logger
 
 
 logger = setup_logger(__name__)
-
 
 
 
@@ -24,11 +22,15 @@ class InputManager:
 
         self.mode = "voice"
 
+
         self.listener = Listener()
 
 
+
         logger.info(
+
             "Input manager initialized in voice mode"
+
         )
 
 
@@ -45,29 +47,35 @@ class InputManager:
 
             if self.mode == "voice":
 
+
                 text = self.voice_input()
 
 
+
             else:
+
 
                 text = self.keyboard_input()
 
 
 
+
+
             if not text:
 
+
+                continue
+
+
+
+
+
+            if self.handle_command(text):
+
+
                 continue
 
 
-
-
-            command_handled = self.handle_command(text)
-
-
-
-            if command_handled:
-
-                continue
 
 
 
@@ -78,25 +86,45 @@ class InputManager:
 
 
 
+
     def voice_input(self):
 
 
-        text = self.listener.listen()
+        try:
+
+
+            text = self.listener.listen()
 
 
 
-        if text:
+            if text:
 
 
-            print(
+                print(
 
-                f"\nYou: {text}"
+                    f"\nYou: {text}"
+
+                )
+
+
+
+            return text
+
+
+
+        except Exception as e:
+
+
+            logger.error(
+
+                f"Voice input error: {e}"
 
             )
 
 
+            return ""
 
-        return text
+
 
 
 
@@ -106,11 +134,29 @@ class InputManager:
     def keyboard_input(self):
 
 
-        return input(
+        try:
 
-            "\nYou: "
 
-        )
+            return input(
+
+                "\nYou: "
+
+            )
+
+
+
+        except Exception as e:
+
+
+            logger.error(
+
+                f"Keyboard input error: {e}"
+
+            )
+
+
+            return ""
+
 
 
 
@@ -120,17 +166,47 @@ class InputManager:
 
     def handle_command(self, text):
 
-        print("COMMAND CHECK:", text)
-
 
         command = text.lower().strip()
 
 
 
-        if command == "keyboard mode":
+
+
+
+        # ==========================
+        # Keyboard mode
+        # ==========================
+
+
+        keyboard_phrases = [
+
+
+            "keyboard mode",
+
+            "switch to keyboard",
+
+            "go to keyboard",
+
+            "use keyboard",
+
+            "turn on keyboard mode"
+
+        ]
+
+
+
+        if any(
+
+            phrase in command
+
+            for phrase in keyboard_phrases
+
+        ):
 
 
             self.mode = "keyboard"
+
 
 
             print(
@@ -140,6 +216,7 @@ class InputManager:
             )
 
 
+
             return True
 
 
@@ -147,10 +224,41 @@ class InputManager:
 
 
 
-        if command == "voice mode":
+
+
+        # ==========================
+        # Voice mode
+        # ==========================
+
+
+        voice_phrases = [
+
+
+            "voice mode",
+
+            "switch to voice",
+
+            "go to voice",
+
+            "use voice",
+
+            "turn on voice mode"
+
+        ]
+
+
+
+        if any(
+
+            phrase in command
+
+            for phrase in voice_phrases
+
+        ):
 
 
             self.mode = "voice"
+
 
 
             print(
@@ -160,7 +268,54 @@ class InputManager:
             )
 
 
+
             return True
+
+
+
+
+
+
+
+        # ==========================
+        # Cancel commands
+        # ==========================
+
+
+        cancel_phrases = [
+
+
+            "cancel",
+
+            "never mind",
+
+            "forget it",
+
+            "stop"
+
+        ]
+
+
+
+        if any(
+
+            phrase in command
+
+            for phrase in cancel_phrases
+
+        ):
+
+
+            print(
+
+                "\nNEXUS: Cancelled."
+
+            )
+
+
+
+            return True
+
 
 
 
