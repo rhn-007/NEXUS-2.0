@@ -11,9 +11,7 @@ from voice.listener import Listener
 from utils.logger import setup_logger
 
 
-
 logger = setup_logger(__name__)
-
 
 
 
@@ -23,19 +21,13 @@ class InputManager:
 
     def __init__(self):
 
-
         self.mode = "voice"
-
 
         self.listener = Listener()
 
-
         logger.info(
-
             "Input manager initialized in voice mode"
-
         )
-
 
 
 
@@ -43,23 +35,34 @@ class InputManager:
     def get_input(self):
 
 
-        """
-        Gets user input based on current mode.
-        """
+        while True:
 
 
-        if self.mode == "voice":
+            if self.mode == "voice":
+
+                text = self.voice_input()
+
+            else:
+
+                text = self.keyboard_input()
 
 
-            return self.voice_input()
+
+            if not text:
+
+                continue
 
 
 
-        else:
+            # Handle system commands
+
+            if self.check_mode_command(text):
+
+                continue
 
 
-            return self.keyboard_input()
 
+            return text
 
 
 
@@ -68,37 +71,20 @@ class InputManager:
     def voice_input(self):
 
 
-        """
-        Listen through microphone.
-        """
-
-
         try:
 
 
             text = self.listener.listen()
 
 
-
-            if not text:
-
-
-                return ""
+            if text:
 
 
+                print(
 
-            print(
+                    f"\nYou: {text}"
 
-                f"\nYou: {text}"
-
-            )
-
-
-
-            # Check for mode switching commands
-
-            self.check_mode_command(text)
-
+                )
 
 
             return text
@@ -122,16 +108,10 @@ class InputManager:
 
 
 
-
     def keyboard_input(self):
 
 
-        """
-        Normal terminal input.
-        """
-
-
-        text = input(
+        return input(
 
             "\nYou: "
 
@@ -139,24 +119,10 @@ class InputManager:
 
 
 
-        self.check_mode_command(text)
-
-
-
-        return text
-
-
-
-
 
 
 
     def check_mode_command(self, text):
-
-
-        """
-        Switch between voice and keyboard.
-        """
 
 
         command = text.lower().strip()
@@ -169,12 +135,16 @@ class InputManager:
             self.mode = "keyboard"
 
 
-
             print(
 
                 "\nNEXUS: Keyboard mode enabled."
 
             )
+
+
+            return True
+
+
 
 
 
@@ -184,9 +154,16 @@ class InputManager:
             self.mode = "voice"
 
 
-
             print(
 
                 "\nNEXUS: Voice mode enabled."
 
             )
+
+
+            return True
+
+
+
+
+        return False
