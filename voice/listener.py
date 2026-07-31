@@ -274,6 +274,12 @@ class Listener:
 
             )
 
+        if text.lower().startswith(
+            "lexus"
+        ):
+        
+            text = "NEXUS" + text[5:]
+
 
 
         return text
