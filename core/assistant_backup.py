@@ -120,9 +120,7 @@ class NexusAssistant:
         while True:
 
 
-            user_input = input(
-                "You: "
-            )
+            user_input = self.input_manager.get_input()
 
 
             if user_input.lower() in [
