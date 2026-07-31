@@ -7,8 +7,6 @@ Faster-Whisper Listener
 from faster_whisper import WhisperModel
 
 import sounddevice as sd
-import numpy as np
-
 import scipy.io.wavfile as wav
 
 from pathlib import Path
@@ -27,7 +25,7 @@ class Listener:
 
         self.model = WhisperModel(
 
-            "medium.en",
+            "small.en",
 
             device="cpu",
 
@@ -112,7 +110,13 @@ class Listener:
 
         segments, info = self.model.transcribe(
 
-            str(temp_file)
+            str(temp_file),
+
+            beam_size=5,
+
+            language="en",
+
+            vad_filter=True
 
         )
 
@@ -121,13 +125,60 @@ class Listener:
         text = ""
 
 
+
         for segment in segments:
 
-            text += segment.text
+            text += segment.text + " "
 
 
 
-        return text.strip()
+        text = text.strip()
+
+
+
+        # =========================
+        # NEXUS Vocabulary Fixes
+        # =========================
+
+
+        replacements = {
+
+
+            "rowan": "Rohan",
+
+            "rohan": "Rohan",
+
+            "Rohan": "Rohan",
+
+
+            "nexus": "NEXUS",
+
+            "next us": "NEXUS",
+
+
+            "ollama": "Ollama",
+
+            "python": "Python"
+
+
+        }
+
+
+
+        for wrong, correct in replacements.items():
+
+
+            text = text.replace(
+
+                wrong,
+
+                correct
+
+            )
+
+
+
+        return text
 
 
 
