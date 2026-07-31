@@ -52,6 +52,8 @@ class InputManager:
 
                 continue
 
+            print("RAW INPUT:", text)
+
 
 
             # Handle system commands
