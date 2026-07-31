@@ -72,6 +72,8 @@ class NexusAssistant:
 
         self.llm = OllamaClient()
 
+        self.input_manager = InputManager()
+
         self.speaker = Speaker()
 
 
