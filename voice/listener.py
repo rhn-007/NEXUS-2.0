@@ -151,13 +151,13 @@ class Listener:
             "Rohan": "Rohan",
 
 
-            "nexus": "NEXUS",
+            "nexus" : "NEXUS",
 
-            "next us": "NEXUS",
+            "next us" : "NEXUS",
 
-            "nex sis": "NEXUS"
+            "nex sis" : "NEXUS"
 
-            "next is": "NEXUS"
+            "next is" : "NEXUS"
             
 
 
