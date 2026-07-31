@@ -127,6 +127,8 @@ class InputManager:
 
         command = text.lower().strip()
 
+        print("MODE CHECK:", command)
+
 
 
         if command == "keyboard mode":
