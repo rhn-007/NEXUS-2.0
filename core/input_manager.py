@@ -120,6 +120,8 @@ class InputManager:
 
     def handle_command(self, text):
 
+        print("COMMAND CHECK:", text)
+
 
         command = text.lower().strip()
 
