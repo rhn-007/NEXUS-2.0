@@ -155,6 +155,11 @@ class Listener:
 
             "next us": "NEXUS",
 
+            "nex sis": "NEXUS"
+
+            "next is": "NEXUS"
+            
+
 
             "ollama": "Ollama",
 
