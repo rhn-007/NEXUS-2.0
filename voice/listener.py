@@ -27,7 +27,7 @@ class Listener:
 
         self.model = WhisperModel(
 
-            "base.en",
+            "medium.en",
 
             device="cpu",
 
