@@ -15,6 +15,7 @@ from memory.memory_manager import MemoryManager
 from core.response_style import ResponseStyleController
 from core.conversation import ConversationManager
 from voice.speaker import Speaker
+from core.input_manager import InputManager
 
 from tools.registry import ToolRegistry
 from tools.router import ToolRouter
