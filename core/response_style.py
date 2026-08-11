@@ -1,4 +1,3 @@
-```python
 """
 NEXUS Response Style Controller
 
@@ -327,4 +326,3 @@ not:
             )
 
         return response
-```
