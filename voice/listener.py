@@ -27,7 +27,7 @@ class Listener:
             "medium.en",
             device="cpu",
             compute_type="int8",
-            cpu_threads=4
+            cpu_threads=4,
             num_workers=1
         )
 
@@ -88,7 +88,9 @@ class Listener:
 
             text = text.strip()
 
-            text = self.fix_transcription(text)
+            text = self.fix_transcription(
+                text
+            )
 
             return text
 
@@ -121,6 +123,7 @@ class Listener:
             return text
 
         # Normalize spacing
+
         text = " ".join(
             text.split()
         )
@@ -156,7 +159,10 @@ class Listener:
 
         }
 
-        # Apply NEXUS corrections case-insensitively
+        # ==========================
+        # Apply corrections
+        # ==========================
+
         words = text.split()
 
         corrected_words = []
@@ -171,12 +177,21 @@ class Listener:
 
             punctuation_after = ""
 
-            # Preserve punctuation around words
-            if word and word[0] in ".,!?;:\"'()[]{}":
+            # Preserve punctuation before word
+
+            if (
+                word
+                and word[0] in ".,!?;:\"'()[]{}"
+            ):
 
                 punctuation_before = word[0]
 
-            if word and word[-1] in ".,!?;:\"'()[]{}":
+            # Preserve punctuation after word
+
+            if (
+                word
+                and word[-1] in ".,!?;:\"'()[]{}"
+            ):
 
                 punctuation_after = word[-1]
 
@@ -184,11 +199,15 @@ class Listener:
 
             if lookup in nexus_replacements:
 
-                replacement = nexus_replacements[lookup]
+                replacement = nexus_replacements[
+                    lookup
+                ]
 
             elif lookup in replacements:
 
-                replacement = replacements[lookup]
+                replacement = replacements[
+                    lookup
+                ]
 
             else:
 
@@ -229,4 +248,3 @@ if __name__ == "__main__":
             "\nYou said:",
             text
         )
-
