@@ -1,3 +1,9 @@
+"""
+NEXUS Voice Speaker
+
+Handles text-to-speech using Piper.
+"""
+
 import subprocess
 import uuid
 from pathlib import Path
@@ -10,7 +16,6 @@ logger = setup_logger(__name__)
 
 
 class Speaker:
-
 
     def __init__(self):
 
@@ -26,7 +31,9 @@ class Speaker:
             "Voice system ready"
         )
 
-
+    # ==========================================================
+    # PRONUNCIATION
+    # ==========================================================
 
     def fix_pronunciation(
         self,
@@ -35,18 +42,21 @@ class Speaker:
 
         replacements = {
 
-            "Rohan": "Rowhen",
+            # Rohan
+            "Rohan": "Row-han",
+            "rohan": "Row-han",
+            "ROHAN": "Row-han",
 
-            "rohan": "Rowhen",
-
-            "ROHAN": "Rowhen",
-
+            # NEXUS
             "NEXUS": "Nexus",
+            "Nexus": "Nexus",
+            "nexus": "Nexus",
 
-            "Python": "Pie-thon"
+            # Python
+            "Python": "Pie-thon",
+            "python": "Pie-thon"
 
         }
-
 
         for word, replacement in replacements.items():
 
@@ -55,43 +65,51 @@ class Speaker:
                 replacement
             )
 
-
         return text
 
-
-
+    # ==========================================================
+    # SPEAK
+    # ==========================================================
 
     def speak(
         self,
         text
     ):
 
+        if not text:
+
+            return
+
+        text = str(text).strip()
 
         if not text:
 
             return
 
-
-
-        # Fix pronunciation before TTS
-
+        # Fix pronunciation
         text = self.fix_pronunciation(
             text
         )
 
-
+        output = None
 
         try:
 
+            # --------------------------------------------------
+            # Temporary WAV filename
+            # --------------------------------------------------
 
             filename = (
                 f"voice_{uuid.uuid4().hex}.wav"
             )
 
+            output = Path(
+                filename
+            )
 
-            output = Path(filename)
-
-
+            # --------------------------------------------------
+            # Piper configuration
+            # --------------------------------------------------
 
             command = [
 
@@ -103,21 +121,28 @@ class Speaker:
                 "--output_file",
                 str(output),
 
+                # Slightly slower speech gives the voice
+                # more natural pacing.
                 "--length_scale",
-                "0.92",
+                "1.00",
 
+                # Higher variation makes the voice less
+                # flat and robotic.
                 "--noise_scale",
-                "0.15",
+                "0.22",
 
                 "--noise_w",
-                "0.3",
+                "0.35",
 
+                # Natural pause between sentences.
                 "--sentence_silence",
-                "0.2"
+                "0.18"
 
             ]
 
-
+            # --------------------------------------------------
+            # Generate speech
+            # --------------------------------------------------
 
             subprocess.run(
 
@@ -127,31 +152,48 @@ class Speaker:
 
                 text=True,
 
-                check=True
+                check=True,
+
+                stdout=subprocess.DEVNULL,
+
+                stderr=subprocess.DEVNULL
 
             )
 
+            # --------------------------------------------------
+            # Play speech
+            # --------------------------------------------------
 
+            if output.exists():
 
-            winsound.PlaySound(
+                winsound.PlaySound(
 
-                str(output),
+                    str(output),
 
-                winsound.SND_FILENAME
+                    winsound.SND_FILENAME
 
-            )
-
-
-
-            output.unlink()
-
-
+                )
 
         except Exception as e:
 
-
             logger.error(
-
                 f"Voice error: {e}"
-
             )
+
+        finally:
+
+            # --------------------------------------------------
+            # Delete temporary audio file
+            # --------------------------------------------------
+
+            try:
+
+                if output and output.exists():
+
+                    output.unlink()
+
+            except Exception as e:
+
+                logger.warning(
+                    f"Could not remove temporary voice file: {e}"
+                )
