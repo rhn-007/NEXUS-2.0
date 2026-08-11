@@ -1,332 +1,231 @@
+```python
 """
 NEXUS Speech Recognition System
-Faster-Whisper Listener with Voice Activity Detection
+Faster-Whisper Listener
 """
-
 
 from faster_whisper import WhisperModel
 
 import sounddevice as sd
-import numpy as np
 import scipy.io.wavfile as wav
-
-import webrtcvad
 
 from pathlib import Path
 import tempfile
-import time
 
+from utils.logger import setup_logger
+
+
+logger = setup_logger(__name__)
 
 
 class Listener:
 
-
     def __init__(self):
-
 
         print("Loading Whisper model...")
 
-
         self.model = WhisperModel(
-
             "medium.en",
-
             device="cpu",
-
             compute_type="int8"
-
         )
-
-
-        self.vad = webrtcvad.Vad()
-
-        self.vad.set_mode(2)
-
-
-        self.sample_rate = 16000
-
-        self.frame_duration = 30
-
-        self.frame_size = int(
-
-            self.sample_rate * self.frame_duration / 1000
-
-        )
-
 
         print("Listener ready.")
 
+    def record_audio(
+        self,
+        duration=5,
+        samplerate=16000
+    ):
 
+        print("\nListening...")
 
-
-    def is_speech(self, frame):
-
-
-        return self.vad.is_speech(
-
-            frame,
-
-            self.sample_rate
-
+        audio = sd.rec(
+            int(duration * samplerate),
+            samplerate=samplerate,
+            channels=1,
+            dtype="float32"
         )
 
-
-
-
-    def record_until_silence(self):
-
-
-        print("\nWaiting...")
-
-
-        audio_frames = []
-
-        silence_count = 0
-
-        speech_started = False
-
-
-
-        stream = sd.RawInputStream(
-
-            samplerate=self.sample_rate,
-
-            blocksize=self.frame_size,
-
-            dtype="int16",
-
-            channels=1
-
-        )
-
-
-
-        with stream:
-
-
-            while True:
-
-
-                frame, overflow = stream.read(
-
-                    self.frame_size
-
-                )
-
-
-                frame_bytes = bytes(frame)
-
-
-
-                speech = self.is_speech(
-
-                    frame_bytes
-
-                )
-
-
-
-                if speech:
-
-
-                    speech_started = True
-
-                    silence_count = 0
-
-                    audio_frames.append(frame)
-
-
-
-                elif speech_started:
-
-
-                    silence_count += 1
-
-                    audio_frames.append(frame)
-
-
-
-                    # roughly 1 second silence
-
-                    if silence_count > 33:
-
-                        break
-
-
+        sd.wait()
 
         print("Processing...")
 
+        return audio.flatten()
 
-        audio = np.frombuffer(
+    def transcribe(
+        self,
+        audio,
+        samplerate=16000
+    ):
 
-            b"".join(audio_frames),
-
-            dtype=np.int16
-
+        temp_file = (
+            Path(tempfile.gettempdir())
+            / "nexus_audio.wav"
         )
-
-
-        return audio
-
-
-
-
-    def transcribe(self, audio):
-
-
-        temp_file = Path(
-
-            tempfile.gettempdir()
-
-        ) / "nexus_audio.wav"
-
-
 
         wav.write(
-
             temp_file,
-
-            self.sample_rate,
-
+            samplerate,
             audio
-
         )
 
+        try:
 
+            segments, info = self.model.transcribe(
+                str(temp_file),
+                beam_size=5,
+                language="en",
+                vad_filter=True
+            )
 
-        segments, info = self.model.transcribe(
+            text = ""
 
-            str(temp_file),
+            for segment in segments:
 
-            beam_size=5,
+                text += segment.text + " "
 
-            language="en",
+            text = text.strip()
 
-            vad_filter=True
+            text = self.fix_transcription(text)
 
+            return text
+
+        finally:
+
+            try:
+
+                if temp_file.exists():
+
+                    temp_file.unlink()
+
+            except Exception:
+
+                pass
+
+    def fix_transcription(
+        self,
+        text
+    ):
+
+        """
+        Correct common Whisper transcription mistakes.
+
+        In particular, Whisper can sometimes hear
+        'NEXUS' as 'Lexus', 'Lexis', etc.
+        """
+
+        if not text:
+
+            return text
+
+        # Normalize spacing
+        text = " ".join(
+            text.split()
         )
 
+        # ==========================
+        # Common NEXUS misrecognitions
+        # ==========================
 
-
-        text = ""
-
-
-
-        for segment in segments:
-
-            text += segment.text + " "
-
-
-
-        text = text.strip()
-
-
-
-        # =========================
-        # NEXUS Vocabulary Fixes
-        # =========================
-
-
-        replacements = {
-
-
-            "rowan": "Rohan",
-
-            "rohan": "Rohan",
-
+        nexus_replacements = {
 
             "lexus": "NEXUS",
-
             "lexis": "NEXUS",
-        
-            "nexus": "NEXUS",
-        
             "nex us": "NEXUS",
-        
             "next us": "NEXUS",
-        
             "nextus": "NEXUS",
-        
             "nexis": "NEXUS",
-        
-            "nexis": "NEXUS",
-
-            
-
-
-            "ollama": "Ollama",
-
-            "python": "Python"
-
+            "nexus": "NEXUS"
 
         }
 
+        # ==========================
+        # Other common corrections
+        # ==========================
 
+        replacements = {
 
-        for wrong, correct in replacements.items():
+            "rohan": "Rohan",
+            "rowan": "Rohan",
+            "rohanh": "Rohan",
 
+            "ollama": "Ollama",
+            "python": "Python"
 
-            text = text.replace(
+        }
 
-                wrong,
+        # Apply NEXUS corrections case-insensitively
+        words = text.split()
 
-                correct
+        corrected_words = []
 
+        for word in words:
+
+            clean_word = word.strip(
+                ".,!?;:\"'()[]{}"
             )
 
-        if text.lower().startswith(
-            "lexus"
-        ):
-        
-            text = "NEXUS" + text[5:]
+            punctuation_before = ""
 
+            punctuation_after = ""
 
+            # Preserve punctuation around words
+            if word and word[0] in ".,!?;:\"'()[]{}":
+
+                punctuation_before = word[0]
+
+            if word and word[-1] in ".,!?;:\"'()[]{}":
+
+                punctuation_after = word[-1]
+
+            lookup = clean_word.lower()
+
+            if lookup in nexus_replacements:
+
+                replacement = nexus_replacements[lookup]
+
+            elif lookup in replacements:
+
+                replacement = replacements[lookup]
+
+            else:
+
+                replacement = clean_word
+
+            corrected_words.append(
+                punctuation_before
+                + replacement
+                + punctuation_after
+            )
+
+        text = " ".join(
+            corrected_words
+        )
+
+        return text
+
+    def listen(self):
+
+        audio = self.record_audio()
+
+        text = self.transcribe(
+            audio
+        )
 
         return text
 
 
-
-
-    def listen(self):
-
-
-        audio = self.record_until_silence()
-
-
-        if len(audio) == 0:
-
-            return ""
-
-
-
-        return self.transcribe(audio)
-
-
-
-
-
-
 if __name__ == "__main__":
-
 
     listener = Listener()
 
-
-
     while True:
-
 
         text = listener.listen()
 
-
-
-        if text:
-
-
-            print(
-
-                "\nYou said:",
-
-                text
-
-            )
+        print(
+            "\nYou said:",
+            text
+        )
+```
