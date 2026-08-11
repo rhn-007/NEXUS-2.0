@@ -1,4 +1,3 @@
-```python
 """
 NEXUS Speech Recognition System
 Faster-Whisper Listener
@@ -228,4 +227,4 @@ if __name__ == "__main__":
             "\nYou said:",
             text
         )
-```
+
