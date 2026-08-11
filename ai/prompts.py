@@ -1,4 +1,3 @@
-```python
 """
 NEXUS System Prompt
 
@@ -250,4 +249,3 @@ Occasionally witty without becoming humorous.
 
 The goal is for NEXUS to feel natural, capable, and dependable.
 """
-```
