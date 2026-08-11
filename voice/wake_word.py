@@ -10,7 +10,30 @@ This will later be replaced with:
     Hey NEXUS
 """
 
+import sys
 import time
+from pathlib import Path
+
+
+# ==========================================================
+# PROJECT ROOT
+# ==========================================================
+
+PROJECT_ROOT = Path(
+    __file__
+).resolve().parent.parent
+
+if str(PROJECT_ROOT) not in sys.path:
+
+    sys.path.insert(
+        0,
+        str(PROJECT_ROOT)
+    )
+
+
+# ==========================================================
+# IMPORTS
+# ==========================================================
 
 import numpy as np
 import sounddevice as sd
@@ -23,6 +46,10 @@ from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
+
+# ==========================================================
+# WAKE WORD DETECTOR
+# ==========================================================
 
 class WakeWordDetector:
 
@@ -37,21 +64,14 @@ class WakeWordDetector:
 
         self.sample_rate = 16000
 
-        # openWakeWord works best with 80 ms frames.
-        # 16000 samples/sec * 0.08 sec = 1280 samples.
+        # 80 ms audio frame
         self.block_size = 1280
 
         self.threshold = threshold
 
-        # ------------------------------------------------------
-        # Load the pretrained model.
-        #
-        # IMPORTANT:
-        # This currently detects "Hey Jarvis".
-        #
-        # We will replace this with a custom "Hey NEXUS"
-        # model after the pipeline is confirmed working.
-        # ------------------------------------------------------
+        # ==================================================
+        # LOAD TEST MODEL
+        # ==================================================
 
         try:
 
@@ -84,9 +104,10 @@ class WakeWordDetector:
             "Wake-word detector ready."
         )
 
-    # ==========================================================
+
+    # ======================================================
     # PROCESS AUDIO FRAME
-    # ==========================================================
+    # ======================================================
 
     def process_frame(
         self,
@@ -96,23 +117,22 @@ class WakeWordDetector:
         """
         Process one microphone frame.
 
-        Audio must be:
+        Audio:
             16 kHz
             mono
-            16-bit PCM
+            float32 from sounddevice
         """
 
         if audio is None:
 
             return False
 
-        # Convert sounddevice float audio
-        # into the 16-bit PCM format expected
-        # by openWakeWord.
+
         audio = np.asarray(
             audio,
             dtype=np.float32
         )
+
 
         audio = np.clip(
             audio,
@@ -120,11 +140,16 @@ class WakeWordDetector:
             1.0
         )
 
+
+        # Convert float32 audio
+        # to 16-bit PCM.
+
         audio = (
             audio * 32767
         ).astype(
             np.int16
         )
+
 
         try:
 
@@ -142,9 +167,10 @@ class WakeWordDetector:
 
             return False
 
-        # ------------------------------------------------------
-        # Check every loaded wake-word model.
-        # ------------------------------------------------------
+
+        # ==================================================
+        # CHECK PREDICTIONS
+        # ==================================================
 
         for wake_word, score in prediction.items():
 
@@ -158,22 +184,20 @@ class WakeWordDetector:
 
                 return True
 
+
         return False
 
-    # ==========================================================
+
+    # ======================================================
     # WAIT FOR WAKE WORD
-    # ==========================================================
+    # ======================================================
 
     def wait_for_wake_word(
         self
     ):
 
         """
-        Continuously monitor the microphone until
-        the wake word is detected.
-
-        Returns:
-            True when detected.
+        Keep listening until the wake word is detected.
         """
 
         print(
@@ -181,6 +205,7 @@ class WakeWordDetector:
         )
 
         self.detected = False
+
 
         try:
 
@@ -196,7 +221,9 @@ class WakeWordDetector:
 
             ) as stream:
 
+
                 while True:
+
 
                     audio, overflowed = (
                         stream.read(
@@ -204,34 +231,42 @@ class WakeWordDetector:
                         )
                     )
 
+
                     if overflowed:
 
                         logger.warning(
                             "Microphone buffer overflow."
                         )
 
+
                     if self.process_frame(
                         audio.flatten()
                     ):
 
+
                         self.detected = True
+
 
                         print(
                             "Wake word detected."
                         )
 
-                        # Small cooldown prevents the
-                        # same activation from being
-                        # detected repeatedly.
+
+                        # Prevent immediate
+                        # duplicate detection.
+
                         time.sleep(
                             0.3
                         )
 
+
                         return True
+
 
         except KeyboardInterrupt:
 
             return False
+
 
         except Exception as e:
 
@@ -242,31 +277,54 @@ class WakeWordDetector:
             return False
 
 
-# ==============================================================
+# ==========================================================
 # DIRECT TEST
-# ==============================================================
+# ==========================================================
 
 if __name__ == "__main__":
 
-    detector = WakeWordDetector()
+
+    detector = (
+        WakeWordDetector()
+    )
+
 
     print()
+
+    print(
+        "================================"
+    )
+
     print(
         "NEXUS Wake Word Test"
     )
+
+    print(
+        "================================"
+    )
+
+    print()
+
     print(
         "Current wake word: Hey Jarvis"
     )
+
+    print()
+
     print(
         "Press Ctrl+C to stop."
     )
+
     print()
 
+
     while True:
+
 
         detected = (
             detector.wait_for_wake_word()
         )
+
 
         if detected:
 
