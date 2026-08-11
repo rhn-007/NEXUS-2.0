@@ -1,7 +1,16 @@
+```python
+"""
+NEXUS Ollama Client
+
+Handles communication with the local Ollama model
+and applies the NEXUS personality to every response.
+"""
+
 import requests
 
 from utils.logger import setup_logger
-from ai.prompts import SYSTEM_PROMPT
+
+from core.response_style import ResponseStyleController
 
 
 logger = setup_logger(__name__)
@@ -9,18 +18,17 @@ logger = setup_logger(__name__)
 
 class OllamaClient:
 
-
     def __init__(self):
 
         self.url = "http://localhost:11434/api/chat"
 
         self.model = "llama3"
 
+        self.response_style = ResponseStyleController()
+
         logger.info(
             "Ollama client ready"
         )
-
-
 
     def generate_response(
         self,
@@ -32,24 +40,28 @@ class OllamaClient:
 
             messages = []
 
-
-            # System personality
+            # ==========================
+            # NEXUS PERSONALITY
+            # ==========================
 
             messages.append(
                 {
                     "role": "system",
-                    "content": SYSTEM_PROMPT
+                    "content": self.response_style.get_personality_prompt()
                 }
             )
 
-
-            # Memory/context
+            # ==========================
+            # MEMORY / CONVERSATION
+            # ==========================
 
             if context:
 
                 if isinstance(context, list):
 
-                    messages.extend(context)
+                    messages.extend(
+                        context
+                    )
 
                 else:
 
@@ -60,9 +72,9 @@ class OllamaClient:
                         }
                     )
 
-
-
-            # User message
+            # ==========================
+            # USER MESSAGE
+            # ==========================
 
             messages.append(
                 {
@@ -71,7 +83,9 @@ class OllamaClient:
                 }
             )
 
-
+            # ==========================
+            # OLLAMA SETTINGS
+            # ==========================
 
             payload = {
 
@@ -91,12 +105,9 @@ class OllamaClient:
 
             }
 
-
-
             logger.info(
                 "Sending request to Ollama..."
             )
-
 
             response = requests.post(
 
@@ -108,28 +119,29 @@ class OllamaClient:
 
             )
 
-
             response.raise_for_status()
-
 
             data = response.json()
 
+            result = data["message"]["content"].strip()
 
+            # ==========================
+            # FINAL RESPONSE CLEANUP
+            # ==========================
 
-            return data["message"]["content"].strip()
+            result = self.response_style.refine(
+                result
+            )
 
-
+            return result
 
         except Exception as e:
 
-
             logger.error(
-
                 f"Ollama error: {e}"
-
             )
-
 
             return (
                 f"Ollama error: {e}"
             )
+```
