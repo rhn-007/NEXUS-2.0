@@ -1,14 +1,13 @@
 """
 NEXUS Ollama Client
 
-Handles communication with the local Ollama model
-and applies the NEXUS personality to every response.
+Handles communication with the local Ollama model.
 """
 
 import requests
 
 from utils.logger import setup_logger
-
+from ai.prompts import SYSTEM_PROMPT
 from core.response_style import ResponseStyleController
 
 
@@ -46,44 +45,80 @@ class OllamaClient:
             messages.append(
                 {
                     "role": "system",
-                    "content": self.response_style.get_personality_prompt()
+                    "content": SYSTEM_PROMPT
                 }
             )
 
             # ==========================
-            # MEMORY / CONVERSATION
+            # CONVERSATION CONTEXT
             # ==========================
 
             if context:
 
                 if isinstance(context, list):
 
-                    messages.extend(
-                        context
-                    )
+                    for item in context:
 
-                else:
+                        # Only accept properly structured
+                        # conversation messages.
+
+                        if not isinstance(item, dict):
+
+                            continue
+
+                        role = item.get("role")
+
+                        content = item.get("content")
+
+                        if role not in [
+                            "system",
+                            "user",
+                            "assistant"
+                        ]:
+
+                            continue
+
+                        if not content:
+
+                            continue
+
+                        messages.append(
+                            {
+                                "role": role,
+                                "content": str(content)
+                            }
+                        )
+
+                elif isinstance(context, str):
 
                     messages.append(
                         {
                             "role": "system",
-                            "content": str(context)
+                            "content": context
                         }
                     )
 
             # ==========================
-            # USER MESSAGE
+            # CURRENT USER MESSAGE
             # ==========================
 
             messages.append(
                 {
                     "role": "user",
-                    "content": message
+                    "content": str(message)
                 }
             )
 
             # ==========================
-            # OLLAMA SETTINGS
+            # DEBUG
+            # ==========================
+
+            logger.info(
+                f"Sending {len(messages)} messages to Ollama..."
+            )
+
+            # ==========================
+            # OLLAMA REQUEST
             # ==========================
 
             payload = {
@@ -104,10 +139,6 @@ class OllamaClient:
 
             }
 
-            logger.info(
-                "Sending request to Ollama..."
-            )
-
             response = requests.post(
 
                 self.url,
@@ -118,11 +149,57 @@ class OllamaClient:
 
             )
 
-            response.raise_for_status()
+            # ==========================
+            # DETAILED ERROR REPORTING
+            # ==========================
+
+            if not response.ok:
+
+                logger.error(
+                    f"Ollama HTTP {response.status_code}"
+                )
+
+                logger.error(
+                    f"Ollama response: {response.text}"
+                )
+
+                return (
+                    f"Ollama error "
+                    f"(HTTP {response.status_code})"
+                )
+
+            # ==========================
+            # PARSE RESPONSE
+            # ==========================
 
             data = response.json()
 
-            result = data["message"]["content"].strip()
+            if "message" not in data:
+
+                logger.error(
+                    f"Unexpected Ollama response: {data}"
+                )
+
+                return (
+                    "Ollama returned an invalid response."
+                )
+
+            result = data["message"].get(
+                "content",
+                ""
+            )
+
+            result = result.strip()
+
+            if not result:
+
+                logger.error(
+                    f"Ollama returned empty response: {data}"
+                )
+
+                return (
+                    "Ollama returned an empty response."
+                )
 
             # ==========================
             # FINAL RESPONSE CLEANUP
@@ -133,6 +210,36 @@ class OllamaClient:
             )
 
             return result
+
+        except requests.exceptions.Timeout:
+
+            logger.error(
+                "Ollama request timed out."
+            )
+
+            return (
+                "Ollama took too long to respond."
+            )
+
+        except requests.exceptions.ConnectionError:
+
+            logger.error(
+                "Could not connect to Ollama."
+            )
+
+            return (
+                "I can't connect to Ollama."
+            )
+
+        except requests.exceptions.RequestException as e:
+
+            logger.error(
+                f"Ollama request error: {e}"
+            )
+
+            return (
+                f"Ollama request error: {e}"
+            )
 
         except Exception as e:
 
