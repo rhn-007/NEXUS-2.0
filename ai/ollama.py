@@ -1,4 +1,3 @@
-```python
 """
 NEXUS Ollama Client
 
@@ -144,4 +143,3 @@ class OllamaClient:
             return (
                 f"Ollama error: {e}"
             )
-```
