@@ -1,9 +1,9 @@
 """
 NEXUS Wake Word Detector
 
-Dedicated low-cost wake-word detection layer.
+Dedicated wake-word detection system.
 
-Current test wake word:
+TEST WAKE WORD:
     Hey Jarvis
 
 This will later be replaced with:
@@ -19,9 +19,9 @@ from pathlib import Path
 # PROJECT ROOT
 # ==========================================================
 
-PROJECT_ROOT = Path(
-    __file__
-).resolve().parent.parent
+PROJECT_ROOT = (
+    Path(__file__).resolve().parent.parent
+)
 
 if str(PROJECT_ROOT) not in sys.path:
 
@@ -37,9 +37,9 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import numpy as np
 import sounddevice as sd
-import openwakeword
 
 from openwakeword.model import Model
+from openwakeword.utils import download_models
 
 from utils.logger import setup_logger
 
@@ -64,28 +64,44 @@ class WakeWordDetector:
 
         self.sample_rate = 16000
 
-        # 80 ms audio frame
+        # 80 ms audio frames
         self.block_size = 1280
 
         self.threshold = threshold
 
         # ==================================================
-        # LOAD TEST MODEL
+        # DOWNLOAD / VERIFY MODELS
         # ==================================================
 
         try:
 
-            model_path = (
-                openwakeword.models[
-                    "hey_jarvis"
-                ][
-                    "model_path"
-                ]
+            logger.info(
+                "Checking wake-word models..."
+            )
+
+            download_models()
+
+        except Exception as e:
+
+            logger.error(
+                f"Could not download wake-word models: {e}"
+            )
+
+            raise
+
+        # ==================================================
+        # LOAD HEY JARVIS MODEL
+        # ==================================================
+
+        try:
+
+            logger.info(
+                "Loading Hey Jarvis wake-word model..."
             )
 
             self.model = Model(
                 wakeword_models=[
-                    model_path
+                    "hey_jarvis"
                 ],
                 inference_framework="onnx"
             )
@@ -117,10 +133,8 @@ class WakeWordDetector:
         """
         Process one microphone frame.
 
-        Audio:
-            16 kHz
-            mono
-            float32 from sounddevice
+        Input:
+            16 kHz mono float32 audio.
         """
 
         if audio is None:
@@ -142,7 +156,7 @@ class WakeWordDetector:
 
 
         # Convert float32 audio
-        # to 16-bit PCM.
+        # to signed 16-bit PCM.
 
         audio = (
             audio * 32767
@@ -169,7 +183,7 @@ class WakeWordDetector:
 
 
         # ==================================================
-        # CHECK PREDICTIONS
+        # CHECK WAKE-WORD SCORE
         # ==================================================
 
         for wake_word, score in prediction.items():
@@ -197,7 +211,8 @@ class WakeWordDetector:
     ):
 
         """
-        Keep listening until the wake word is detected.
+        Continuously listen until
+        the wake word is detected.
         """
 
         print(
@@ -252,8 +267,8 @@ class WakeWordDetector:
                         )
 
 
-                        # Prevent immediate
-                        # duplicate detection.
+                        # Small cooldown to prevent
+                        # immediate duplicate detection.
 
                         time.sleep(
                             0.3
@@ -292,21 +307,25 @@ if __name__ == "__main__":
     print()
 
     print(
-        "================================"
+        "======================================"
     )
 
     print(
-        "NEXUS Wake Word Test"
+        "       NEXUS WAKE WORD TEST"
     )
 
     print(
-        "================================"
+        "======================================"
     )
 
     print()
 
     print(
-        "Current wake word: Hey Jarvis"
+        "Current wake word:"
+    )
+
+    print(
+        "    Hey Jarvis"
     )
 
     print()
@@ -328,6 +347,10 @@ if __name__ == "__main__":
 
         if detected:
 
+            print()
+
             print(
                 "Wake word activated."
             )
+
+            print()
