@@ -26,7 +26,7 @@ class Listener:
         self.model = WhisperModel(
             "medium.en",
             device="cpu",
-            compute_type="int8"
+            compute_type="int8",
             cpu_threads=4
             num_workers=1
         )
