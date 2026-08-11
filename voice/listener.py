@@ -27,6 +27,8 @@ class Listener:
             "medium.en",
             device="cpu",
             compute_type="int8"
+            cpu_threads=4
+            num_workers=1
         )
 
         print("Listener ready.")
