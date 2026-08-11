@@ -20,7 +20,7 @@ class OllamaClient:
 
         self.url = "http://localhost:11434/api/chat"
 
-        self.model = "llama3"
+        self.model = "qwen2.5:3b"
 
         self.response_style = ResponseStyleController()
 
