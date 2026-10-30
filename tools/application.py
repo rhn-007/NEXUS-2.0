@@ -46,7 +46,14 @@ class ApplicationTool(BaseTool):
             },
 
             "opera": {
-                "id": "OperaSoftware.OperaWebBrowser.1747677030",
+                "path": str(
+                    Path.home()
+                    / "AppData"
+                    / "Local"
+                    / "Programs"
+                    / "Opera"
+                    / "opera.exe"
+                ),
                 "aliases": ["opera", "opera browser"]
             },
 
@@ -99,14 +106,9 @@ class ApplicationTool(BaseTool):
             "run"
         ]
 
-    # ======================================================
-    # DETECT REQUEST
-    # ======================================================
-
     def can_handle(self, query):
 
         if not query:
-
             return False
 
         text = query.lower().strip()
@@ -115,36 +117,21 @@ class ApplicationTool(BaseTool):
             text.startswith(phrase + " ")
             for phrase in self.launch_phrases
         ):
-
             return False
 
         for app in self.applications.values():
-
             for alias in app["aliases"]:
-
                 if alias in text:
-
                     return True
 
         for folder in self.folders:
-
             if folder in text:
-
                 return True
 
-        if "file explorer" in text:
-
-            return True
-
-        if "explorer" in text:
-
+        if "file explorer" in text or "explorer" in text:
             return True
 
         return False
-
-    # ======================================================
-    # EXECUTE REQUEST
-    # ======================================================
 
     def execute(self, query):
 
@@ -152,62 +139,48 @@ class ApplicationTool(BaseTool):
 
         try:
 
-            # ==============================================
-            # OPEN FOLDERS
-            # ==============================================
-
             for folder_name, folder_path in self.folders.items():
-
                 if folder_name in text:
+                    return self.open_folder(folder_name, folder_path)
 
-                    return self.open_folder(
-                        folder_name,
-                        folder_path
-                    )
-
-            # ==============================================
-            # OPEN FILE EXPLORER
-            # ==============================================
-
-            if (
-                "file explorer" in text
-                or "explorer" in text
-            ):
-
+            if "file explorer" in text or "explorer" in text:
                 return self.open_file_explorer()
 
-            # ==============================================
-            # OPEN APPLICATIONS
-            # ==============================================
-
             for app_name, app_info in self.applications.items():
-
                 for alias in app_info["aliases"]:
-
                     if alias in text:
+
+                        if app_name == "opera":
+                            return self.open_opera(app_info["path"])
 
                         return self.open_application(
                             app_name,
                             app_info["id"]
                         )
 
-            return (
-                "I couldn't identify the application or folder."
-            )
+            return "I couldn't identify the application or folder."
 
         except Exception as e:
 
-            logger.error(
-                f"Application control error: {e}"
-            )
+            logger.error(f"Application control error: {e}")
+            return f"I couldn't complete that action: {e}"
 
-            return (
-                f"I couldn't complete that action: {e}"
-            )
+    def open_opera(self, opera_path):
 
-    # ======================================================
-    # LAUNCH APPLICATION
-    # ======================================================
+        try:
+
+            if not Path(opera_path).exists():
+                return "I couldn't find the Opera executable."
+
+            subprocess.Popen([opera_path], shell=False)
+
+            logger.info("Launched Opera.")
+            return "Opening Opera."
+
+        except Exception as e:
+
+            logger.error(f"Could not launch Opera: {e}")
+            return f"I couldn't open Opera: {e}"
 
     def open_application(self, name, app_id):
 
@@ -221,83 +194,41 @@ class ApplicationTool(BaseTool):
                 shell=False
             )
 
-            logger.info(
-                f"Launched application: {name}"
-            )
-
-            return (
-                f"Opening {name.title()}."
-            )
+            logger.info(f"Launched application: {name}")
+            return f"Opening {name.title()}."
 
         except Exception as e:
 
-            logger.error(
-                f"Could not launch {name}: {e}"
-            )
-
-            return (
-                f"I couldn't open {name.title()}: {e}"
-            )
-
-    # ======================================================
-    # OPEN FOLDER
-    # ======================================================
+            logger.error(f"Could not launch {name}: {e}")
+            return f"I couldn't open {name.title()}: {e}"
 
     def open_folder(self, name, path):
 
         if not path.exists():
-
-            return (
-                f"The {name} folder could not be found."
-            )
+            return f"The {name} folder could not be found."
 
         try:
 
             os.startfile(str(path))
 
-            logger.info(
-                f"Opened folder: {path}"
-            )
-
-            return (
-                f"Opening your {name} folder."
-            )
+            logger.info(f"Opened folder: {path}")
+            return f"Opening your {name} folder."
 
         except Exception as e:
 
-            logger.error(
-                f"Could not open folder {path}: {e}"
-            )
-
-            return (
-                f"I couldn't open your {name} folder: {e}"
-            )
-
-    # ======================================================
-    # OPEN FILE EXPLORER
-    # ======================================================
+            logger.error(f"Could not open folder {path}: {e}")
+            return f"I couldn't open your {name} folder: {e}"
 
     def open_file_explorer(self):
 
         try:
 
-            subprocess.Popen(
-                ["explorer.exe"],
-                shell=False
-            )
+            subprocess.Popen(["explorer.exe"], shell=False)
 
-            logger.info(
-                "Opened File Explorer."
-            )
-
+            logger.info("Opened File Explorer.")
             return "Opening File Explorer."
 
         except Exception as e:
 
-            logger.error(
-                f"Could not open File Explorer: {e}"
-            )
-
-            return (
-                f"I couldn't open File Explorer: {e}"
-            )
+            logger.error(f"Could not open File Explorer: {e}")
+            return f"I couldn't open File Explorer: {e}"
