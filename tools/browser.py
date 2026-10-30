@@ -3,17 +3,18 @@
 NEXUS Browser Tool
 
 Handles:
-- Opening websites
-- Opening URLs
-- Google searches
+- Launching Opera
+- Opening websites in Opera
+- Opening URLs in Opera
+- Google searches in Opera
 - Opening WhatsApp Web in Opera
 """
 
-import webbrowser
 import subprocess
 import re
 import logging
 
+from pathlib import Path
 from urllib.parse import quote
 
 from tools.base import BaseTool
@@ -27,14 +28,20 @@ class BrowserTool(BaseTool):
 
     name = "browser"
 
-    description = (
-        "Opens websites, URLs and performs web searches."
-    )
+    description = "Launches Opera and opens websites and performs searches."
 
     def __init__(self):
 
-        self.websites = {
+        self.browser_path = (
+            Path.home()
+            / "AppData"
+            / "Local"
+            / "Programs"
+            / "Opera"
+            / "opera.exe"
+        )
 
+        self.websites = {
             "youtube": "https://youtube.com",
             "google": "https://google.com",
             "github": "https://github.com",
@@ -43,10 +50,7 @@ class BrowserTool(BaseTool):
             "chatgpt": "https://chatgpt.com",
             "instagram": "https://instagram.com",
             "whatsapp web": "https://web.whatsapp.com"
-
         }
-
-        self.browser_path = None
 
     # ======================================================
     # DETECT REQUEST
@@ -55,12 +59,10 @@ class BrowserTool(BaseTool):
     def can_handle(self, query):
 
         if not query:
-
             return False
 
         text = query.lower().strip()
 
-        # Application commands belong to ApplicationTool.
         application_names = [
             "spotify",
             "calculator",
@@ -73,21 +75,18 @@ class BrowserTool(BaseTool):
             "file explorer"
         ]
 
-        if any(
-            name in text
-            for name in application_names
-        ):
+        if any(name in text for name in application_names):
 
-            # Allow explicit WhatsApp Web requests.
             if "whatsapp web" in text:
-
                 return True
 
             return False
 
         browser_phrases = [
-            "open website",
             "open browser",
+            "launch browser",
+            "start browser",
+            "open website",
             "open url",
             "go to",
             "visit",
@@ -102,7 +101,45 @@ class BrowserTool(BaseTool):
         )
 
     # ======================================================
-    # EXECUTE
+    # OPEN OPERA
+    # ======================================================
+
+    def open_opera(self, url=None):
+
+        if not self.browser_path.exists():
+
+            return ToolResponse.failure(
+                "I couldn't find Opera on your computer."
+            )
+
+        try:
+
+            command = [str(self.browser_path)]
+
+            if url:
+                command.append(url)
+
+            subprocess.Popen(command, shell=False)
+
+            if url:
+                return ToolResponse.success(
+                    f"Opening {url} in Opera."
+                )
+
+            return ToolResponse.success(
+                "Opening Opera."
+            )
+
+        except Exception as e:
+
+            logger.error(f"Opera launch error: {e}")
+
+            return ToolResponse.failure(
+                f"Couldn't open Opera: {e}"
+            )
+
+    # ======================================================
+    # EXECUTE REQUEST
     # ======================================================
 
     def execute(self, query):
@@ -111,39 +148,33 @@ class BrowserTool(BaseTool):
 
         try:
 
-            # ==============================================
-            # WHATSAPP WEB
-            # ==============================================
+            # Open browser without a website.
+            if text in [
+                "open browser",
+                "launch browser",
+                "start browser",
+                "open opera",
+                "launch opera",
+                "start opera"
+            ]:
 
+                return self.open_opera()
+
+            # Open WhatsApp Web.
             if "whatsapp web" in text:
 
-                return self.open_whatsapp_web()
+                return self.open_opera(
+                    "https://web.whatsapp.com"
+                )
 
-            # ==============================================
-            # OPEN KNOWN WEBSITES
-            # ==============================================
-
+            # Open known websites.
             for name, url in self.websites.items():
 
                 if name in text:
 
-                    if name == "whatsapp web":
-                        continue
+                    return self.open_opera(url)
 
-                    webbrowser.open(url)
-
-                    logger.info(
-                        f"Opened website: {name}"
-                    )
-
-                    return ToolResponse.success(
-                        f"Opened {name}."
-                    )
-
-            # ==============================================
-            # EXTRACT URL
-            # ==============================================
-
+            # Open a direct URL.
             url_match = re.search(
                 r"https?://[^\s]+",
                 query
@@ -151,24 +182,11 @@ class BrowserTool(BaseTool):
 
             if url_match:
 
-                url = url_match.group(0)
-
-                webbrowser.open(url)
-
-                logger.info(
-                    f"Opened URL: {url}"
+                return self.open_opera(
+                    url_match.group(0)
                 )
 
-                return ToolResponse.success(
-                    f"Opened {url}."
-                )
-
-            # ==============================================
-            # GOOGLE SEARCH
-            # ==============================================
-
-            search = text
-
+            # Google search.
             search_prefixes = [
                 "search google for",
                 "search for",
@@ -179,28 +197,22 @@ class BrowserTool(BaseTool):
 
             for phrase in search_prefixes:
 
-                if search.startswith(phrase):
+                if text.startswith(phrase):
 
-                    search = search[len(phrase):].strip()
+                    search = text[len(phrase):].strip()
 
-                    break
+                    if search:
 
-            if search:
+                        url = (
+                            "https://www.google.com/search?q="
+                            + quote(search)
+                        )
 
-                url = (
-                    "https://www.google.com/search?q="
-                    + quote(search)
-                )
+                        return self.open_opera(url)
 
-                webbrowser.open(url)
-
-                logger.info(
-                    f"Google search: {search}"
-                )
-
-                return ToolResponse.success(
-                    f"Searching Google for {search}."
-                )
+                    return ToolResponse.failure(
+                        "What would you like me to search for?"
+                    )
 
             return ToolResponse.failure(
                 "I couldn't understand the browser request."
@@ -208,44 +220,8 @@ class BrowserTool(BaseTool):
 
         except Exception as e:
 
-            logger.error(
-                f"Browser error: {e}"
-            )
+            logger.error(f"Browser error: {e}")
 
             return ToolResponse.failure(
                 f"I couldn't complete the browser request: {e}"
-            )
-
-    # ======================================================
-    # OPEN WHATSAPP WEB IN OPERA
-    # ======================================================
-
-    def open_whatsapp_web(self):
-
-        try:
-
-            subprocess.Popen(
-                [
-                    "explorer.exe",
-                    "https://web.whatsapp.com"
-                ],
-                shell=False
-            )
-
-            logger.info(
-                "Opened WhatsApp Web using Windows URL handler."
-            )
-
-            return ToolResponse.success(
-                "Opening WhatsApp Web."
-            )
-
-        except Exception as e:
-
-            logger.error(
-                f"WhatsApp Web launch error: {e}"
-            )
-
-            return ToolResponse.failure(
-                f"Couldn't open WhatsApp Web: {e}"
             )
