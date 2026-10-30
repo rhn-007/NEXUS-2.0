@@ -210,7 +210,9 @@ class Listener:
             "rohanh": "Rohan",
 
             "ollama": "Ollama",
-            "python": "Python"
+            "python": "Python",
+            "Oprah": "Opera",
+            "What's up": "Whatsapp"
 
         }
 
