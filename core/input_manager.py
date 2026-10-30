@@ -1,28 +1,23 @@
+
 """
 NEXUS Input Manager
 
-Handles voice and keyboard input modes.
+Handles Push-to-Talk voice input and keyboard mode.
 
-Voice flow:
+Voice mode:
+    Hold SPACE  -> Start recording
+    Release     -> Stop recording and transcribe
+    Press ESC   -> Switch to keyboard mode
 
-    Wake Word
-        ↓
-    Whisper
-        ↓
-    NEXUS
-
-Keyboard flow:
-
-    Keyboard
-        ↓
-    NEXUS
+Keyboard mode:
+    Type normally
+    Type "voice mode" -> Return to Push-to-Talk
 """
 
+from pynput import keyboard
 from voice.listener import Listener
-from voice.wake_word import WakeWordDetector
-
 from utils.logger import setup_logger
-
+from threading import Event
 
 logger = setup_logger(__name__)
 
@@ -31,32 +26,18 @@ class InputManager:
 
     def __init__(self):
 
-        # ==================================================
-        # DEFAULT MODE
-        # ==================================================
-
         self.mode = "voice"
 
-        # ==================================================
-        # VOICE SYSTEMS
-        # ==================================================
-
-        logger.info(
-            "Loading voice input systems..."
-        )
+        logger.info("Loading voice input system...")
 
         self.listener = Listener()
 
-        self.wake_word = WakeWordDetector()
+        self.recording = False
+        self.completed = Event()
+        self.recorded_text = ""
+        self.keyboard_listener = None
 
-        logger.info(
-            "Voice input systems ready."
-        )
-
-        logger.info(
-            "Input manager initialized in voice mode"
-        )
-
+        logger.info("Push-to-Talk input manager initialized.")
 
     # ======================================================
     # MAIN INPUT
@@ -66,101 +47,141 @@ class InputManager:
 
         while True:
 
-            # ==============================================
-            # VOICE MODE
-            # ==============================================
-
             if self.mode == "voice":
 
                 text = self.voice_input()
-
-
-            # ==============================================
-            # KEYBOARD MODE
-            # ==============================================
 
             else:
 
                 text = self.keyboard_input()
 
-
-            # ==============================================
-            # EMPTY INPUT
-            # ==============================================
-
             if not text:
 
                 continue
-
-
-            # ==============================================
-            # COMMAND HANDLING
-            # ==============================================
 
             if self.handle_command(text):
 
                 continue
 
-
             return text
 
-
     # ======================================================
-    # VOICE INPUT
+    # PUSH-TO-TALK VOICE INPUT
     # ======================================================
 
     def voice_input(self):
 
+        self.completed.clear()
+        self.recorded_text = ""
+        self.recording = False
+
+        print("\nHold SPACE to speak. Release to send.")
+        print("Press ESC to switch to keyboard mode.")
+
+        def on_press(key):
+
+            if key == keyboard.Key.esc:
+
+                if self.recording:
+
+                    try:
+                        self.listener.stop_recording()
+
+                    except Exception as e:
+                        logger.error(f"Recording cancellation error: {e}")
+
+                    finally:
+                        self.recording = False
+
+                self.mode = "keyboard"
+                self.completed.set()
+
+                return False
+
+            if key == keyboard.Key.space and not self.recording:
+
+                try:
+
+                    self.listener.start_recording()
+
+                    self.recording = True
+
+                    print("\nNEXUS listening...")
+
+                except Exception as e:
+
+                    logger.error(f"Recording start error: {e}")
+
+                    self.completed.set()
+
+                    return False
+
+        def on_release(key):
+
+            if key == keyboard.Key.space and self.recording:
+
+                try:
+
+                    print("\nProcessing speech...")
+
+                    self.recorded_text = self.listener.stop_recording()
+
+                except Exception as e:
+
+                    logger.error(f"Recording stop error: {e}")
+
+                    self.recorded_text = ""
+
+                finally:
+
+                    self.recording = False
+                    self.completed.set()
+
+                return False
+
         try:
 
-            # ----------------------------------------------
-            # WAIT FOR WAKE WORD
-            # ----------------------------------------------
-
-            detected = (
-                self.wake_word.wait_for_wake_word()
+            self.keyboard_listener = keyboard.Listener(
+                on_press=on_press,
+                on_release=on_release
             )
 
+            self.keyboard_listener.start()
 
-            if not detected:
+            self.completed.wait()
+
+            self.keyboard_listener.stop()
+            self.keyboard_listener.join()
+
+            if self.mode == "keyboard":
+
+                print("\nNEXUS: Keyboard mode enabled.")
+
+                logger.info("Switched to keyboard mode.")
 
                 return ""
 
-
-            # ----------------------------------------------
-            # WAKE WORD ACTIVATED
-            # ----------------------------------------------
-
-            print(
-                "\nNEXUS listening..."
-            )
-
-
-            # ----------------------------------------------
-            # LISTEN FOR COMMAND
-            # ----------------------------------------------
-
-            text = self.listener.listen()
-
+            text = self.recorded_text.strip()
 
             if text:
 
-                print(
-                    f"\nYou: {text}"
-                )
-
+                print(f"\nYou: {text}")
 
             return text
 
-
         except Exception as e:
 
-            logger.error(
-                f"Voice input error: {e}"
-            )
+            logger.error(f"Push-to-Talk error: {e}")
 
             return ""
 
+        finally:
+
+            if self.keyboard_listener:
+
+                self.keyboard_listener.stop()
+
+            self.recording = False
 
     # ======================================================
     # KEYBOARD INPUT
@@ -170,167 +191,54 @@ class InputManager:
 
         try:
 
-            return input(
-                "\nYou: "
-            )
-
+            return input("\nYou: ").strip()
 
         except Exception as e:
 
-            logger.error(
-                f"Keyboard input error: {e}"
-            )
+            logger.error(f"Keyboard input error: {e}")
 
             return ""
-
 
     # ======================================================
     # COMMAND HANDLER
     # ======================================================
 
-    def handle_command(
-        self,
-        text
-    ):
+    def handle_command(self, text):
 
-        command = (
-            text
-            .lower()
-            .strip()
-        )
+        command = text.lower().strip()
 
+        # Return to voice mode
 
-        # ==================================================
-        # KEYBOARD MODE
-        # ==================================================
-
-        keyboard_phrases = [
-
-            "keyboard mode",
-
-            "switch to keyboard",
-
-            "switch to keyboard mode",
-
-            "go to keyboard",
-
-            "use keyboard",
-
-            "turn on keyboard mode",
-
-            "enable keyboard mode"
-
-        ]
-
-
-        if any(
-
-            phrase in command
-
-            for phrase in keyboard_phrases
-
-        ):
-
-            self.mode = "keyboard"
-
-
-            print(
-                "\nNEXUS: Keyboard mode enabled."
-            )
-
-
-            logger.info(
-                "Input mode changed to keyboard."
-            )
-
-
-            return True
-
-
-        # ==================================================
-        # VOICE MODE
-        # ==================================================
-
-        voice_phrases = [
-
+        if command in [
             "voice mode",
-
             "switch to voice",
-
             "switch to voice mode",
-
-            "go to voice",
-
-            "use voice",
-
-            "turn on voice mode",
-
-            "enable voice mode"
-
-        ]
-
-
-        if any(
-
-            phrase in command
-
-            for phrase in voice_phrases
-
-        ):
+            "enable voice mode",
+            "use voice"
+        ]:
 
             self.mode = "voice"
 
+            print("\nNEXUS: Push-to-Talk mode enabled.")
 
-            print(
-                "\nNEXUS: Voice mode enabled."
-            )
-
-
-            logger.info(
-                "Input mode changed to voice."
-            )
-
+            logger.info("Switched to Push-to-Talk mode.")
 
             return True
 
+        # Cancel input
 
-        # ==================================================
-        # CANCEL
-        # ==================================================
-
-        cancel_phrases = [
-
+        if command in [
             "cancel",
-
             "never mind",
-
             "forget it",
-
             "stop"
+        ]:
 
-        ]
+            print("\nNEXUS: Cancelled.")
 
-
-        if any(
-
-            phrase in command
-
-            for phrase in cancel_phrases
-
-        ):
-
-            print(
-                "\nNEXUS: Cancelled."
-            )
-
-
-            logger.info(
-                "User cancelled current input."
-            )
-
+            logger.info("User cancelled input.")
 
             return True
-
 
         return False
 
@@ -343,32 +251,8 @@ if __name__ == "__main__":
 
     manager = InputManager()
 
-
-    print(
-        "\n======================================"
-    )
-
-    print(
-        "       NEXUS INPUT MANAGER TEST"
-    )
-
-    print(
-        "======================================"
-    )
-
-    print()
-
-    print(
-        "Current mode:",
-        manager.mode
-    )
-
-    print()
-
-    print(
-        "Press Ctrl+C to stop."
-    )
-
+    print("\nNEXUS INPUT MANAGER TEST")
+    print("========================")
 
     try:
 
@@ -376,17 +260,10 @@ if __name__ == "__main__":
 
             text = manager.get_input()
 
-
             if text:
 
-                print(
-                    "\nINPUT:",
-                    text
-                )
-
+                print("\nINPUT:", text)
 
     except KeyboardInterrupt:
 
-        print(
-            "\n\nInput manager stopped."
-        )
+        print("\nInput manager stopped.")
