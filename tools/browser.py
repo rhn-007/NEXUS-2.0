@@ -4,10 +4,9 @@ NEXUS Browser Tool
 
 Handles:
 - Launching Opera
-- Opening websites in Opera
-- Opening URLs in Opera
-- Google searches in Opera
-- Opening WhatsApp Web in Opera
+- Opening websites and URLs
+- Google searches
+- Opening WhatsApp Web
 """
 
 import subprocess
@@ -28,7 +27,7 @@ class BrowserTool(BaseTool):
 
     name = "browser"
 
-    description = "Launches Opera and opens websites and performs searches."
+    description = "Launches Opera, opens websites and performs searches."
 
     def __init__(self):
 
@@ -42,13 +41,13 @@ class BrowserTool(BaseTool):
         )
 
         self.websites = {
-            "youtube": "https://youtube.com",
-            "google": "https://google.com",
+            "youtube": "https://www.youtube.com",
+            "google": "https://www.google.com",
             "github": "https://github.com",
-            "wikipedia": "https://wikipedia.org",
-            "reddit": "https://reddit.com",
+            "wikipedia": "https://www.wikipedia.org",
+            "reddit": "https://www.reddit.com",
             "chatgpt": "https://chatgpt.com",
-            "instagram": "https://instagram.com",
+            "instagram": "https://www.instagram.com",
             "whatsapp web": "https://web.whatsapp.com"
         }
 
@@ -63,42 +62,49 @@ class BrowserTool(BaseTool):
 
         text = query.lower().strip()
 
-        application_names = [
-            "spotify",
-            "calculator",
-            "whatsapp",
-            "notepad",
-            "word",
-            "excel",
-            "idle",
-            "python idle",
-            "file explorer"
-        ]
+        if "whatsapp web" in text:
+            return True
 
-        if any(name in text for name in application_names):
-
-            if "whatsapp web" in text:
-                return True
-
-            return False
-
-        browser_phrases = [
+        if text in [
             "open browser",
             "launch browser",
             "start browser",
-            "open website",
-            "open url",
-            "go to",
-            "visit",
-            "browse",
-            "search",
-            "google"
-        ]
+            "open opera",
+            "launch opera",
+            "start opera"
+        ]:
+            return True
 
-        return any(
+        if any(
             phrase in text
-            for phrase in browser_phrases
-        )
+            for phrase in [
+                "open youtube",
+                "open google",
+                "open github",
+                "open wikipedia",
+                "open reddit",
+                "open chatgpt",
+                "open instagram"
+            ]
+        ):
+            return True
+
+        if re.search(r"https?://[^\s]+", text):
+            return True
+
+        if text.startswith((
+            "search ",
+            "search for ",
+            "search google for ",
+            "look up ",
+            "google "
+        )):
+            return True
+
+        if text.startswith(("go to ", "visit ", "browse ")):
+            return True
+
+        return False
 
     # ======================================================
     # OPEN OPERA
@@ -123,7 +129,7 @@ class BrowserTool(BaseTool):
 
             if url:
                 return ToolResponse.success(
-                    f"Opening {url} in Opera."
+                    "Opening the website in Opera."
                 )
 
             return ToolResponse.success(
@@ -135,7 +141,7 @@ class BrowserTool(BaseTool):
             logger.error(f"Opera launch error: {e}")
 
             return ToolResponse.failure(
-                f"Couldn't open Opera: {e}"
+                "I couldn't open Opera."
             )
 
     # ======================================================
@@ -148,7 +154,7 @@ class BrowserTool(BaseTool):
 
         try:
 
-            # Open browser without a website.
+            # Open Opera.
             if text in [
                 "open browser",
                 "launch browser",
@@ -157,31 +163,27 @@ class BrowserTool(BaseTool):
                 "launch opera",
                 "start opera"
             ]:
-
                 return self.open_opera()
 
             # Open WhatsApp Web.
             if "whatsapp web" in text:
-
                 return self.open_opera(
-                    "https://web.whatsapp.com"
+                    self.websites["whatsapp web"]
                 )
 
             # Open known websites.
             for name, url in self.websites.items():
 
                 if name in text:
-
                     return self.open_opera(url)
 
-            # Open a direct URL.
+            # Open direct URLs.
             url_match = re.search(
                 r"https?://[^\s]+",
                 query
             )
 
             if url_match:
-
                 return self.open_opera(
                     url_match.group(0)
                 )
@@ -201,18 +203,42 @@ class BrowserTool(BaseTool):
 
                     search = text[len(phrase):].strip()
 
-                    if search:
-
-                        url = (
-                            "https://www.google.com/search?q="
-                            + quote(search)
+                    if not search:
+                        return ToolResponse.failure(
+                            "What would you like me to search for?"
                         )
 
-                        return self.open_opera(url)
-
-                    return ToolResponse.failure(
-                        "What would you like me to search for?"
+                    url = (
+                        "https://www.google.com/search?q="
+                        + quote(search)
                     )
+
+                    result = self.open_opera(url)
+
+                    if result.success:
+                        return ToolResponse.success(
+                            f"Searching Google for {search}."
+                        )
+
+                    return result
+
+            # Go to / visit / browse a website.
+            for phrase in ["go to ", "visit ", "browse "]:
+
+                if text.startswith(phrase):
+
+                    website = text[len(phrase):].strip()
+
+                    if website in self.websites:
+                        return self.open_opera(
+                            self.websites[website]
+                        )
+
+                    if website:
+                        return self.open_opera(
+                            "https://www.google.com/search?q="
+                            + quote(website)
+                        )
 
             return ToolResponse.failure(
                 "I couldn't understand the browser request."
@@ -223,5 +249,5 @@ class BrowserTool(BaseTool):
             logger.error(f"Browser error: {e}")
 
             return ToolResponse.failure(
-                f"I couldn't complete the browser request: {e}"
+                "I couldn't complete the browser request."
             )
