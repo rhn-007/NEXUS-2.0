@@ -224,11 +224,11 @@ class NexusAssistant:
 
 
         self.tool_registry.register(
-
             BrowserTool()
-
         )
-
+        self.tool_registry.register(
+            ApplicationTool()
+         )
 
 
 
