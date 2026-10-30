@@ -1,237 +1,251 @@
+
 """
 NEXUS Browser Tool
 
 Handles:
 - Opening websites
 - Opening URLs
-- Web searches
+- Google searches
+- Opening WhatsApp Web in Opera
 """
 
-
 import webbrowser
-from urllib.parse import quote
-
+import subprocess
 import re
+import logging
+
+from urllib.parse import quote
 
 from tools.base import BaseTool
 from tools.response import ToolResponse
 
 
+logger = logging.getLogger(__name__)
+
 
 class BrowserTool(BaseTool):
 
-
     name = "browser"
 
-
     description = (
-        "Opens websites and performs web searches."
+        "Opens websites, URLs and performs web searches."
     )
-
-
 
     def __init__(self):
 
         self.websites = {
 
-            "youtube":
-                "https://youtube.com",
-
-            "google":
-                "https://google.com",
-
-            "github":
-                "https://github.com",
-
-            "wikipedia":
-                "https://wikipedia.org",
-
-            "reddit":
-                "https://reddit.com",
-
-            "chatgpt":
-                "https://chatgpt.com",
-
-            "instagram":
-                "https://instagram.com"
+            "youtube": "https://youtube.com",
+            "google": "https://google.com",
+            "github": "https://github.com",
+            "wikipedia": "https://wikipedia.org",
+            "reddit": "https://reddit.com",
+            "chatgpt": "https://chatgpt.com",
+            "instagram": "https://instagram.com",
+            "whatsapp web": "https://web.whatsapp.com"
 
         }
 
+        self.browser_path = None
 
-
-    # =====================================
+    # ======================================================
     # DETECT REQUEST
-    # =====================================
+    # ======================================================
 
-    def can_handle(
-        self,
-        query
-    ):
-
+    def can_handle(self, query):
 
         if not query:
 
             return False
 
+        text = query.lower().strip()
 
-
-        text = query.lower()
-
-
-
-        keywords = [
-
-            "open",
-
-            "go to",
-
-            "visit",
-
-            "browse",
-
-            "search",
-
-            "google"
-
+        # Application commands belong to ApplicationTool.
+        application_names = [
+            "spotify",
+            "calculator",
+            "whatsapp",
+            "notepad",
+            "word",
+            "excel",
+            "idle",
+            "python idle",
+            "file explorer"
         ]
 
+        if any(
+            name in text
+            for name in application_names
+        ):
 
+            # Allow explicit WhatsApp Web requests.
+            if "whatsapp web" in text:
+
+                return True
+
+            return False
+
+        browser_phrases = [
+            "open website",
+            "open browser",
+            "open url",
+            "go to",
+            "visit",
+            "browse",
+            "search",
+            "google"
+        ]
 
         return any(
-
-            word in text
-
-            for word in keywords
-
+            phrase in text
+            for phrase in browser_phrases
         )
 
-
-
-    # =====================================
+    # ======================================================
     # EXECUTE
-    # =====================================
+    # ======================================================
 
-    def execute(
-        self,
-        query
-    ):
-
+    def execute(self, query):
 
         text = query.lower().strip()
 
+        try:
 
+            # ==============================================
+            # WHATSAPP WEB
+            # ==============================================
 
-        # Open known websites
+            if "whatsapp web" in text:
 
-        for name, url in self.websites.items():
+                return self.open_whatsapp_web()
 
+            # ==============================================
+            # OPEN KNOWN WEBSITES
+            # ==============================================
 
-            if name in text:
+            for name, url in self.websites.items():
 
+                if name in text:
 
-                webbrowser.open(
-                    url
+                    if name == "whatsapp web":
+                        continue
+
+                    webbrowser.open(url)
+
+                    logger.info(
+                        f"Opened website: {name}"
+                    )
+
+                    return ToolResponse.success(
+                        f"Opened {name}."
+                    )
+
+            # ==============================================
+            # EXTRACT URL
+            # ==============================================
+
+            url_match = re.search(
+                r"https?://[^\s]+",
+                query
+            )
+
+            if url_match:
+
+                url = url_match.group(0)
+
+                webbrowser.open(url)
+
+                logger.info(
+                    f"Opened URL: {url}"
                 )
-
 
                 return ToolResponse.success(
-
-                    f"Opened {name}."
-
+                    f"Opened {url}."
                 )
 
+            # ==============================================
+            # GOOGLE SEARCH
+            # ==============================================
 
+            search = text
 
-        # Extract URL
+            search_prefixes = [
+                "search google for",
+                "search for",
+                "search",
+                "look up",
+                "google"
+            ]
 
+            for phrase in search_prefixes:
 
-        url_match = re.search(
+                if search.startswith(phrase):
 
-            r"https?://[^\s]+",
+                    search = search[len(phrase):].strip()
 
-            text
+                    break
 
-        )
+            if search:
 
+                url = (
+                    "https://www.google.com/search?q="
+                    + quote(search)
+                )
 
+                webbrowser.open(url)
 
-        if url_match:
+                logger.info(
+                    f"Google search: {search}"
+                )
 
+                return ToolResponse.success(
+                    f"Searching Google for {search}."
+                )
 
-            url = url_match.group(0)
-
-
-            webbrowser.open(
-                url
+            return ToolResponse.failure(
+                "I couldn't understand the browser request."
             )
 
+        except Exception as e:
+
+            logger.error(
+                f"Browser error: {e}"
+            )
+
+            return ToolResponse.failure(
+                f"I couldn't complete the browser request: {e}"
+            )
+
+    # ======================================================
+    # OPEN WHATSAPP WEB IN OPERA
+    # ======================================================
+
+    def open_whatsapp_web(self):
+
+        try:
+
+            subprocess.Popen(
+                [
+                    "explorer.exe",
+                    "https://web.whatsapp.com"
+                ],
+                shell=False
+            )
+
+            logger.info(
+                "Opened WhatsApp Web using Windows URL handler."
+            )
 
             return ToolResponse.success(
-
-                f"Opened {url}"
-
+                "Opening WhatsApp Web."
             )
 
+        except Exception as e:
 
-
-        # Search
-
-
-        search_words = [
-
-            "search",
-
-            "google",
-
-            "look up"
-
-        ]
-
-
-
-        search = text
-
-
-        for word in search_words:
-
-            search = search.replace(
-                word,
-                ""
+            logger.error(
+                f"WhatsApp Web launch error: {e}"
             )
 
-
-
-        search = search.strip()
-
-
-
-        if search:
-
-
-            url = (
-
-                "https://www.google.com/search?q="
-
-                + quote(search)
-
+            return ToolResponse.failure(
+                f"Couldn't open WhatsApp Web: {e}"
             )
-
-
-            webbrowser.open(
-                url
-            )
-
-
-            return ToolResponse.success(
-
-                f"Searching for {search}"
-
-            )
-
-
-
-        return ToolResponse.failure(
-
-            "I could not understand the browser request."
-
-        )
