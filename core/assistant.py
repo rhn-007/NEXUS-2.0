@@ -23,6 +23,7 @@ from voice.speaker import Speaker
 from tools.registry import ToolRegistry
 from tools.router import ToolRouter
 from tools.browser import BrowserTool
+from tools.application import ApplicationTool
 
 
 from ui.status import set_status, clear_status
