@@ -1,4 +1,3 @@
-
 """
 NEXUS Speech Recognition System
 Faster-Whisper Listener with Push-to-Talk Recording
@@ -14,6 +13,7 @@ from pathlib import Path
 import tempfile
 import uuid
 import threading
+import re
 
 from utils.logger import setup_logger
 
@@ -187,83 +187,43 @@ class Listener:
 
             return text
 
-        text = " ".join(
-            text.split()
-        )
+        text = " ".join(text.split())
 
-        nexus_replacements = {
+        # Match complete phrases before individual words. This ensures
+        # corrections such as "nex us" work even though they contain
+        # more than one token.
+        nexus_patterns = [
+            r"(?<!\w)k[\s-]*nexus(?!\w)",
+            r"(?<!\w)(?:lexus|lexis|nex\s+us|next\s+us|nextus|nexis|nexus)(?!\w)"
+        ]
 
-            "lexus": "NEXUS",
-            "lexis": "NEXUS",
-            "nex us": "NEXUS",
-            "next us": "NEXUS",
-            "nextus": "NEXUS",
-            "nexis": "NEXUS",
-            "nexus": "NEXUS"
+        for pattern in nexus_patterns:
+            text = re.sub(
+                pattern,
+                "NEXUS",
+                text,
+                flags=re.IGNORECASE
+            )
 
-        }
-
-        replacements = {
-
+        word_corrections = {
             "rohan": "Rohan",
             "rowan": "Rohan",
             "rohanh": "Rohan",
-
             "ollama": "Ollama",
             "python": "Python",
-            "Oprah": "Opera",
-            "What's up": "Whatsapp"
-
+            "oprah": "Opera",
+            "whatsapp": "WhatsApp"
         }
 
-        words = text.split()
-
-        corrected_words = []
-
-        for word in words:
-
-            clean_word = word.strip(
-                ".,!?;:\"'()[]{}"
+        for spoken, corrected in word_corrections.items():
+            text = re.sub(
+                rf"(?<!\w){re.escape(spoken)}(?!\w)",
+                corrected,
+                text,
+                flags=re.IGNORECASE
             )
 
-            punctuation_before = ""
-            punctuation_after = ""
-
-            if (
-                word
-                and word[0] in ".,!?;:\"'()[]{}"
-            ):
-
-                punctuation_before = word[0]
-
-            if (
-                word
-                and word[-1] in ".,!?;:\"'()[]{}"
-            ):
-
-                punctuation_after = word[-1]
-
-            lookup = clean_word.lower()
-
-            if lookup in nexus_replacements:
-
-                replacement = nexus_replacements[lookup]
-
-            elif lookup in replacements:
-
-                replacement = replacements[lookup]
-
-            else:
-
-                replacement = clean_word
-
-            corrected_words.append(
-                punctuation_before
-                + replacement
-                + punctuation_after
-            )
-
-        return " ".join(corrected_words)
+        return text
 
     # ======================================================
     # LEGACY FIXED-DURATION RECORDING
