@@ -1,59 +1,67 @@
-"""Routes user requests to the appropriate NEXUS tool."""
+
+"""
+NEXUS Tool Router
+
+Decides which tool handles a request.
+"""
 
 from tools.calculator import CalculatorTool
 
 
 class ToolResult:
-    def __init__(self, success=False, message="", handled=False, data=None):
+
+    def __init__(
+        self,
+        success=False,
+        message=""
+    ):
+
         self.success = success
         self.message = message
-        self.handled = handled
-        self.data = data or {}
 
 
 class ToolRouter:
-    def __init__(self, registry):
+
+    def __init__(
+        self,
+        registry
+    ):
+
         self.registry = registry
         self.calculator = CalculatorTool()
 
-    @staticmethod
-    def _normalise_result(result):
-        if hasattr(result, "success") and hasattr(result, "message"):
-            return ToolResult(
-                success=bool(result.success),
-                message=str(result.message),
-                handled=True,
-                data=getattr(result, "data", {})
-            )
+    def execute(
+        self,
+        text
+    ):
 
-        if result is None:
-            return ToolResult(
-                success=False,
-                message="The tool could not complete the request.",
-                handled=True
-            )
-
-        return ToolResult(
-            success=True,
-            message=str(result),
-            handled=True
-        )
-
-    def can_handle_request(self, text):
-        """Check whether an installed tool recognises a command."""
-        if not text or not text.strip():
-            return False
-
-        if self.calculator.can_handle(text):
-            return True
-
-        filesystem_tool = self.registry.get("filesystem")
-        if filesystem_tool and filesystem_tool.can_handle(text):
-            return True
+        if not text:
+            return ToolResult()
 
         query = text.lower().strip()
+
+        # ==========================
+        # CALCULATOR
+        # ==========================
+
+        if self.calculator.can_handle(text):
+
+            result = self.calculator.execute(text)
+
+            if result is not None:
+
+                return ToolResult(
+                    True,
+                    str(result)
+                )
+
+        # ==========================
+        # BROWSER PRIORITY
+        # ==========================
+
         browser_tool = self.registry.get("browser")
-        browser_commands = (
+
+        browser_commands = [
             "open browser",
             "launch browser",
             "start browser",
@@ -71,166 +79,77 @@ class ToolRouter:
             "browse",
             "search",
             "google"
+        ]
+
+        is_browser_command = any(
+            command in query
+            for command in browser_commands
         )
 
         if (
             browser_tool
-            and any(command in query for command in browser_commands)
+            and is_browser_command
             and browser_tool.can_handle(text)
         ):
-            return True
 
-        application_tool = self.registry.get("application")
-        if application_tool and application_tool.can_handle(text):
-            return True
+            result = browser_tool.execute(text)
 
-        for tool in self.registry.all():
-            if tool.name in ("browser", "application", "filesystem"):
-                continue
-            if tool.can_handle(text):
-                return True
+            if hasattr(result, "success"):
 
-        return False
-
-    def describe_tools(self):
-        descriptions = [
-            "calculator: evaluates simple arithmetic expressions"
-        ]
-
-        for tool in self.registry.all():
-            descriptions.append(f"{tool.name}: {tool.description}")
-
-        return descriptions
-
-    def execute(self, text):
-        if not text or not text.strip():
-            return ToolResult()
-
-        if self.calculator.can_handle(text):
-            result = self.calculator.execute(text)
-
-            if result is None:
                 return ToolResult(
-                    success=False,
-                    message=(
-                        "I recognised this as a calculation, but couldn't "
-                        "evaluate the expression. Please check it and try again."
-                    ),
-                    handled=True
+                    result.success,
+                    result.message
                 )
 
             return ToolResult(
-                success=True,
-                message=str(result),
-                handled=True
+                True,
+                str(result)
             )
 
-        filesystem_tool = self.registry.get("filesystem")
-        if filesystem_tool and filesystem_tool.can_handle(text):
-            return self._normalise_result(
-                filesystem_tool.execute(text)
-            )
-
-        query = text.lower().strip()
-        browser_tool = self.registry.get("browser")
-        browser_commands = (
-            "open browser",
-            "launch browser",
-            "start browser",
-            "open website",
-            "open youtube",
-            "open google",
-            "open github",
-            "open wikipedia",
-            "open reddit",
-            "open chatgpt",
-            "open instagram",
-            "open whatsapp web",
-            "go to",
-            "visit",
-            "browse",
-            "search",
-            "google"
-        )
-
-        if (
-            browser_tool
-            and any(command in query for command in browser_commands)
-            and browser_tool.can_handle(text)
-        ):
-            return self._normalise_result(
-                browser_tool.execute(text)
-            )
+        # ==========================
+        # APPLICATION CONTROL
+        # ==========================
 
         application_tool = self.registry.get("application")
-        if application_tool and application_tool.can_handle(text):
-            return self._normalise_result(
-                application_tool.execute(text)
+
+        if (
+            application_tool
+            and application_tool.can_handle(text)
+        ):
+
+            result = application_tool.execute(text)
+
+            return ToolResult(
+                True,
+                str(result)
             )
 
+        # ==========================
+        # OTHER REGISTERED TOOLS
+        # ==========================
+
         for tool in self.registry.all():
-            if tool.name in ("browser", "application", "filesystem"):
+
+            if tool.name in ["browser", "application"]:
                 continue
+
             if tool.can_handle(text):
-                return self._normalise_result(
-                    tool.execute(text)
+
+                result = tool.execute(text)
+
+                if (
+                    hasattr(result, "success")
+                    and hasattr(result, "message")
+                ):
+
+                    return ToolResult(
+                        result.success,
+                        result.message
+                    )
+
+                return ToolResult(
+                    True,
+                    str(result)
                 )
 
         return ToolResult()
-
-    def execute_plan(self, steps):
-        """Execute a prevalidated plan in order and stop on the first failure."""
-        if not isinstance(steps, list) or not 2 <= len(steps) <= 5:
-            return ToolResult(
-                success=False,
-                message="The action plan was invalid.",
-                handled=True
-            )
-
-        # Validate every step before performing the first action.
-        for index, step in enumerate(steps, start=1):
-            if not isinstance(step, str) or not self.can_handle_request(step):
-                return ToolResult(
-                    success=False,
-                    message=(
-                        f"I couldn't safely execute the plan. "
-                        f"Step {index} is not supported by the installed tools."
-                    ),
-                    handled=True
-                )
-
-        completed = []
-
-        for index, step in enumerate(steps, start=1):
-            result = self.execute(step)
-
-            if not result.handled or not result.success:
-                details = "\n".join(
-                    f"{number}. {item}"
-                    for number, item in enumerate(completed, start=1)
-                )
-                message = f"The plan stopped at step {index}: {result.message}"
-
-                if details:
-                    message += "\nCompleted steps:\n" + details
-
-                return ToolResult(
-                    success=False,
-                    message=message,
-                    handled=True,
-                    data={"completed": completed, "failed_step": index}
-                )
-
-            completed.append(result.message)
-
-        summary = "\n".join(
-            f"{number}. {item}"
-            for number, item in enumerate(completed, start=1)
-        )
-
-        return ToolResult(
-            success=True,
-            message="Completed the requested steps:\n" + summary,
-            handled=True,
-            data={"completed": completed}
-        )

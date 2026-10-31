@@ -4,10 +4,3 @@ beautifulsoup4
 typer
 rich
 pynput
-
-# Voice input and speech recognition
-faster-whisper
-sounddevice
-scipy
-numpy
-av<19
