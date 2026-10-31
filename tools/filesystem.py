@@ -104,7 +104,13 @@ class FileSystemTool(BaseTool):
             return ToolResponse.failure(f"Your {name} folder was not found.")
 
         entries = sorted(
-            root.iterdir(),
+            (
+                item for item in root.iterdir()
+                if not any(
+                    blocked in item.name.lower()
+                    for blocked in self.BLOCKED_NAME_PARTS
+                )
+            ),
             key=lambda item: (not item.is_dir(), item.name.lower())
         )
         if not entries:
@@ -155,7 +161,14 @@ class FileSystemTool(BaseTool):
             if visited > 5000:
                 break
             try:
-                if item.is_file() and needle.lower() in item.name.lower():
+                if (
+                    item.is_file()
+                    and needle.lower() in item.name.lower()
+                    and not any(
+                        blocked in item.name.lower()
+                        for blocked in self.BLOCKED_NAME_PARTS
+                    )
+                ):
                     if self._is_within(item, root):
                         results.append(item)
                         if len(results) >= self.MAX_SEARCH_RESULTS:
