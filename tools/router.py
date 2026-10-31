@@ -44,8 +44,6 @@ class ToolRouter:
         if not text or not text.strip():
             return False
 
-        query = text.lower().strip()
-
         if self.calculator.can_handle(text):
             return True
 
@@ -53,12 +51,7 @@ class ToolRouter:
         if filesystem_tool and filesystem_tool.can_handle(text):
             return True
 
-        filesystem_tool = self.registry.get("filesystem")
-        if filesystem_tool and filesystem_tool.can_handle(text):
-            return self._normalise_result(
-                filesystem_tool.execute(text)
-            )
-
+        query = text.lower().strip()
         browser_tool = self.registry.get("browser")
         browser_commands = (
             "open browser",
@@ -105,17 +98,13 @@ class ToolRouter:
         ]
 
         for tool in self.registry.all():
-            descriptions.append(
-                f"{tool.name}: {tool.description}"
-            )
+            descriptions.append(f"{tool.name}: {tool.description}")
 
         return descriptions
 
     def execute(self, text):
         if not text or not text.strip():
             return ToolResult()
-
-        query = text.lower().strip()
 
         if self.calculator.can_handle(text):
             result = self.calculator.execute(text)
@@ -136,6 +125,13 @@ class ToolRouter:
                 handled=True
             )
 
+        filesystem_tool = self.registry.get("filesystem")
+        if filesystem_tool and filesystem_tool.can_handle(text):
+            return self._normalise_result(
+                filesystem_tool.execute(text)
+            )
+
+        query = text.lower().strip()
         browser_tool = self.registry.get("browser")
         browser_commands = (
             "open browser",
@@ -173,7 +169,7 @@ class ToolRouter:
             )
 
         for tool in self.registry.all():
-            if tool.name in ("browser", "application"):
+            if tool.name in ("browser", "application", "filesystem"):
                 continue
             if tool.can_handle(text):
                 return self._normalise_result(
@@ -213,10 +209,7 @@ class ToolRouter:
                     f"{number}. {item}"
                     for number, item in enumerate(completed, start=1)
                 )
-
-                message = (
-                    f"The plan stopped at step {index}: {result.message}"
-                )
+                message = f"The plan stopped at step {index}: {result.message}"
 
                 if details:
                     message += "\nCompleted steps:\n" + details
