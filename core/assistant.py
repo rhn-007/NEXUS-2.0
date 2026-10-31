@@ -14,6 +14,7 @@ from tools.registry import ToolRegistry
 from tools.router import ToolRouter
 from tools.browser import BrowserTool
 from tools.application import ApplicationTool
+from tools.filesystem import FileSystemTool
 
 from ui.status import set_status, clear_status
 from utils.logger import setup_logger
@@ -71,6 +72,7 @@ class NexusAssistant:
     def register_tools(self):
         self.tool_registry.register(BrowserTool())
         self.tool_registry.register(ApplicationTool())
+        self.tool_registry.register(FileSystemTool())
 
     def _complete_turn(self, user_input, response):
         self.conversation.add_assistant_message(response)
