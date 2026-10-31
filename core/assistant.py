@@ -7,6 +7,7 @@ from memory.memory_manager import MemoryManager
 from core.response_style import ResponseStyleController
 from core.conversation import ConversationManager
 from core.input_manager import InputManager
+from core.action_planner import ActionPlanner
 from voice.speaker import Speaker
 
 from tools.registry import ToolRegistry
@@ -42,6 +43,10 @@ class NexusAssistant:
         self.tool_registry = ToolRegistry()
         self.register_tools()
         self.tool_router = ToolRouter(self.tool_registry)
+        self.action_planner = ActionPlanner(
+            self.llm,
+            self.tool_router
+        )
 
         self.status = "READY"
         logger.info("NEXUS initialized successfully.")
@@ -90,11 +95,16 @@ class NexusAssistant:
 
             self.memory.process_memory(user_input)
 
+            # Multi-step requests are planned and validated before execution.
+            planned_result = self.action_planner.execute_if_needed(user_input)
+            if planned_result is not None:
+                return self._complete_turn(
+                    user_input,
+                    planned_result.message
+                )
+
             tool_result = self.tool_router.execute(user_input)
 
-            # If a tool recognised the request, its result is authoritative.
-            # Do not let the language model invent a successful action when
-            # the real tool reports a failure.
             if tool_result.handled:
                 return self._complete_turn(
                     user_input,
