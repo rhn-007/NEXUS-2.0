@@ -49,6 +49,16 @@ class ToolRouter:
         if self.calculator.can_handle(text):
             return True
 
+        filesystem_tool = self.registry.get("filesystem")
+        if filesystem_tool and filesystem_tool.can_handle(text):
+            return True
+
+        filesystem_tool = self.registry.get("filesystem")
+        if filesystem_tool and filesystem_tool.can_handle(text):
+            return self._normalise_result(
+                filesystem_tool.execute(text)
+            )
+
         browser_tool = self.registry.get("browser")
         browser_commands = (
             "open browser",
@@ -82,7 +92,7 @@ class ToolRouter:
             return True
 
         for tool in self.registry.all():
-            if tool.name in ("browser", "application"):
+            if tool.name in ("browser", "application", "filesystem"):
                 continue
             if tool.can_handle(text):
                 return True
