@@ -88,12 +88,14 @@ class NexusAssistant:
             if memory_response:
                 return self._complete_turn(user_input, memory_response)
 
-            # Extract facts before building context so newly shared
-            # information can be used in the same response.
             self.memory.process_memory(user_input)
 
             tool_result = self.tool_router.execute(user_input)
-            if tool_result.success:
+
+            # If a tool recognised the request, its result is authoritative.
+            # Do not let the language model invent a successful action when
+            # the real tool reports a failure.
+            if tool_result.handled:
                 return self._complete_turn(
                     user_input,
                     tool_result.message
@@ -112,7 +114,7 @@ class NexusAssistant:
             return self._complete_turn(user_input, response)
 
         except Exception as error:
-            logger.error("NEXUS error: %s", error)
+            logger.exception("NEXUS error")
             return f"Error: {error}"
 
         finally:
