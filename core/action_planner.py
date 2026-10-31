@@ -27,7 +27,12 @@ class ActionPlanner:
         "google",
         "go to",
         "calculate",
-        "solve"
+        "solve",
+        "list",
+        "show",
+        "find",
+        "read",
+        "create"
     )
 
     def __init__(self, llm, tool_router):
