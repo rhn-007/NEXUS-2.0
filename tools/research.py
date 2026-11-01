@@ -9,7 +9,7 @@ knowledge for later review.
 import ipaddress
 import logging
 import socket
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import parse_qs, unquote, urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -114,6 +114,7 @@ class ResearchTool(BaseTool):
             return False
 
     def _normalize_result_url(self, url):
+        url = urljoin("https://html.duckduckgo.com", url)
         parsed = urlparse(url)
 
         if "duckduckgo.com" in (parsed.hostname or ""):
