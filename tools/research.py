@@ -9,6 +9,8 @@ language model, and store source material as unverified knowledge.
 import ipaddress
 import logging
 import socket
+import subprocess
+import time
 from pathlib import Path
 from urllib.parse import parse_qs, quote_plus, unquote, urljoin, urlparse
 
@@ -42,15 +44,24 @@ class ResearchTool(BaseTool):
         self.max_page_chars = 6000
         self.navigation_timeout = 30000
 
-        # Keep a separate research-browser profile so cookies and manual
-        # sign-ins can persist between research sessions. Opera is untouched.
+        # Research runs in Opera with its own profile, keeping the user's
+        # normal Opera profile and personal tabs separate.
+        self.browser_path = (
+            Path.home()
+            / "AppData"
+            / "Local"
+            / "Programs"
+            / "Opera"
+            / "opera.exe"
+        )
         self.browser_profile = (
             Path.home()
             / "AppData"
             / "Local"
             / "NEXUS"
-            / "research-browser-profile"
+            / "research-opera-profile"
         )
+        self.cdp_endpoint = "http://127.0.0.1:9223"
 
     def can_handle(self, query):
         if not query:
@@ -306,58 +317,108 @@ class ResearchTool(BaseTool):
             "content": text[:self.max_page_chars]
         }
 
-    def _collect_pages(self, topic):
+    def _connect_to_opera(self, playwright):
+        """Connect to the dedicated Opera research instance over CDP."""
+        try:
+            return playwright.chromium.connect_over_cdp(
+                self.cdp_endpoint,
+                timeout=3000
+            )
+        except PlaywrightError:
+            pass
+
+        if not self.browser_path.exists():
+            raise FileNotFoundError(
+                f"Opera was not found at: {self.browser_path}"
+            )
+
         self.browser_profile.mkdir(
             parents=True,
             exist_ok=True
         )
 
+        command = [
+            str(self.browser_path),
+            "--remote-debugging-port=9223",
+            "--remote-allow-origins=*",
+            f"--user-data-dir={self.browser_profile}",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "about:blank"
+        ]
+
+        subprocess.Popen(command, shell=False)
+
+        last_error = None
+
+        for _ in range(20):
+            try:
+                return playwright.chromium.connect_over_cdp(
+                    self.cdp_endpoint,
+                    timeout=3000
+                )
+            except PlaywrightError as error:
+                last_error = error
+                time.sleep(0.5)
+
+        raise PlaywrightError(
+            f"Could not connect to Opera's debugging endpoint: {last_error}"
+        )
+
+    def _collect_pages(self, topic):
         with sync_playwright() as playwright:
-            context = playwright.chromium.launch_persistent_context(
-                user_data_dir=str(self.browser_profile),
-                headless=False
-            )
+            browser = self._connect_to_opera(playwright)
 
             try:
-                context.route(
-                    "**/*",
-                    self._guard_browser_request
-                )
+                if not browser.contexts:
+                    raise PlaywrightError(
+                        "Opera did not provide a browser context."
+                    )
 
-                page = (
-                    context.pages[0]
-                    if context.pages
-                    else context.new_page()
-                )
+                context = browser.contexts[0]
+                page = context.new_page()
 
-                search_results = self._search_web(page, topic)
+                try:
+                    # Apply the request guard only to NEXUS's research tab,
+                    # not to the user's other tabs in the same Opera instance.
+                    page.route(
+                        "**/*",
+                        self._guard_browser_request
+                    )
 
-                if not search_results:
-                    return []
+                    search_results = self._search_web(page, topic)
 
-                pages = []
+                    if not search_results:
+                        return []
 
-                for result in search_results:
-                    try:
-                        extracted = self._extract_page(
-                            page,
-                            result["url"]
-                        )
+                    pages = []
 
-                        if extracted:
-                            pages.append(extracted)
+                    for result in search_results:
+                        try:
+                            extracted = self._extract_page(
+                                page,
+                                result["url"]
+                            )
 
-                    except PlaywrightError as error:
-                        logger.warning(
-                            "Could not retrieve research page %s: %s",
-                            result["url"],
-                            error
-                        )
+                            if extracted:
+                                pages.append(extracted)
 
-                return pages
+                        except PlaywrightError as error:
+                            logger.warning(
+                                "Could not retrieve research page %s: %s",
+                                result["url"],
+                                error
+                            )
+
+                    return pages
+
+                finally:
+                    if not page.is_closed():
+                        page.close()
 
             finally:
-                context.close()
+                # Disconnect Playwright without shutting down Opera.
+                browser.close()
 
     def execute(self, query):
         topic = self._extract_topic(query)
@@ -461,7 +522,7 @@ class ResearchTool(BaseTool):
                 status="failed"
             )
             return ToolResponse.failure(
-                "Internet research could not complete in Chromium. "
+                "Internet research could not complete in Opera. "
                 "Check your internet connection and browser installation."
             )
 
