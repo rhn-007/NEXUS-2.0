@@ -1,18 +1,23 @@
 """
 NEXUS Internet Research Tool
 
-Searches the web, extracts readable page content, summarizes it with
-the configured language model, and stores source material as unverified
-knowledge for later review.
+Uses a visible Playwright-controlled Chromium browser to search the web,
+extract readable page content, summarize sources with the configured
+language model, and store source material as unverified knowledge.
 """
 
 import ipaddress
 import logging
 import socket
-from urllib.parse import parse_qs, unquote, urljoin, urlparse
+from pathlib import Path
+from urllib.parse import parse_qs, quote_plus, unquote, urljoin, urlparse
 
-import requests
 from bs4 import BeautifulSoup
+from playwright.sync_api import (
+    Error as PlaywrightError,
+    TimeoutError as PlaywrightTimeoutError,
+    sync_playwright,
+)
 
 from tools.base import BaseTool
 from tools.response import ToolResponse
@@ -26,22 +31,26 @@ class ResearchTool(BaseTool):
     name = "research"
 
     description = (
-        "Researches a topic using web search, extracts information "
+        "Researches a topic using a visible browser, extracts information "
         "from webpages, summarizes sources, and stores findings."
     )
 
     def __init__(self, knowledge_engine, llm):
         self.knowledge = knowledge_engine
         self.llm = llm
-        self.session = requests.Session()
-        self.session.headers.update({
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 Chrome/120.0 Safari/537.36"
-            )
-        })
         self.max_results = 4
         self.max_page_chars = 6000
+        self.navigation_timeout = 30000
+
+        # Keep a separate research-browser profile so cookies and manual
+        # sign-ins can persist between research sessions. Opera is untouched.
+        self.browser_profile = (
+            Path.home()
+            / "AppData"
+            / "Local"
+            / "NEXUS"
+            / "research-browser-profile"
+        )
 
     def can_handle(self, query):
         if not query:
@@ -113,8 +122,71 @@ class ResearchTool(BaseTool):
         except (ValueError, OSError):
             return False
 
-    def _normalize_result_url(self, url):
-        url = urljoin("https://html.duckduckgo.com", url)
+    def _guard_browser_request(self, route):
+        """Prevent browser requests to local or non-public network addresses."""
+        url = route.request.url
+        scheme = urlparse(url).scheme.lower()
+
+        if scheme in ("data", "blob", "about"):
+            route.continue_()
+            return
+
+        if scheme not in ("http", "https"):
+            route.abort()
+            return
+
+        if not self._is_public_http_url(url):
+            logger.warning("Blocked non-public browser request: %s", url)
+            route.abort()
+            return
+
+        route.continue_()
+
+    def _looks_like_challenge(self, page):
+        try:
+            title = page.title().lower()
+            body = page.locator("body").inner_text(timeout=5000).lower()
+            sample = f"{title} {body[:5000]}"
+        except PlaywrightError:
+            return False
+
+        indicators = (
+            "captcha",
+            "verify you are human",
+            "unusual traffic",
+            "automated queries",
+            "security check",
+            "are you a robot",
+            "access denied"
+        )
+
+        return any(indicator in sample for indicator in indicators)
+
+    def _wait_for_manual_verification(self, page):
+        print(
+            "\nNEXUS research browser needs manual verification. "
+            "Complete the check in the Chromium window, then press "
+            "Enter here to continue."
+        )
+
+        try:
+            input("Press Enter after completing verification...")
+        except (EOFError, KeyboardInterrupt):
+            return False
+
+        try:
+            page.wait_for_load_state(
+                "domcontentloaded",
+                timeout=10000
+            )
+            page.wait_for_timeout(1000)
+        except PlaywrightError:
+            pass
+
+        return not self._looks_like_challenge(page)
+
+    def _normalize_result_url(self, url, base_url):
+        url = urljoin(base_url, url)
         parsed = urlparse(url)
 
         if "duckduckgo.com" in (parsed.hostname or ""):
@@ -125,33 +197,50 @@ class ResearchTool(BaseTool):
 
         return url
 
-    def _search_web(self, topic):
-        response = self.session.get(
-            "https://html.duckduckgo.com/html/",
-            params={"q": topic},
-            timeout=20
+    def _search_web(self, page, topic):
+        search_url = (
+            "https://html.duckduckgo.com/html/?q="
+            + quote_plus(topic)
         )
-        response.raise_for_status()
 
-        soup = BeautifulSoup(response.text, "html.parser")
+        page.goto(
+            search_url,
+            wait_until="domcontentloaded",
+            timeout=self.navigation_timeout
+        )
+        page.wait_for_timeout(1200)
+
+        if self._looks_like_challenge(page):
+            if not self._wait_for_manual_verification(page):
+                return []
+
         results = []
         seen_urls = set()
+        links = page.locator("a.result__a")
 
-        for link in soup.select("a.result__a"):
-            url = self._normalize_result_url(
-                link.get("href", "")
+        try:
+            links.first.wait_for(
+                state="attached",
+                timeout=10000
             )
+        except PlaywrightTimeoutError:
+            return results
 
-            if (
-                not url
-                or url in seen_urls
-                or not self._is_public_http_url(url)
-            ):
+        for index in range(min(links.count(), 30)):
+            link = links.nth(index)
+
+            href = link.get_attribute("href")
+            title = link.inner_text().strip()
+
+            if not href or not title:
                 continue
 
-            title = link.get_text(" ", strip=True)
+            url = self._normalize_result_url(href, page.url)
 
-            if not title:
+            if (
+                not self._is_public_http_url(url)
+                or url in seen_urls
+            ):
                 continue
 
             results.append({
@@ -165,29 +254,27 @@ class ResearchTool(BaseTool):
 
         return results
 
-    def _extract_page(self, url):
+    def _extract_page(self, page, url):
         if not self._is_public_http_url(url):
             return None
 
-        response = self.session.get(
+        page.goto(
             url,
-            timeout=20,
-            allow_redirects=True
+            wait_until="domcontentloaded",
+            timeout=self.navigation_timeout
         )
-        response.raise_for_status()
+        page.wait_for_timeout(700)
 
-        if not self._is_public_http_url(response.url):
+        if self._looks_like_challenge(page):
+            if not self._wait_for_manual_verification(page):
+                return None
+
+        final_url = page.url
+
+        if not self._is_public_http_url(final_url):
             return None
 
-        content_type = response.headers.get(
-            "Content-Type",
-            ""
-        ).lower()
-
-        if "text/html" not in content_type:
-            return None
-
-        soup = BeautifulSoup(response.text, "html.parser")
+        soup = BeautifulSoup(page.content(), "html.parser")
 
         for element in soup.select(
             "script, style, nav, footer, header, "
@@ -198,7 +285,7 @@ class ResearchTool(BaseTool):
         title = (
             soup.title.get_text(" ", strip=True)
             if soup.title
-            else urlparse(response.url).netloc
+            else urlparse(final_url).netloc
         )
 
         main = soup.find("main") or soup.find("article") or soup.body
@@ -214,10 +301,63 @@ class ResearchTool(BaseTool):
 
         return {
             "title": title[:250],
-            "url": response.url,
-            "source": urlparse(response.url).netloc,
+            "url": final_url,
+            "source": urlparse(final_url).netloc,
             "content": text[:self.max_page_chars]
         }
+
+    def _collect_pages(self, topic):
+        self.browser_profile.mkdir(
+            parents=True,
+            exist_ok=True
+        )
+
+        with sync_playwright() as playwright:
+            context = playwright.chromium.launch_persistent_context(
+                user_data_dir=str(self.browser_profile),
+                headless=False
+            )
+
+            try:
+                context.route(
+                    "**/*",
+                    self._guard_browser_request
+                )
+
+                page = (
+                    context.pages[0]
+                    if context.pages
+                    else context.new_page()
+                )
+
+                search_results = self._search_web(page, topic)
+
+                if not search_results:
+                    return []
+
+                pages = []
+
+                for result in search_results:
+                    try:
+                        extracted = self._extract_page(
+                            page,
+                            result["url"]
+                        )
+
+                        if extracted:
+                            pages.append(extracted)
+
+                    except PlaywrightError as error:
+                        logger.warning(
+                            "Could not retrieve research page %s: %s",
+                            result["url"],
+                            error
+                        )
+
+                return pages
+
+            finally:
+                context.close()
 
     def execute(self, query):
         topic = self._extract_topic(query)
@@ -228,33 +368,13 @@ class ResearchTool(BaseTool):
             )
 
         try:
-            search_results = self._search_web(topic)
-
-            if not search_results:
-                return ToolResponse.failure(
-                    "I couldn't find usable web search results for that topic."
-                )
-
-            pages = []
-
-            for result in search_results:
-                try:
-                    page = self._extract_page(result["url"])
-
-                    if page:
-                        pages.append(page)
-
-                except requests.RequestException as error:
-                    logger.warning(
-                        "Could not retrieve research page %s: %s",
-                        result["url"],
-                        error
-                    )
+            pages = self._collect_pages(topic)
 
             if not pages:
                 return ToolResponse.failure(
-                    "Search results were found, but I couldn't extract "
-                    "readable content from the webpages."
+                    "I couldn't extract usable research pages. "
+                    "A search challenge may need to be completed, or "
+                    "the search engine may not have returned results."
                 )
 
             saved_count = 0
@@ -332,8 +452,8 @@ class ResearchTool(BaseTool):
 
             return ToolResponse.success(result_message)
 
-        except requests.RequestException as error:
-            logger.error("Internet research request failed: %s", error)
+        except PlaywrightError as error:
+            logger.error("Internet research browser failed: %s", error)
             self.knowledge.record_activity(
                 activity="web_research_failed",
                 topic=topic,
@@ -341,8 +461,8 @@ class ResearchTool(BaseTool):
                 status="failed"
             )
             return ToolResponse.failure(
-                "Internet research failed because a web request could not "
-                "be completed. Check your internet connection and try again."
+                "Internet research could not complete in Chromium. "
+                "Check your internet connection and browser installation."
             )
 
         except Exception as error:
