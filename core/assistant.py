@@ -219,6 +219,11 @@ class NexusAssistant:
                     tool_result.message
                 )
 
+                self.memory.save_conversation(
+                    user_input,
+                    tool_result.message
+                )
+
                 self.speaker.speak(
                     tool_result.message
                 )
