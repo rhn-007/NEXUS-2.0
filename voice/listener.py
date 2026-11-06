@@ -54,7 +54,7 @@ class Listener:
     def apply_learned_corrections(self, text):
         """Apply only corrections the user explicitly taught NEXUS."""
         for heard, intended in sorted(self.custom_corrections.items(), key=lambda item: len(item[0]), reverse=True):
-            pattern = r"(?<!\w)" + re.escape(heard) + r"(?!\\w)"
+            pattern = r"(?<!\w)" + re.escape(heard) + r"(?!\w)"
             text = re.sub(pattern, intended, text, flags=re.IGNORECASE)
         return text
     # START RECORDING
