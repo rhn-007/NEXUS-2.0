@@ -7,7 +7,7 @@ from research.pipeline import ResearchPipeline
 
 
 class FakeLLM:
-    def __init__(self, response="Overview\\n\\nKey findings\\n\\nOpen questions"):
+    def __init__(self, response="Overview\n\nKey findings\n\nOpen questions"):
         self.response = response
         self.last_prompt = None
 
