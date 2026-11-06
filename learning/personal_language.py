@@ -121,10 +121,21 @@ class PersonalLanguageLearner:
 
         # Count meaningful words, not every conversational filler.
         tokens = re.findall(r"[A-Za-z][A-Za-z0-9+#.-]{2,}", str(text))
-        for token in tokens:
-            normalized = token.strip(".,!?;:").lower()
-            if normalized not in self.STOP_WORDS:
-                self._increment(normalized, "term")
+        normalized_tokens = [
+            token.strip(".,!?;:").lower()
+            for token in tokens
+        ]
+
+        for token in normalized_tokens:
+            if token not in self.STOP_WORDS:
+                self._increment(token, "term")
+
+        # Track short recurring expressions, not full sentences.
+        for size in (2, 3):
+            for index in range(max(0, len(normalized_tokens) - size + 1)):
+                phrase_words = normalized_tokens[index:index + size]
+                if any(word not in self.STOP_WORDS for word in phrase_words):
+                    self._increment(" ".join(phrase_words), "phrase")
 
         return None
 
@@ -151,7 +162,15 @@ class PersonalLanguageLearner:
     def get_context(self):
         terms = self.get_vocabulary(15)
         corrections = self.get_corrections()
-        if not terms and not corrections:
+        phrase_rows = self.connection.execute("""
+            SELECT phrase
+            FROM personal_language
+            WHERE kind='phrase' AND occurrence_count >= 3
+            ORDER BY occurrence_count DESC, updated_at DESC
+            LIMIT 8
+        """).fetchall()
+        phrases = [row["phrase"] for row in phrase_rows]
+        if not terms and not corrections and not phrases:
             return None
 
         parts = [
@@ -162,6 +181,8 @@ class PersonalLanguageLearner:
         ]
         if terms:
             parts.append("Frequently used vocabulary: " + ", ".join(terms))
+        if phrases:
+            parts.append("Recurring short expressions: " + "; ".join(phrases))
         if corrections:
             mappings = [
                 f'"{heard}" means "{intended}"'
@@ -173,7 +194,15 @@ class PersonalLanguageLearner:
     def get_profile_summary(self):
         terms = self.get_vocabulary(20)
         corrections = self.get_corrections()
-        if not terms and not corrections:
+        phrase_rows = self.connection.execute("""
+            SELECT phrase
+            FROM personal_language
+            WHERE kind='phrase' AND occurrence_count >= 3
+            ORDER BY occurrence_count DESC, updated_at DESC
+            LIMIT 8
+        """).fetchall()
+        phrases = [row["phrase"] for row in phrase_rows]
+        if not terms and not corrections and not phrases:
             return (
                 "I haven't learned enough recurring speech patterns yet. "
                 "I'll gradually recognise vocabulary you use often and "
@@ -183,6 +212,8 @@ class PersonalLanguageLearner:
         lines = ["Here's what I've learned about your communication:"]
         if terms:
             lines.append("Frequently used terms: " + ", ".join(terms))
+        if phrases:
+            lines.append("Recurring expressions: " + "; ".join(phrases))
         if corrections:
             lines.append("Your corrections:")
             lines.extend(
