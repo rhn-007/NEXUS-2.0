@@ -14,6 +14,7 @@ from pathlib import Path
 import tempfile
 import uuid
 import threading
+import re
 
 from utils.logger import setup_logger
 
@@ -39,10 +40,23 @@ class Listener:
         self.audio_frames = []
         self.stream = None
         self.audio_lock = threading.Lock()
+        self.custom_vocabulary = []
+        self.custom_corrections = {}
 
         print("Listener ready.")
 
     # ======================================================
+    def set_language_profile(self, vocabulary=None, corrections=None):
+        """Update vocabulary hints and explicit phrase corrections."""
+        self.custom_vocabulary = list(vocabulary or [])[:20]
+        self.custom_corrections = dict(corrections or {})
+
+    def apply_learned_corrections(self, text):
+        """Apply only corrections the user explicitly taught NEXUS."""
+        for heard, intended in sorted(self.custom_corrections.items(), key=lambda item: len(item[0]), reverse=True):
+            pattern = r"(?<!\\w)" + re.escape(heard) + r"(?!\\w)"
+            text = re.sub(pattern, intended, text, flags=re.IGNORECASE)
+        return text
     # START RECORDING
     # ======================================================
 
@@ -142,11 +156,21 @@ class Listener:
                 audio.astype(np.float32)
             )
 
+            transcription_options = {
+                "beam_size": 5,
+                "language": "en",
+                "vad_filter": True
+            }
+
+            if self.custom_vocabulary:
+                transcription_options["initial_prompt"] = (
+                    "Names and terms commonly used by this speaker: "
+                    + ", ".join(self.custom_vocabulary)
+                )[:500]
+
             segments, info = self.model.transcribe(
                 str(temp_file),
-                beam_size=5,
-                language="en",
-                vad_filter=True
+                **transcription_options
             )
 
             text = ""
@@ -157,7 +181,8 @@ class Listener:
 
             text = text.strip()
 
-            return self.fix_transcription(text)
+            corrected = self.fix_transcription(text)
+            return self.apply_learned_corrections(corrected)
 
         except Exception as e:
 
@@ -212,7 +237,6 @@ class Listener:
             "ollama": "Ollama",
             "python": "Python",
             "Oprah": "Opera",
-            "What's up": "Whatsapp"
 
         }
 
