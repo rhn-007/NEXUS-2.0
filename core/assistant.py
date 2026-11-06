@@ -4,6 +4,8 @@ NEXUS Core Assistant
 Main brain controller.
 """
 
+import time
+
 from dotenv import load_dotenv
 
 from ai.ollama import OllamaClient
@@ -11,6 +13,7 @@ from ai.ollama import OllamaClient
 from memory.memory_manager import MemoryManager
 from learning.knowledge_engine import KnowledgeEngine
 from learning.personal_language import PersonalLanguageLearner
+from learning.observation import PerformanceObserver
 
 from core.response_style import ResponseStyleController
 from core.conversation import ConversationManager
@@ -65,10 +68,16 @@ class NexusAssistant:
         self.response_style = ResponseStyleController()
 
         # ==========================
+        # SELF-OBSERVATION
+        # ==========================
+
+        self.observer = PerformanceObserver()
+
+        # ==========================
         # AI MODEL
         # ==========================
 
-        self.llm = OllamaClient()
+        self.llm = OllamaClient(observer=self.observer)
 
         # ==========================
         # VOICE
@@ -165,7 +174,84 @@ class NexusAssistant:
     # PROCESS USER INPUT
     # ==========================
 
+    def _classify_observation_request(self, user_input):
+        text = user_input.lower().strip()
+
+        if text.startswith(("research ", "learn about ", "find information about ")):
+            return "research"
+
+        if (
+            "when i say" in text
+            or "i said" in text
+            or "that's incorrect" in text
+            or "that is incorrect" in text
+            or "you are wrong" in text
+            or "not what i meant" in text
+        ):
+            return "feedback"
+
+        if text in (
+            "show performance report",
+            "show nexus performance",
+            "nexus performance report",
+            "self observation report"
+        ):
+            return "report"
+
+        if any(term in text for term in (
+            "what do you know about me",
+            "what do u know about me",
+            "tell me about myself",
+            "who am i",
+            "my profile"
+        )):
+            return "memory"
+
+        return "conversation"
+
     def process_input(self, user_input):
+        started_at = time.perf_counter()
+        request_type = self._classify_observation_request(user_input)
+        status = "completed"
+        response = ""
+
+        try:
+            response = self._process_input(user_input)
+            lowered = str(response or "").lower()
+            if lowered.startswith((
+                "error:",
+                "ollama error",
+                "ollama returned",
+                "ollama took too long",
+                "i can't connect to ollama"
+            )):
+                status = "failed"
+            return response
+        except Exception:
+            status = "failed"
+            raise
+        finally:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            try:
+                self.observer.record_event(
+                    event_type="assistant_interaction",
+                    status=status,
+                    duration_ms=duration_ms,
+                    metadata={
+                        "request_type": request_type,
+                        "input_length": len(str(user_input or "")),
+                        "output_length": len(str(response or "")),
+                        "input_source": (
+                            "voice"
+                            if self.input_manager.last_input_was_voice
+                            else "typed"
+                        )
+                    }
+                )
+            except Exception as error:
+                logger.warning("Could not record interaction metrics: %s", error)
+
+    def _process_input(self, user_input):
 
         if not user_input.strip():
             return ""
@@ -233,6 +319,17 @@ class NexusAssistant:
                 self.language_learner.clear_profile()
                 self.input_manager.listener.set_language_profile([], {})
                 response = "Your personal speech profile has been cleared."
+                self.conversation.add_assistant_message(response)
+                self.speaker.speak(response)
+                return response
+
+            if user_input.lower().strip(" ?.!.") in [
+                "show performance report",
+                "show nexus performance",
+                "nexus performance report",
+                "self observation report"
+            ]:
+                response = self.observer.get_report(days=7)
                 self.conversation.add_assistant_message(response)
                 self.speaker.speak(response)
                 return response
