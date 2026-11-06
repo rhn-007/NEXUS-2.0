@@ -143,11 +143,13 @@ class NexusAssistant:
             ApplicationTool()
         )
 
+        self.research_tool = ResearchTool(
+            self.knowledge,
+            self.llm
+        )
+
         self.tool_registry.register(
-            ResearchTool(
-                self.knowledge,
-                self.llm
-            )
+            self.research_tool
         )
 
     # ==========================
@@ -342,7 +344,22 @@ class NexusAssistant:
                 if len(results) >= 5:
                     break
 
-            if not results:
+            # Include the persistent research index alongside legacy
+            # knowledge entries. This lets ordinary follow-up questions
+            # reuse prior source material without launching a new search.
+            try:
+                research_context = self.research_tool.research_pipeline.retrieve_context(
+                    user_input,
+                    limit=4
+                )
+            except Exception as retrieval_error:
+                logger.warning(
+                    "Research context retrieval unavailable: %s",
+                    retrieval_error
+                )
+                research_context = None
+
+            if not results and not research_context:
                 return None
 
             reference_text = (
@@ -365,6 +382,13 @@ class NexusAssistant:
                     f"Verification: {item['verification_status']}\n"
                     f"Confidence: {item['confidence']}\n"
                     "\n-------------------------\n\n"
+                )
+
+            if research_context:
+                reference_text += (
+                    "\\nPERSISTENT RESEARCH INDEX:\\n"
+                    + research_context
+                    + "\\n"
                 )
 
             return reference_text
