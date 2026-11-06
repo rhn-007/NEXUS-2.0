@@ -58,7 +58,7 @@ class ResearchPipeline:
             score = self._score_page(topic, page)
             page["relevance_score"] = score
             # Reject extremely short or clearly irrelevant extractions.
-            if len(page.get("content", "")) < 350 or score < 0.08:
+            if len(page.get("content", "")) < 350 or score < 0.20:
                 continue
             source_id = self.store.save_source(session_id, page)
             if source_id:
