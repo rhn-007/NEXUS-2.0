@@ -34,7 +34,7 @@ class Speaker:
         self.long_text_word_limit = 120
         self.long_text_char_limit = 750
         self.spoken_summary_word_limit = 65
-        self.speech_length_scale = "1.06"
+        self.speech_length_scale = "1.03"
         self.ollama_url = "http://localhost:11434/api/chat"
         self.ollama_model = "qwen2.5:3b"
 
