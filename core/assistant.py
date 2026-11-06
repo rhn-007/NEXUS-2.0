@@ -247,7 +247,7 @@ class NexusAssistant:
             if knowledge_context:
 
                 context.insert(
-                    1,
+                    0,
                     {
                         "role": "system",
                         "content": knowledge_context
