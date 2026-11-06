@@ -30,6 +30,7 @@ class InputManager:
     def __init__(self):
 
         self.mode = "voice"
+        self.last_input_was_voice = False
 
         logger.info("Loading voice input system...")
 
@@ -206,6 +207,7 @@ class InputManager:
                 return ""
 
             text = self.recorded_text.strip()
+            self.last_input_was_voice = bool(text)
 
             if text:
 
@@ -242,6 +244,7 @@ class InputManager:
 
         try:
 
+            self.last_input_was_voice = False
             return input("\nYou: ").strip()
 
         except Exception as e:
