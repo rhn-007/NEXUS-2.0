@@ -313,16 +313,7 @@ not:
             "?"
         )
 
-        # ==========================
-        # LIMIT EXCESSIVE LENGTH
-        # ==========================
-
-        lines = response.split("\n")
-
-        if len(lines) > 15:
-
-            response = "\n".join(
-                lines[:15]
-            )
-
+        # Preserve complete structured reports. The response prompt should
+        # control length; silently dropping everything after line 15 loses
+        # citations and important qualifications.
         return response
