@@ -10,6 +10,7 @@ from ai.ollama import OllamaClient
 
 from memory.memory_manager import MemoryManager
 from learning.knowledge_engine import KnowledgeEngine
+from learning.personal_language import PersonalLanguageLearner
 
 from core.response_style import ResponseStyleController
 from core.conversation import ConversationManager
@@ -46,6 +47,9 @@ class NexusAssistant:
 
         self.memory = MemoryManager()
 
+        # Learns recurring vocabulary and explicit speech corrections.
+        self.language_learner = PersonalLanguageLearner()
+
         # ==========================
         # KNOWLEDGE ENGINE
         # ==========================
@@ -73,6 +77,11 @@ class NexusAssistant:
         self.input_manager = InputManager()
 
         self.speaker = Speaker()
+
+        self.input_manager.listener.set_language_profile(
+            self.language_learner.get_vocabulary(),
+            self.language_learner.get_corrections()
+        )
 
         # ==========================
         # TOOLS
@@ -179,6 +188,55 @@ class NexusAssistant:
                 user_input
             )
 
+            # Learn only from voice transcripts; explicit corrections can
+            # be taught through either voice or keyboard input.
+            input_source = (
+                "voice" if self.input_manager.last_input_was_voice else "typed"
+            )
+            correction = self.language_learner.observe(
+                user_input,
+                source=input_source
+            )
+            self.input_manager.listener.set_language_profile(
+                self.language_learner.get_vocabulary(),
+                self.language_learner.get_corrections()
+            )
+
+            if correction:
+                response = (
+                    f"Understood. When you say '{correction[0]}', "
+                    f"I'll understand '{correction[1]}'."
+                )
+                self.conversation.add_assistant_message(response)
+                self.speaker.speak(response)
+                return response
+
+            speech_profile_queries = [
+                "what have you learned about how i speak",
+                "what have you learned about my speaking",
+                "what do you know about my speaking style",
+                "show my speech profile",
+                "show my speaking profile",
+                "speech profile"
+            ]
+            if user_input.lower().strip(" ?.!") in speech_profile_queries:
+                response = self.language_learner.get_profile_summary()
+                self.conversation.add_assistant_message(response)
+                self.speaker.speak(response)
+                return response
+
+            if user_input.lower().strip(" ?.!") in [
+                "forget my speech profile",
+                "clear my speech profile",
+                "delete my speech profile"
+            ]:
+                self.language_learner.clear_profile()
+                self.input_manager.listener.set_language_profile([], {})
+                response = "Your personal speech profile has been cleared."
+                self.conversation.add_assistant_message(response)
+                self.speaker.speak(response)
+                return response
+
             # ======================
             # MEMORY CHECK
             # ======================
@@ -237,6 +295,17 @@ class NexusAssistant:
             # ======================
 
             context = self.conversation.get_context()
+
+            # Add learned communication patterns as soft context.
+            language_context = self.language_learner.get_context()
+            if language_context:
+                context.insert(
+                    0,
+                    {
+                        "role": "system",
+                        "content": language_context
+                    }
+                )
 
             # Retrieve relevant stored knowledge
             knowledge_context = self.get_relevant_knowledge(
