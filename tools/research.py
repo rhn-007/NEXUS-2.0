@@ -378,6 +378,13 @@ class ResearchTool(BaseTool):
                     )
 
                 context = browser.contexts[0]
+
+                # Remove the startup blank tab from NEXUS's dedicated
+                # research profile before opening the research tab.
+                for existing_page in context.pages:
+                    if not existing_page.is_closed():
+                        existing_page.close()
+
                 page = context.new_page()
 
                 try:
@@ -419,8 +426,19 @@ class ResearchTool(BaseTool):
                         page.close()
 
             finally:
-                # Disconnect Playwright without shutting down Opera.
-                browser.close()
+                # This is NEXUS's dedicated Opera profile and debugging
+                # endpoint, so close that browser instance when research ends.
+                try:
+                    cdp_session = browser.new_browser_cdp_session()
+                    cdp_session.send("Browser.close")
+                except PlaywrightError as error:
+                    logger.warning(
+                        "Could not explicitly close the research browser: %s",
+                        error
+                    )
+                finally:
+                    # Ensure Playwright also releases its CDP connection.
+                    browser.close()
 
     def execute(self, query):
         topic = self._extract_topic(query)
