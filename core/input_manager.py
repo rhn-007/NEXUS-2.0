@@ -1,4 +1,3 @@
-
 """
 NEXUS Input Manager
 
@@ -17,12 +16,16 @@ Keyboard mode:
 from pynput import keyboard
 from voice.listener import Listener
 from utils.logger import setup_logger
-from threading import Event
+from threading import Event, Lock, Timer
 
 logger = setup_logger(__name__)
 
 
 class InputManager:
+
+    # Ignore very brief SPACE events, which can be caused by accidental
+    # taps or transient keyboard events.
+    SPACE_HOLD_THRESHOLD = 0.25
 
     def __init__(self):
 
@@ -36,6 +39,10 @@ class InputManager:
         self.completed = Event()
         self.recorded_text = ""
         self.keyboard_listener = None
+
+        self.space_down = False
+        self.start_timer = None
+        self.state_lock = Lock()
 
         logger.info("Push-to-Talk input manager initialized.")
 
@@ -74,36 +81,22 @@ class InputManager:
         self.completed.clear()
         self.recorded_text = ""
         self.recording = False
+        self.space_down = False
+        self.start_timer = None
 
         print("\nHold SPACE to speak. Release to send.")
         print("Press ESC to switch to keyboard mode.")
 
-        def on_press(key):
+        def begin_recording():
 
-            if key == keyboard.Key.esc:
+            with self.state_lock:
 
-                if self.recording:
-
-                    try:
-                        self.listener.stop_recording()
-
-                    except Exception as e:
-                        logger.error(f"Recording cancellation error: {e}")
-
-                    finally:
-                        self.recording = False
-
-                self.mode = "keyboard"
-                self.completed.set()
-
-                return False
-
-            if key == keyboard.Key.space and not self.recording:
+                if not self.space_down or self.mode != "voice":
+                    return
 
                 try:
 
                     self.listener.start_recording()
-
                     self.recording = True
 
                     print("\nNEXUS listening...")
@@ -111,31 +104,82 @@ class InputManager:
                 except Exception as e:
 
                     logger.error(f"Recording start error: {e}")
-
+                    self.recording = False
                     self.completed.set()
 
-                    return False
+        def on_press(key):
+
+            if key == keyboard.Key.esc:
+
+                with self.state_lock:
+
+                    self.space_down = False
+
+                    if self.start_timer:
+                        self.start_timer.cancel()
+                        self.start_timer = None
+
+                    if self.recording:
+
+                        try:
+                            self.listener.stop_recording()
+
+                        except Exception as e:
+                            logger.error(f"Recording cancellation error: {e}")
+
+                        finally:
+                            self.recording = False
+
+                self.mode = "keyboard"
+                self.completed.set()
+
+                return False
+
+            if key == keyboard.Key.space:
+
+                with self.state_lock:
+
+                    if not self.space_down and not self.recording:
+
+                        self.space_down = True
+
+                        self.start_timer = Timer(
+                            self.SPACE_HOLD_THRESHOLD,
+                            begin_recording
+                        )
+                        self.start_timer.daemon = True
+                        self.start_timer.start()
 
         def on_release(key):
 
-            if key == keyboard.Key.space and self.recording:
+            if key == keyboard.Key.space:
 
-                try:
+                with self.state_lock:
 
-                    print("\nProcessing speech...")
+                    self.space_down = False
 
-                    self.recorded_text = self.listener.stop_recording()
+                    if self.start_timer:
+                        self.start_timer.cancel()
+                        self.start_timer = None
 
-                except Exception as e:
+                    if not self.recording:
+                        return
 
-                    logger.error(f"Recording stop error: {e}")
+                    try:
 
-                    self.recorded_text = ""
+                        print("\nProcessing speech...")
 
-                finally:
+                        self.recorded_text = self.listener.stop_recording()
 
-                    self.recording = False
-                    self.completed.set()
+                    except Exception as e:
+
+                        logger.error(f"Recording stop error: {e}")
+                        self.recorded_text = ""
+
+                    finally:
+
+                        self.recording = False
+                        self.completed.set()
 
                 return False
 
@@ -177,11 +221,18 @@ class InputManager:
 
         finally:
 
-            if self.keyboard_listener:
+            with self.state_lock:
 
-                self.keyboard_listener.stop()
+                self.space_down = False
 
-            self.recording = False
+                if self.start_timer:
+                    self.start_timer.cancel()
+                    self.start_timer = None
+
+                if self.keyboard_listener:
+                    self.keyboard_listener.stop()
+
+                self.recording = False
 
     # ======================================================
     # KEYBOARD INPUT
