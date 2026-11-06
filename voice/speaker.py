@@ -173,7 +173,7 @@ class Speaker:
         # Prefer a dedicated summary/conclusion section in reports.
         summary_match = re.search(
             r"(?is)(?:^|\s)(?:summary|key takeaway|conclusion|overall summary)\s*:?\s*(.*)$",
-            str(text)
+            cleaned
         )
 
         if summary_match:
