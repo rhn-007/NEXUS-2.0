@@ -38,9 +38,10 @@ class ResearchTool(BaseTool):
         "from webpages, summarizes sources, and stores findings."
     )
 
-    def __init__(self, knowledge_engine, llm):
+    def __init__(self, knowledge_engine, llm, interactive_verification=True):
         self.knowledge = knowledge_engine
         self.llm = llm
+        self.interactive_verification = interactive_verification
         self.research_pipeline = ResearchPipeline(llm)
         self.max_results = 4
         self.max_page_chars = 6000
@@ -176,6 +177,13 @@ class ResearchTool(BaseTool):
         return any(indicator in sample for indicator in indicators)
 
     def _wait_for_manual_verification(self, page):
+        if not self.interactive_verification:
+            logger.warning(
+                "A browser verification challenge appeared during a scheduled "
+                "research session. Skipping it because no interactive CLI is available."
+            )
+            return False
+
         print(
             "\nNEXUS research browser needs manual verification. "
             "Complete the check in the Chromium window, then press "
@@ -442,6 +450,11 @@ class ResearchTool(BaseTool):
 
     def execute(self, query):
         topic = self._extract_topic(query)
+        return self.research_topic(topic, research_question=query)
+
+    def research_topic(self, topic, research_question=None):
+        topic = (topic or "").strip()
+        query = research_question or f"Research about {topic}"
 
         if not topic or len(topic) > 150:
             return ToolResponse.failure(
