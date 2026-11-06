@@ -10,6 +10,7 @@ import subprocess
 import uuid
 from pathlib import Path
 import winsound
+import requests
 
 from utils.logger import setup_logger
 
@@ -32,7 +33,10 @@ class Speaker:
         # Long written answers should not be read aloud in full.
         self.long_text_word_limit = 120
         self.long_text_char_limit = 750
-        self.spoken_summary_word_limit = 85
+        self.spoken_summary_word_limit = 65
+        self.speech_length_scale = "1.06"
+        self.ollama_url = "http://localhost:11434/api/chat"
+        self.ollama_model = "qwen2.5:3b"
 
         logger.info(
             "Voice system ready"
@@ -146,22 +150,59 @@ class Speaker:
         return text.strip()
 
     # ==========================================================
+    # ==========================================================
     # SPOKEN VERSION SELECTION
     # ==========================================================
 
-    def prepare_spoken_text(self, text):
-        """
-        Select a concise spoken version for long responses while
-        leaving the full written response untouched.
-        """
+    def summarize_for_speech(self, text):
+        """Summarize the whole long response using local Ollama."""
+        try:
+            response = requests.post(
+                self.ollama_url,
+                json={
+                    "model": self.ollama_model,
+                    "stream": False,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": (
+                                "You create concise spoken briefings for NEXUS. "
+                                "Summarize the entire supplied answer in 2 or 3 "
+                                "natural sentences, about 35 to 55 words. Cover "
+                                "the main ideas across the whole answer, not just "
+                                "its opening. Do not add facts. Do not mention "
+                                "Markdown, sources, or citations. Return only "
+                                "the summary, with no heading or preamble."
+                            )
+                        },
+                        {"role": "user", "content": str(text)[:12000]}
+                    ],
+                    "options": {"temperature": 0.2, "num_predict": 100}
+                },
+                timeout=25
+            )
+            response.raise_for_status()
+            summary = response.json().get("message", {}).get("content", "").strip()
+            summary = self.clean_for_speech(summary)
 
+            if summary and len(summary.split()) >= 8:
+                return summary
+
+            logger.warning("Ollama returned an unusable speech summary.")
+
+        except Exception as e:
+            logger.warning(f"Speech summary generation failed: {e}")
+
+        return None
+
+    def prepare_spoken_text(self, text):
+        """Prepare concise speech while preserving the full screen response."""
         cleaned = self.clean_for_speech(text)
 
         if not cleaned:
             return ""
 
         words = cleaned.split()
-
         is_long = (
             len(words) > self.long_text_word_limit
             or len(cleaned) > self.long_text_char_limit
@@ -170,35 +211,35 @@ class Speaker:
         if not is_long:
             return cleaned
 
-        # Prefer a dedicated summary/conclusion section in reports.
+        # Summarize the entire answer with the existing local model.
+        summary = self.summarize_for_speech(text)
+
+        if summary:
+            summary_words = summary.split()
+            if len(summary_words) > self.spoken_summary_word_limit:
+                summary = " ".join(
+                    summary_words[:self.spoken_summary_word_limit]
+                ).rstrip(" ,;:") + "."
+            return summary + " The full response is displayed on screen."
+
+        # Fallback: extract a report summary section, if present.
         summary_match = re.search(
-            r"(?ims)^\\s*(?:#{1,6}\\s*)?(?:\\*\\*)?(?:summary|key takeaway|conclusion|overall summary)(?:\\*\\*)?\\s*:?\\s*$\\n(.*?)(?=^\\s*(?:#{1,6}\\s*)?(?:\\*\\*)?(?:sources|references|bibliography)\\b|\\Z)",
+            r"(?im)^\s*(?:#{1,6}\s*)?(?:\*\*)?(?:summary|key takeaway|conclusion|overall summary)(?:\*\*)?\s*:?\s*$\n(.*?)(?=^\s*(?:#{1,6}\s*)?(?:\*\*)?(?:sources|references|bibliography)\b|\Z)",
             str(text)
         )
 
         if summary_match:
-            summary = self.clean_for_speech(
-                summary_match.group(1)
-            )
+            summary = self.clean_for_speech(summary_match.group(1))
             if summary:
                 summary_words = summary.split()
                 if len(summary_words) > self.spoken_summary_word_limit:
                     summary = " ".join(
                         summary_words[:self.spoken_summary_word_limit]
-                    ).rstrip(" ,;:")
-                    summary += "."
-                return (
-                    summary
-                    + " The full response is displayed on screen."
-                )
+                    ).rstrip(" ,;:") + "."
+                return summary + " The full response is displayed on screen."
 
-        # Otherwise speak the opening sentences, which normally contain
-        # the direct answer, rather than reading the entire report.
-        sentences = re.split(
-            r"(?<=[.!?])\s+",
-            cleaned
-        )
-
+        # Final fallback: speak the opening sentences.
+        sentences = re.split(r"(?<=[.!?])\s+", cleaned)
         selected = []
         selected_words = 0
 
@@ -214,16 +255,11 @@ class Speaker:
                 break
 
         spoken = " ".join(selected).strip()
-
         if not spoken:
             spoken = " ".join(words[:65]).rstrip(" ,;:") + "."
 
-        return (
-            spoken
-            + " The full response is displayed on screen."
-        )
+        return spoken + " The full response is displayed on screen."
 
-    # ==========================================================
     # PRONUNCIATION
     # ==========================================================
 
@@ -303,7 +339,7 @@ class Speaker:
                 str(output),
 
                 "--length_scale",
-                "1.00",
+                self.speech_length_scale,
 
                 "--noise_scale",
                 "0.22",
