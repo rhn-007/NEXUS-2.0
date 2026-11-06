@@ -91,10 +91,13 @@ class DailyLearningWorker:
     def _plan_research(self, candidates):
         topic_lines = []
         for index, item in enumerate(candidates, 1):
+            topic = str(item.get("topic") or "").strip()
+            summary = str(item.get("summary") or "")
+            open_questions = item.get("open_questions") or []
             topic_lines.append(
-                f"{index}. TOPIC: {item['topic']}\n"
-                f"Existing summary: {item['summary'] or 'No consolidated summary yet.'}\n"
-                f"Open questions: {json.dumps(item['open_questions'], ensure_ascii=False)}"
+                f"{index}. TOPIC: {topic}\n"
+                f"Existing summary: {summary or 'No consolidated summary yet.'}\n"
+                f"Open questions: {json.dumps(open_questions, ensure_ascii=False)}"
             )
 
         prompt = (
@@ -121,7 +124,7 @@ class DailyLearningWorker:
         plan = json.loads(match.group(0))
         topic = str(plan.get("topic", "")).strip()
         question = str(plan.get("research_question", "")).strip()
-        if topic not in {item["topic"] for item in candidates}:
+        if topic not in {str(item.get("topic") or "").strip() for item in candidates}:
             raise ValueError("The planner selected a topic outside the knowledge base.")
         if not question or len(question) > 200:
             raise ValueError("The planner returned an invalid research question.")
