@@ -451,9 +451,11 @@ class ResearchTool(BaseTool):
 
             if not summary:
                 return ToolResponse.failure(
-                    "I found webpages, but none produced enough relevant "
-                    "evidence for a reliable research summary. The extracted "
-                    "pages were not presented as verified findings."
+                    f"I extracted and preserved {accepted_count} relevant "
+                    "source(s) in the research database, but the local AI "
+                    "model could not complete the analysis. No research "
+                    "summary was saved, and the sources remain unverified. "
+                    "You can ask NEXUS about the stored sources later."
                 )
 
             saved_count = 0
