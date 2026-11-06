@@ -4,6 +4,8 @@ NEXUS Ollama Client
 Handles communication with the local Ollama model.
 """
 
+import time
+
 import requests
 
 from utils.logger import setup_logger
@@ -16,19 +18,54 @@ logger = setup_logger(__name__)
 
 class OllamaClient:
 
-    def __init__(self):
+    def __init__(self, observer=None):
 
         self.url = "http://localhost:11434/api/chat"
 
         self.model = "qwen2.5:3b"
 
         self.response_style = ResponseStyleController()
+        self.observer = observer
 
         logger.info(
             "Ollama client ready"
         )
 
-    def generate_response(
+    def generate_response(self, message, context=None):
+        started_at = time.perf_counter()
+        result = self._generate_response(message, context)
+        duration_ms = (time.perf_counter() - started_at) * 1000
+
+        if self.observer:
+            lowered = str(result or "").lower()
+            failed_prefixes = (
+                "ollama error",
+                "ollama returned",
+                "ollama took too long",
+                "i can't connect to ollama"
+            )
+            status = (
+                "failed"
+                if lowered.startswith(failed_prefixes)
+                else "completed"
+            )
+            try:
+                self.observer.record_event(
+                    event_type="model_generation",
+                    status=status,
+                    duration_ms=duration_ms,
+                    metadata={
+                        "model": self.model,
+                        "input_length": len(str(message)),
+                        "output_length": len(str(result or ""))
+                    }
+                )
+            except Exception as error:
+                logger.warning("Could not record model metrics: %s", error)
+
+        return result
+
+    def _generate_response(
         self,
         message,
         context=None
