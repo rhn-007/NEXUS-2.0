@@ -172,8 +172,8 @@ class Speaker:
 
         # Prefer a dedicated summary/conclusion section in reports.
         summary_match = re.search(
-            r"(?is)(?:^|\s)(?:summary|key takeaway|conclusion|overall summary)\s*:?\s*(.*)$",
-            cleaned
+            r"(?ims)^\\s*(?:#{1,6}\\s*)?(?:\\*\\*)?(?:summary|key takeaway|conclusion|overall summary)(?:\\*\\*)?\\s*:?\\s*$\\n(.*?)(?=^\\s*(?:#{1,6}\\s*)?(?:\\*\\*)?(?:sources|references|bibliography)\\b|\\Z)",
+            str(text)
         )
 
         if summary_match:
