@@ -125,7 +125,7 @@ class PerformanceObserver:
         metrics = self.get_metrics(days)
         if not metrics:
             return (
-                "I don't have enough recorded activity to produce a "
+                "I do not have enough recorded activity to produce a "
                 "performance report yet."
             )
 
