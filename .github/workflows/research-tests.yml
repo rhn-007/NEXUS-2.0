@@ -17,4 +17,4 @@ jobs:
         with:
           python-version: "3.11"
       - name: Run offline research tests
-        run: python -m unittest tests.test_research_system -v
+        run: python -m unittest discover -s tests -p "test_*.py" -v
