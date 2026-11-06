@@ -7,8 +7,13 @@ from research.pipeline import ResearchPipeline
 
 
 class FakeLLM:
+    def __init__(self, response="Overview\\n\\nKey findings\\n\\nOpen questions"):
+        self.response = response
+        self.last_prompt = None
+
     def generate_response(self, message, context=None):
-        return "Overview\n\nKey findings\n\nOpen questions"
+        self.last_prompt = message
+        return self.response
 
 
 class ResearchStoreTests(unittest.TestCase):
@@ -43,7 +48,8 @@ class ResearchStoreTests(unittest.TestCase):
         self.assertEqual(topic["enabled"], 0)
 
     def test_pipeline_filters_empty_and_unrelated_pages(self):
-        pipeline = ResearchPipeline(FakeLLM(), self.db_path)
+        llm = FakeLLM()
+        pipeline = ResearchPipeline(llm, self.db_path)
         try:
             summary, session_id, accepted = pipeline.analyse_and_store(
                 "robotics",
@@ -63,6 +69,33 @@ class ResearchStoreTests(unittest.TestCase):
             self.assertTrue(summary)
             self.assertIsNotNone(session_id)
             self.assertGreaterEqual(accepted, 1)
+            self.assertLessEqual(len(llm.last_prompt), 5000)
+        finally:
+            pipeline.close()
+
+    def test_model_timeout_is_not_saved_as_successful_summary(self):
+        llm = FakeLLM("Ollama took too long to respond.")
+        pipeline = ResearchPipeline(llm, self.db_path)
+        try:
+            summary, session_id, accepted = pipeline.analyse_and_store(
+                "robotics",
+                "Research robotics",
+                [{
+                    "url": "https://example.org/robotics",
+                    "title": "Robotics research",
+                    "source": "example.org",
+                    "content": ("Robotics research and robotic systems. " * 100),
+                }]
+            )
+            self.assertIsNone(summary)
+            self.assertEqual(accepted, 1)
+            session = pipeline.store.connection.execute(
+                "SELECT status, summary FROM research_sessions WHERE id=?",
+                (session_id,)
+            ).fetchone()
+            self.assertEqual(session["status"], "analysis_failed")
+            self.assertEqual(session["summary"], "")
+            self.assertIsNone(pipeline.store.get_topic_knowledge("robotics"))
         finally:
             pipeline.close()
 
