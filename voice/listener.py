@@ -14,9 +14,11 @@ from pathlib import Path
 import tempfile
 import uuid
 import threading
+import queue
 import re
 
 from utils.logger import setup_logger
+from voice.utterance_detector import UtteranceDetector
 
 
 logger = setup_logger(__name__)
@@ -321,6 +323,95 @@ class Listener:
     def listen(self):
 
         audio = self.record_audio()
+
+        return self.transcribe(
+            audio,
+            self.samplerate
+        )
+
+    # ======================================================
+    # CONTINUOUS LISTENING
+    # ======================================================
+
+    def record_utterance(self, stop_event, poll_interval=0.1):
+        """
+        Listen until one spoken sentence has been captured.
+
+        Returns the audio as a numpy array, or None if stop_event was
+        set first. The microphone is only open while this method runs.
+        """
+
+        detector = UtteranceDetector(
+            samplerate=self.samplerate
+        )
+
+        chunks = queue.Queue()
+
+        def audio_callback(indata, frames, time, status):
+
+            if status:
+
+                logger.warning(f"Audio status: {status}")
+
+            chunks.put(
+                indata[:, 0].copy()
+            )
+
+        stream = sd.InputStream(
+            samplerate=self.samplerate,
+            channels=1,
+            dtype="float32",
+            callback=audio_callback
+        )
+
+        stream.start()
+
+        try:
+
+            while not stop_event.is_set():
+
+                try:
+
+                    chunk = chunks.get(
+                        timeout=poll_interval
+                    )
+
+                except queue.Empty:
+
+                    continue
+
+                utterance = detector.feed(
+                    chunk
+                )
+
+                if utterance is not None:
+
+                    return utterance
+
+            return None
+
+        finally:
+
+            stream.stop()
+            stream.close()
+
+    def listen_for_utterance(self, stop_event):
+        """
+        Wait for the user to say one sentence and return its text.
+
+        Returns None if stop_event was set before anything was said, and
+        an empty string if nothing could be understood.
+        """
+
+        audio = self.record_utterance(
+            stop_event
+        )
+
+        if audio is None:
+
+            return None
+
+        print("\nTranscribing...")
 
         return self.transcribe(
             audio,
