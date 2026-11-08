@@ -139,12 +139,21 @@ class OllamaClient:
             # CURRENT USER MESSAGE
             # ==========================
 
-            messages.append(
-                {
-                    "role": "user",
-                    "content": str(message)
-                }
-            )
+            # The assistant records the user's message in the
+            # conversation before building the context, so it is usually
+            # already the last context entry. Only add it when missing,
+            # otherwise the model would receive it twice.
+
+            current_message = {
+                "role": "user",
+                "content": str(message)
+            }
+
+            if messages[-1] != current_message:
+
+                messages.append(
+                    current_message
+                )
 
             # ==========================
             # DEBUG

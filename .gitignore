@@ -1,1 +1,26 @@
+# Secrets and local configuration
+.env
 
+# Personal data: memory, knowledge, observations and backups
+nexus_memory*.db
+nexus_memory*.db-wal
+nexus_memory*.db-shm
+*.db-wal
+*.db-shm
+
+# Generated audio
+*.wav
+
+# Voice engine and model assets (large, installed locally)
+piper/
+ffmpeg/
+*.onnx
+
+# Logs
+logs/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/

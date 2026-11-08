@@ -5,3 +5,8 @@ playwright
 typer
 rich
 pynput
+faster-whisper
+sounddevice
+numpy
+scipy
+openwakeword

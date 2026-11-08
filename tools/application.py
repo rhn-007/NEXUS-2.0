@@ -7,6 +7,7 @@ and opens approved folders.
 """
 
 import os
+import re
 import subprocess
 import logging
 
@@ -16,6 +17,22 @@ from tools.base import BaseTool
 
 
 logger = logging.getLogger(__name__)
+
+
+def contains_phrase(text, phrase):
+    """
+    Return True when phrase appears in text as whole words.
+
+    Plain substring checks matched names inside other words, for example
+    "idle" inside "middle" or "calc" inside "calculate".
+    """
+
+    return bool(
+        re.search(
+            r"(?<!\w)" + re.escape(phrase) + r"(?!\w)",
+            text
+        )
+    )
 
 
 class ApplicationTool(BaseTool):
@@ -121,14 +138,14 @@ class ApplicationTool(BaseTool):
 
         for app in self.applications.values():
             for alias in app["aliases"]:
-                if alias in text:
+                if contains_phrase(text, alias):
                     return True
 
         for folder in self.folders:
-            if folder in text:
+            if contains_phrase(text, folder):
                 return True
 
-        if "file explorer" in text or "explorer" in text:
+        if contains_phrase(text, "file explorer") or contains_phrase(text, "explorer"):
             return True
 
         return False
@@ -140,15 +157,15 @@ class ApplicationTool(BaseTool):
         try:
 
             for folder_name, folder_path in self.folders.items():
-                if folder_name in text:
+                if contains_phrase(text, folder_name):
                     return self.open_folder(folder_name, folder_path)
 
-            if "file explorer" in text or "explorer" in text:
+            if contains_phrase(text, "file explorer") or contains_phrase(text, "explorer"):
                 return self.open_file_explorer()
 
             for app_name, app_info in self.applications.items():
                 for alias in app_info["aliases"]:
-                    if alias in text:
+                    if contains_phrase(text, alias):
 
                         if app_name == "opera":
                             return self.open_opera(app_info["path"])
