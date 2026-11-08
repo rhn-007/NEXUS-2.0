@@ -4,6 +4,7 @@ NEXUS Ollama Client
 Handles communication with the local Ollama model.
 """
 
+import os
 import time
 
 import requests
@@ -14,6 +15,84 @@ from core.response_style import ResponseStyleController
 
 
 logger = setup_logger(__name__)
+
+
+# How long Ollama keeps the model loaded after a request. Ollama's own
+# default is 5 minutes, after which the next request pays a reload delay.
+# Override with the NEXUS_OLLAMA_KEEP_ALIVE environment variable.
+DEFAULT_KEEP_ALIVE = "30m"
+
+
+def get_keep_alive():
+
+    return (
+        os.environ.get("NEXUS_OLLAMA_KEEP_ALIVE", "").strip()
+        or DEFAULT_KEEP_ALIVE
+    )
+
+
+def extract_stats(data, messages):
+    """
+    Collect timing and size measurements for one model request.
+
+    Ollama reports durations in nanoseconds. Only numbers are returned,
+    never any message text.
+    """
+
+    def milliseconds(key):
+
+        value = data.get(key)
+
+        if isinstance(value, (int, float)):
+            return round(value / 1_000_000, 1)
+
+        return None
+
+    stats = {
+        "messages_sent": len(messages),
+        "prompt_chars": sum(
+            len(str(item.get("content", "")))
+            for item in messages
+        ),
+        "load_ms": milliseconds("load_duration"),
+        "prompt_tokens": data.get("prompt_eval_count"),
+        "prompt_eval_ms": milliseconds("prompt_eval_duration"),
+        "generated_tokens": data.get("eval_count"),
+        "generation_ms": milliseconds("eval_duration"),
+        "ollama_total_ms": milliseconds("total_duration")
+    }
+
+    return {
+        key: value
+        for key, value in stats.items()
+        if value is not None
+    }
+
+
+def format_stats(stats):
+    """One readable log line for the measurements above."""
+
+    parts = []
+
+    if "load_ms" in stats:
+        parts.append(f"load {stats['load_ms'] / 1000:.1f}s")
+
+    if "prompt_tokens" in stats:
+        prompt = f"prompt {stats['prompt_tokens']} tokens"
+        if "prompt_eval_ms" in stats:
+            prompt += f" in {stats['prompt_eval_ms'] / 1000:.1f}s"
+        parts.append(prompt)
+
+    if "generated_tokens" in stats:
+        generated = f"generated {stats['generated_tokens']} tokens"
+        if "generation_ms" in stats:
+            generated += f" in {stats['generation_ms'] / 1000:.1f}s"
+        parts.append(generated)
+
+    if "ollama_total_ms" in stats:
+        parts.append(f"total {stats['ollama_total_ms'] / 1000:.1f}s")
+
+    return " | ".join(parts)
 
 
 class OllamaClient:
@@ -27,11 +106,15 @@ class OllamaClient:
         self.response_style = ResponseStyleController()
         self.observer = observer
 
+        # Measurements from the most recent request.
+        self.last_stats = {}
+
         logger.info(
             "Ollama client ready"
         )
 
     def generate_response(self, message, context=None):
+        self.last_stats = {}
         started_at = time.perf_counter()
         result = self._generate_response(message, context)
         duration_ms = (time.perf_counter() - started_at) * 1000
@@ -57,7 +140,8 @@ class OllamaClient:
                     metadata={
                         "model": self.model,
                         "input_length": len(str(message)),
-                        "output_length": len(str(result or ""))
+                        "output_length": len(str(result or "")),
+                        **self.last_stats
                     }
                 )
             except Exception as error:
@@ -175,6 +259,8 @@ class OllamaClient:
 
                 "stream": False,
 
+                "keep_alive": get_keep_alive(),
+
                 "options": {
 
                     "temperature": 0.3,
@@ -229,6 +315,21 @@ class OllamaClient:
                 return (
                     "Ollama returned an invalid response."
                 )
+
+            # ==========================
+            # TIMING MEASUREMENTS
+            # ==========================
+
+            self.last_stats = extract_stats(
+                data,
+                messages
+            )
+
+            logger.info(
+                f"Ollama timing: {format_stats(self.last_stats)} "
+                f"({self.last_stats.get('messages_sent', 0)} messages, "
+                f"{self.last_stats.get('prompt_chars', 0)} characters)"
+            )
 
             result = data["message"].get(
                 "content",

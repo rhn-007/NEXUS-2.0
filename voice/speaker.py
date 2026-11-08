@@ -12,6 +12,8 @@ from pathlib import Path
 import winsound
 import requests
 
+from ai.ollama import get_keep_alive
+
 from utils.logger import setup_logger
 
 
@@ -162,6 +164,7 @@ class Speaker:
                 json={
                     "model": self.ollama_model,
                     "stream": False,
+                    "keep_alive": get_keep_alive(),
                     "messages": [
                         {
                             "role": "system",
