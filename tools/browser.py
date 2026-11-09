@@ -171,13 +171,8 @@ class BrowserTool(BaseTool):
                     self.websites["whatsapp web"]
                 )
 
-            # Open known websites.
-            for name, url in self.websites.items():
-
-                if name in text:
-                    return self.open_opera(url)
-
-            # Open direct URLs.
+            # Open direct URLs. An explicit link wins over a site name
+            # inside it, so a YouTube search link is not read as "youtube".
             url_match = re.search(
                 r"https?://[^\s]+",
                 query
@@ -187,6 +182,12 @@ class BrowserTool(BaseTool):
                 return self.open_opera(
                     url_match.group(0)
                 )
+
+            # Open known websites.
+            for name, url in self.websites.items():
+
+                if name in text:
+                    return self.open_opera(url)
 
             # Google search.
             search_prefixes = [

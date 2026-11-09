@@ -390,5 +390,58 @@ class RunnerOrder(unittest.TestCase):
         self.assertFalse(runner.resolve("open notepad").success)
 
 
+class RealToolsEndToEnd(unittest.TestCase):
+    """Runs the fast path through the real router and browser tool."""
+
+    def setUp(self):
+        from tools.application import ApplicationTool
+        from tools.browser import BrowserTool
+        from tools.registry import ToolRegistry
+        from tools.router import ToolRouter
+
+        self.browser = BrowserTool()
+        registry = ToolRegistry()
+        registry.register(self.browser)
+        registry.register(ApplicationTool())
+        router = ToolRouter(registry)
+        self.runner = IntentRunner(
+            router,
+            IntentFastPath(list(self.browser.websites), app_targets_from(registry.get("application"))),
+            MagicMock(),
+            MagicMock()
+        )
+
+    def opened(self, text):
+        from tools.response import ToolResponse
+
+        urls = []
+        with patch.object(
+            type(self.browser),
+            "open_opera",
+            lambda me, url=None: urls.append(url) or ToolResponse.success("Opening the website in Opera.")
+        ):
+            self.runner.resolve(text)
+        return urls
+
+    def test_youtube_search_opens_the_search_not_the_homepage(self):
+        for text in [
+            "open youtube and search for the weeknd",
+            "can u open youtube an dsearch for the weeknd",
+            "search youtube for the weeknd",
+        ]:
+            self.assertEqual(
+                self.opened(text),
+                ["https://www.youtube.com/results?search_query=the+weeknd"],
+                text
+            )
+
+    def test_plain_site_and_google_search_still_work(self):
+        self.assertEqual(self.opened("open youtube"), ["https://www.youtube.com"])
+        self.assertEqual(
+            self.opened("search for the weeknd"),
+            ["https://www.google.com/search?q=the%20weeknd"]
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
