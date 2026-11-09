@@ -19,6 +19,9 @@ from core.response_style import ResponseStyleController
 from core.conversation import ConversationManager
 
 from core.input_manager import InputManager
+from core.intent import IntentFastPath, app_targets_from
+from core.intent_runner import IntentRunner
+from core.planner import IntentPlanner
 
 from voice.speaker import Speaker
 
@@ -104,6 +107,12 @@ class NexusAssistant:
             self.tool_registry
         )
 
+        # ==========================
+        # INTENT UNDERSTANDING
+        # ==========================
+
+        self.intent = self._build_intent_layer()
+
         self.status = "READY"
 
         logger.info("NEXUS initialized successfully.")
@@ -123,11 +132,14 @@ class NexusAssistant:
             if not user_input:
                 continue
 
-            if user_input.lower() in [
-                "exit",
-                "quit",
-                "shutdown"
-            ]:
+            if (
+                user_input.lower() in [
+                    "exit",
+                    "quit",
+                    "shutdown"
+                ]
+                or self.intent_fast.is_exit_request(user_input)
+            ):
 
                 self.speaker.speak(
                     "Goodbye Rohan."
@@ -297,6 +309,11 @@ class NexusAssistant:
                 self.speaker.speak(response)
                 return response
 
+            # The same request in the wording the checks below expect.
+            canonical = (
+                self.intent_fast.builtin_command(user_input) or user_input
+            )
+
             speech_profile_queries = [
                 "what have you learned about how i speak",
                 "what have you learned about my speaking",
@@ -305,13 +322,13 @@ class NexusAssistant:
                 "show my speaking profile",
                 "speech profile"
             ]
-            if user_input.lower().strip(" ?.!") in speech_profile_queries:
+            if canonical.lower().strip(" ?.!") in speech_profile_queries:
                 response = self.language_learner.get_profile_summary()
                 self.conversation.add_assistant_message(response)
                 self.speaker.speak(response)
                 return response
 
-            if user_input.lower().strip(" ?.!") in [
+            if canonical.lower().strip(" ?.!") in [
                 "forget my speech profile",
                 "clear my speech profile",
                 "delete my speech profile"
@@ -323,7 +340,7 @@ class NexusAssistant:
                 self.speaker.speak(response)
                 return response
 
-            if user_input.lower().strip(" ?.!.") in [
+            if canonical.lower().strip(" ?.!.") in [
                 "show performance report",
                 "show nexus performance",
                 "nexus performance report",
@@ -339,7 +356,7 @@ class NexusAssistant:
             # ======================
 
             memory_response = self.check_memory(
-                user_input
+                canonical
             )
 
             if memory_response:
@@ -366,8 +383,9 @@ class NexusAssistant:
             # TOOLS
             # ======================
 
-            tool_result = self.tool_router.execute(
-                user_input
+            tool_result = self.intent.resolve(
+                user_input,
+                self.conversation.get_context()
             )
 
             if tool_result.success:
@@ -457,6 +475,78 @@ class NexusAssistant:
             self.status = "READY"
 
             clear_status()
+
+    # ==========================
+    # INTENT UNDERSTANDING
+    # ==========================
+
+    def _build_intent_layer(self):
+        """Create the fast path, the planner and the runner that uses them."""
+
+        browser = self.tool_registry.get("browser")
+        application = self.tool_registry.get("application")
+
+        websites = list(getattr(browser, "websites", {}) or {})
+        app_names = app_targets_from(application)
+
+        self.intent_fast = IntentFastPath(
+            websites=websites,
+            app_targets=app_names
+        )
+
+        def app_known(name):
+            return bool(
+                application and application.can_handle(f"open {name}")
+            )
+
+        planner = IntentPlanner(
+            url=self.llm.url,
+            model=self.llm.model,
+            websites=websites,
+            app_names=app_names,
+            app_checker=app_known
+        )
+
+        return IntentRunner(
+            router=self.tool_router,
+            fast=self.intent_fast,
+            planner=planner,
+            run_builtin=self._run_builtin,
+            observer=self.observer
+        )
+
+    def _run_builtin(self, action, value=""):
+        """NEXUS's own features, chosen by the planner."""
+
+        if action == "show_speech_profile":
+            return self.language_learner.get_profile_summary()
+
+        if action == "forget_speech_profile":
+            self.language_learner.clear_profile()
+            self.input_manager.listener.set_language_profile([], {})
+            return "Your personal speech profile has been cleared."
+
+        if action == "performance_report":
+            return self.observer.get_report(days=7)
+
+        if action == "about_me":
+            return self.check_memory("what do you know about me")
+
+        if action == "switch_mode":
+
+            if value == "continuous":
+                self.input_manager.mode = "continuous"
+                return "Continuous listening is on."
+
+            self.input_manager._switch_mode(value, announce=False)
+
+            return (
+                "Keyboard mode enabled."
+                if value == "keyboard"
+                else "Push-to-Talk mode enabled."
+            )
+
+        return ""
 
     # ==========================
     # KNOWLEDGE RETRIEVAL
