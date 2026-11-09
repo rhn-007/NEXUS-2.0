@@ -9,6 +9,7 @@ the planner or to normal conversation.
 
 import difflib
 import re
+from urllib.parse import quote_plus
 from dataclasses import dataclass
 
 
@@ -19,6 +20,9 @@ class Step:
     action: str
     value: str = ""
     command: str = ""
+    # Run before the tool router, which would read the same sentence
+    # differently (for example as a Google search).
+    first: bool = False
 
 
 # Actions that NEXUS performs itself rather than through the tool router.
@@ -29,6 +33,14 @@ BUILTIN_ACTIONS = (
     "about_me",
     "switch_mode"
 )
+
+# Sites that can be searched directly instead of through Google.
+SITE_SEARCH_URLS = {
+    "youtube": "https://www.youtube.com/results?search_query={}",
+    "github": "https://github.com/search?q={}",
+    "wikipedia": "https://en.wikipedia.org/w/index.php?search={}",
+    "reddit": "https://www.reddit.com/search/?q={}"
+}
 
 # Wording the existing assistant checks already recognise.
 BUILTIN_COMMANDS = {
@@ -68,6 +80,10 @@ def clean(text):
     text = str(text or "").lower().replace("’", "'")
     text = re.sub(r"[“”\"]", "", text)
     text = re.sub(r"\s+", " ", text)
+
+    # A space typed in the wrong place: "an dsearch" -> "and search".
+    text = re.sub(r"\ban d(?=[a-z])", "and ", text)
+    text = re.sub(r"\badn\b", "and", text)
 
     return text.strip(" .,!?;:")
 
@@ -564,6 +580,21 @@ class IntentFastPath:
 
         if kind == "search":
 
+            site_first = re.match(
+                r"^(?:on\s+)?(youtube|github|wikipedia|reddit)\s+for\s+(.+)$",
+                target
+            )
+            site_last = re.match(
+                r"^(.+?)\s+(?:on|in)\s+(youtube|github|wikipedia|reddit)$",
+                target
+            )
+
+            if site_first:
+                return site_search_step(site_first.group(1), site_first.group(2))
+
+            if site_last:
+                return site_search_step(site_last.group(2), site_last.group(1))
+
             target = re.sub(
                 r"\s+(?:on google|on the web|on the internet|online|"
                 r"on opera)$",
@@ -636,14 +667,40 @@ class IntentFastPath:
         return None
 
 
+def site_search_step(site, query):
+    """Search a site directly, e.g. YouTube, instead of through Google."""
+
+    url = SITE_SEARCH_URLS[site].format(quote_plus(query))
+
+    return Step("open_website", url, f"go to {url}", first=True)
+
+
 def drop_redundant_steps(steps):
     """Opening the browser is pointless before a search or a website."""
 
-    if any(step.action in ("web_search", "open_website") for step in steps):
+    merged = []
 
-        return [step for step in steps if step.action != "open_browser"]
+    for step in steps:
 
-    return steps
+        previous = merged[-1] if merged else None
+
+        # "open youtube" then "search for X" means search YouTube for X.
+        if (
+            step.action == "web_search"
+            and previous is not None
+            and previous.action == "open_website"
+            and previous.value in SITE_SEARCH_URLS
+        ):
+            merged[-1] = site_search_step(previous.value, step.value)
+            continue
+
+        merged.append(step)
+
+    if any(step.action in ("web_search", "open_website") for step in merged):
+
+        return [step for step in merged if step.action != "open_browser"]
+
+    return merged
 
 
 def app_targets_from(application_tool):

@@ -60,6 +60,14 @@ class IntentRunner:
 
                 return self._run_steps(steps)
 
+            if steps and steps[0].first:
+
+                # The router would read this sentence differently.
+                path = "fast"
+                actions = [step.action for step in steps]
+
+                return self._run_steps(steps)
+
             result = self.router.execute(text)
 
             if result.success:

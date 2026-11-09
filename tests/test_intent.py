@@ -45,8 +45,8 @@ class FastPathUnderstandsRequests(unittest.TestCase):
     def test_several_steps(self):
         self.assertEqual(commands("open notepad and calculator"), ["open notepad", "open calculator"])
         self.assertEqual(
-            commands("open youtube and then search for jazz"),
-            ["go to youtube", "search jazz"]
+            commands("open youtube and then open notepad"),
+            ["go to youtube", "open notepad"]
         )
 
     def test_one_topic_with_and_is_not_split(self):
@@ -73,6 +73,20 @@ class FastPathUnderstandsRequests(unittest.TestCase):
             commands("research apple and microsoft and then search for apple stock"),
             ["research apple and microsoft", "search apple stock"]
         )
+
+    def test_searching_a_named_site_searches_that_site(self):
+        youtube = "go to https://www.youtube.com/results?search_query=the+weeknd"
+        # Both messages that went wrong on the real machine.
+        self.assertEqual(commands("open youtube and search for the weeknd"), [youtube])
+        self.assertEqual(commands("can u open youtube an dsearch for the weeknd"), [youtube])
+        self.assertEqual(commands("search youtube for the weeknd"), [youtube])
+        self.assertEqual(commands("look up the weeknd on youtube"), [youtube])
+        self.assertEqual(
+            commands("search github for flask"),
+            ["go to https://github.com/search?q=flask"]
+        )
+        # Plain searches still go to Google.
+        self.assertEqual(commands("search for the weeknd"), ["search the weeknd"])
 
     def test_spoken_arithmetic(self):
         self.assertEqual(commands("what's 12 times 7"), ["calculate 12 * 7"])
@@ -297,6 +311,13 @@ class RunnerOrder(unittest.TestCase):
         router.execute.assert_called_once_with("open notepad")
         planner_mock.plan.assert_not_called()
 
+    def test_site_search_skips_the_router_that_would_google_it(self):
+        runner, router, _ = self.make([ToolResult(True, "Opening the website in Opera.")])
+        runner.resolve("search youtube for the weeknd")
+        router.execute.assert_called_once_with(
+            "go to https://www.youtube.com/results?search_query=the+weeknd"
+        )
+
     def test_natural_sentence_is_rewritten_for_the_router(self):
         runner, router, planner_mock = self.make([ToolResult(), ToolResult(True, "Searching.")])
         result = runner.resolve("hey could you google sam altman")
@@ -315,7 +336,7 @@ class RunnerOrder(unittest.TestCase):
 
     def test_a_failed_step_stops_the_rest(self):
         runner, router, _ = self.make([ToolResult(False, "I couldn't find Opera on your computer.")])
-        result = runner.resolve("open youtube and then search for jazz")
+        result = runner.resolve("open youtube and then open notepad")
         self.assertEqual(router.execute.call_count, 1)
         self.assertIn("Opera", result.message)
 
