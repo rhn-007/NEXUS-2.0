@@ -59,6 +59,21 @@ class FastPathUnderstandsRequests(unittest.TestCase):
             ["search pizza and pasta recipes"]
         )
 
+    def test_and_inside_a_search_topic_is_not_a_new_step(self):
+        # The exact message that failed on the real machine.
+        self.assertEqual(
+            commands("can u open browser and search for matrices and determinants"),
+            ["search matrices and determinants"]
+        )
+        self.assertEqual(
+            commands("open youtube and search for tom and jerry"),
+            ["go to youtube", "search tom and jerry"]
+        )
+        self.assertEqual(
+            commands("research apple and microsoft and then search for apple stock"),
+            ["research apple and microsoft", "search apple stock"]
+        )
+
     def test_spoken_arithmetic(self):
         self.assertEqual(commands("what's 12 times 7"), ["calculate 12 * 7"])
         self.assertEqual(commands("whats 15 percent of 80"), ["calculate (15/100*80)"])
@@ -209,6 +224,17 @@ class PlannerChecksTheModel(unittest.TestCase):
             [s.command for s in plan.steps],
             ["go to youtube", "go to https://example.com/a", "go to https://example.org"]
         )
+
+    def test_browser_step_before_a_search_is_dropped(self):
+        plan = plan_for({
+            "decision": "act",
+            "steps": [
+                {"action": "open_browser", "value": ""},
+                {"action": "web_search", "value": "cats"}
+            ],
+            "question": ""
+        })
+        self.assertEqual([s.command for s in plan.steps], ["search cats"])
 
     def test_at_most_three_steps(self):
         step = {"action": "open_app", "value": "notepad"}

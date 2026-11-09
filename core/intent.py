@@ -439,18 +439,71 @@ class IntentFastPath:
     # PARSING
     # ------------------------------------------------------
 
-    def _split(self, cleaned):
+    _SEPARATOR = re.compile(
+        r"(\s*(?:;|,\s*(?:and\s+)?(?:then\s+)?|"
+        r"\s+and\s+(?:then\s+|also\s+)?|\s+then\s+|"
+        r"\s+after that\s+)\s*)"
+    )
 
-        return [
-            part.strip()
-            for part in re.split(
-                r"\s*(?:;|,\s*(?:and\s+)?(?:then\s+)?|"
-                r"\s+and\s+(?:then\s+|also\s+)?|\s+then\s+|"
-                r"\s+after that\s+)\s*",
-                cleaned
+    def _split(self, cleaned):
+        """
+        Split a sentence into steps at 'and', 'then' and commas, but only
+        where a new action begins. 'search for matrices and determinants'
+        stays one search.
+        """
+
+        pieces = self._SEPARATOR.split(cleaned)
+
+        parts = []
+
+        for index in range(0, len(pieces), 2):
+
+            text = pieces[index].strip()
+
+            if not text:
+                continue
+
+            separator = pieces[index - 1] if index > 0 else ""
+
+            if parts and not self._starts_new_step(text, parts[-1]):
+
+                joiner = (
+                    separator
+                    if re.search(r"[a-z]", separator)
+                    else separator.strip() + " "
+                )
+
+                parts[-1] += joiner + text
+
+            else:
+
+                parts.append(text)
+
+        return parts
+
+    def _starts_new_step(self, text, previous):
+
+        text = strip_fillers(text)
+
+        kind, _ = _match_verb(text)
+
+        if kind:
+            return True
+
+        # "open notepad and calculator": a bare app after an open step.
+        previous_kind, _ = _match_verb(strip_fillers(previous))
+
+        if previous_kind in ("open", "go"):
+
+            bare = re.sub(r"^(?:the|my|a|an)\s+", "", text)
+
+            return (
+                bare in self.app_targets
+                or bare in self.websites
+                or bare in BROWSER_TARGETS
             )
-            if part.strip()
-        ]
+
+        return False
 
     def _parse_parts(self, parts):
 
@@ -476,20 +529,7 @@ class IntentFastPath:
         if len(steps) < 2:
             return []
 
-        # Opening the browser is pointless before a search or a website.
-        has_later_browsing = any(
-            step.action in ("web_search", "open_website")
-            for step in steps
-        )
-
-        if has_later_browsing:
-
-            steps = [
-                step for step in steps
-                if step.action != "open_browser"
-            ]
-
-        return steps
+        return drop_redundant_steps(steps)
 
     def _parse_one(self, text):
 
@@ -594,6 +634,16 @@ class IntentFastPath:
                 return Step("open_app", alias, f"open {alias}")
 
         return None
+
+
+def drop_redundant_steps(steps):
+    """Opening the browser is pointless before a search or a website."""
+
+    if any(step.action in ("web_search", "open_website") for step in steps):
+
+        return [step for step in steps if step.action != "open_browser"]
+
+    return steps
 
 
 def app_targets_from(application_tool):

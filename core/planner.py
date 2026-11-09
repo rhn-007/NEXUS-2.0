@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 import requests
 
 from ai.ollama import get_keep_alive
-from core.intent import BUILTIN_COMMANDS, Step
+from core.intent import BUILTIN_COMMANDS, Step, drop_redundant_steps
 from utils.logger import setup_logger
 
 
@@ -134,7 +134,14 @@ class IntentPlanner:
             f"Known websites: {', '.join(self.websites) or 'none'}.\n"
             f"Use at most {MAX_STEPS} steps, in the order to do them. Use the "
             "recent conversation to understand words like \"it\" or \"that\". "
-            "For chat, use no steps. Never invent actions or apps."
+            "For chat, use no steps. Never invent actions or apps.\n"
+            "Examples:\n"
+            "\"open the browser and look up cats\" -> act: open_browser, "
+            "web_search cats\n"
+            "\"pop open my music app\" -> act: open_app spotify\n"
+            "\"now compare it with Claude\" after talking about OpenAI -> "
+            "act: research OpenAI vs Claude\n"
+            "\"what is the capital of France\" -> chat"
         )
 
         lines = []
@@ -298,7 +305,7 @@ class IntentPlanner:
 
             steps.append(checked)
 
-        return Plan(kind="act", steps=steps)
+        return Plan(kind="act", steps=drop_redundant_steps(steps))
 
     def _check_step(self, action, value):
         """Return a Step, a Plan (to ask a question), or None if invalid."""
