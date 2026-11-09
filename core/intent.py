@@ -10,6 +10,8 @@ the planner or to normal conversation.
 import difflib
 import re
 from urllib.parse import quote_plus
+
+from tools.meet import parse_meet_code, wants_meeting
 from dataclasses import dataclass
 
 
@@ -362,7 +364,8 @@ _REQUEST_CUES = re.compile(
 _TOOL_NOUNS = (
     "browser", "opera", "notepad", "spotify", "google", "youtube",
     "folder", "explorer", "whatsapp", "excel", "speech profile",
-    "performance report", "continuous", "keyboard mode", "voice mode"
+    "performance report", "continuous", "keyboard mode", "voice mode",
+    "meeting", "google meet"
 )
 
 
@@ -559,6 +562,18 @@ class IntentFastPath:
                 "calculate",
                 expression,
                 f"calculate {expression}"
+            )
+
+        if wants_meeting(text):
+
+            code = parse_meet_code(text)
+
+            # Without a code the runner asks for it.
+            return Step(
+                "join_meeting",
+                code or "",
+                f"join meeting {code}" if code else "",
+                first=True
             )
 
         kind, target = _match_verb(text)

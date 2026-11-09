@@ -16,6 +16,7 @@ import requests
 
 from ai.ollama import get_keep_alive
 from core.intent import BUILTIN_COMMANDS, Step, drop_redundant_steps
+from tools.meet import parse_meet_code
 from utils.logger import setup_logger
 
 
@@ -44,7 +45,9 @@ ACTION_HELP = {
     "performance_report": "show NEXUS's own performance report (value: empty)",
     "about_me": "tell Rohan what NEXUS knows about him (value: empty)",
     "switch_mode": "change how Rohan talks to NEXUS (value: voice, keyboard "
-                   "or continuous)"
+                   "or continuous)",
+    "join_meeting": "open a Google Meet (value: the meeting code, for "
+                    "example abc-defg-hij)"
 }
 
 ACTIONS = tuple(ACTION_HELP)
@@ -57,6 +60,8 @@ class Plan:
     question: str = ""
     planner_ms: float = 0.0
     valid: bool = True
+    # What the question is waiting for, e.g. "meet_code".
+    expects: str = ""
 
 
 RESPONSE_SCHEMA = {
@@ -377,6 +382,19 @@ class IntentPlanner:
                 return None
 
             return Step(action, value, f"calculate {value}")
+
+        if action == "join_meeting":
+
+            code = parse_meet_code(value)
+
+            if code:
+                return Step(action, code, f"join meeting {code}")
+
+            return Plan(
+                kind="ask",
+                question="What's the meeting code?",
+                expects="meet_code"
+            )
 
         if action == "switch_mode":
 

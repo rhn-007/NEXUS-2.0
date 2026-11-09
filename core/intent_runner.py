@@ -11,7 +11,8 @@ Anything left over is normal conversation.
 
 import time
 
-from core.intent import BUILTIN_ACTIONS
+from core.intent import BUILTIN_ACTIONS, Step
+from tools.meet import looks_like_code_attempt, parse_meet_code
 from tools.router import ToolResult
 from utils.logger import setup_logger
 
@@ -36,6 +37,10 @@ class IntentRunner:
         self.run_builtin = run_builtin
         self.observer = observer
 
+        # Set after NEXUS asks for a meeting code, so the next message
+        # is read as the code.
+        self.pending = None
+
     # ======================================================
     # RESOLVE
     # ======================================================
@@ -50,6 +55,16 @@ class IntentRunner:
         planner_ms = None
 
         try:
+
+            if self.pending:
+
+                answered = self._answer_pending(text)
+
+                if answered is not None:
+
+                    path = "pending"
+
+                    return answered
 
             steps = self.fast.fast_steps(text)
 
@@ -93,6 +108,9 @@ class IntentRunner:
 
                 if plan.kind == "ask":
 
+                    if plan.expects:
+                        self.pending = {"kind": plan.expects, "tries": 0}
+
                     return ToolResult(True, plan.question)
 
                 if plan.kind == "act":
@@ -116,6 +134,56 @@ class IntentRunner:
                 self._record(path, actions, decision, planner_ms, started)
 
     # ======================================================
+    # FOLLOW-UP: THE MEETING CODE
+    # ======================================================
+
+    CANCEL_WORDS = ("cancel", "never mind", "nevermind", "forget it", "stop")
+
+    def _answer_pending(self, text):
+        """
+        NEXUS just asked for a meeting code. Return a ToolResult if this
+        message answers it, or None to treat it as an ordinary request.
+        """
+
+        state = self.pending
+
+        lowered = str(text or "").lower().strip(" .!?")
+
+        if lowered in self.CANCEL_WORDS:
+
+            self.pending = None
+
+            return ToolResult(True, "Okay, cancelled.")
+
+        code = parse_meet_code(text)
+
+        if code:
+
+            self.pending = None
+
+            return self._run_steps(
+                [Step("join_meeting", code, f"join meeting {code}")]
+            )
+
+        state["tries"] += 1
+
+        if (
+            state["tries"] <= 2
+            and not self.fast.fast_steps(text)
+            and looks_like_code_attempt(text)
+        ):
+
+            return ToolResult(
+                True,
+                "I didn't catch the code clearly. Say it again, or spell "
+                "it with words like alpha, bravo, charlie."
+            )
+
+        self.pending = None
+
+        return None
+
+    # ======================================================
     # RUN STEPS
     # ======================================================
 
@@ -124,6 +192,13 @@ class IntentRunner:
         messages = []
 
         for step in steps:
+
+            if step.action == "join_meeting" and not step.value:
+
+                self.pending = {"kind": "meet_code", "tries": 0}
+                messages.append("What's the meeting code?")
+
+                break
 
             if step.action not in BUILTIN_ACTIONS:
 

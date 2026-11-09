@@ -29,6 +29,7 @@ from tools.registry import ToolRegistry
 from tools.router import ToolRouter
 from tools.browser import BrowserTool
 from tools.application import ApplicationTool
+from tools.meet import MeetTool
 from tools.research import ResearchTool
 
 from ui.status import set_status, clear_status
@@ -171,6 +172,12 @@ class NexusAssistant:
 
         self.tool_registry.register(
             ApplicationTool()
+        )
+
+        self.tool_registry.register(
+            MeetTool(
+                self.tool_registry.get("browser")
+            )
         )
 
         self.research_tool = ResearchTool(
