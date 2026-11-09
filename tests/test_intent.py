@@ -67,7 +67,7 @@ class FastPathUnderstandsRequests(unittest.TestCase):
         )
         self.assertEqual(
             commands("open youtube and search for tom and jerry"),
-            ["go to youtube", "search tom and jerry"]
+            ["go to https://www.youtube.com/results?search_query=tom+and+jerry"]
         )
         self.assertEqual(
             commands("research apple and microsoft and then search for apple stock"),
