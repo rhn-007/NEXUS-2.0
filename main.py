@@ -35,6 +35,8 @@ def main():
 
     assistant = NexusAssistant()
 
+    animation.start()
+
 
 
     try:

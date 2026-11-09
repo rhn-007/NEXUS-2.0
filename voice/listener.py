@@ -19,6 +19,7 @@ import re
 
 from utils.logger import setup_logger
 from voice.utterance_detector import UtteranceDetector
+from ui.status import activity
 
 
 logger = setup_logger(__name__)
@@ -130,10 +131,12 @@ class Listener:
 
         print("Transcribing...")
 
-        return self.transcribe(
-            audio,
-            self.samplerate
-        )
+        with activity("Transcribing"):
+
+            return self.transcribe(
+                audio,
+                self.samplerate
+            )
 
     # ======================================================
     # TRANSCRIBE AUDIO
@@ -403,9 +406,11 @@ class Listener:
         an empty string if nothing could be understood.
         """
 
-        audio = self.record_utterance(
-            stop_event
-        )
+        with activity("Listening"):
+
+            audio = self.record_utterance(
+                stop_event
+            )
 
         if audio is None:
 
@@ -413,10 +418,12 @@ class Listener:
 
         print("\nTranscribing...")
 
-        return self.transcribe(
-            audio,
-            self.samplerate
-        )
+        with activity("Transcribing"):
+
+            return self.transcribe(
+                audio,
+                self.samplerate
+            )
 
 
 # ==========================================================

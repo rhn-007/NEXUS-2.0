@@ -6,6 +6,7 @@ Decides which tool handles a request.
 """
 
 from tools.calculator import CalculatorTool
+from ui.status import activity
 
 
 class ToolResult:
@@ -46,7 +47,8 @@ class ToolRouter:
 
         if self.calculator.can_handle(text):
 
-            result = self.calculator.execute(text)
+            with activity("Calculating"):
+                result = self.calculator.execute(text)
 
             if result is not None:
 
@@ -92,7 +94,12 @@ class ToolRouter:
             and browser_tool.can_handle(text)
         ):
 
-            result = browser_tool.execute(text)
+            with activity(
+                "Searching"
+                if any(w in query for w in ("search", "google"))
+                else "Opening website"
+            ):
+                result = browser_tool.execute(text)
 
             if hasattr(result, "success"):
 
@@ -117,7 +124,8 @@ class ToolRouter:
             and application_tool.can_handle(text)
         ):
 
-            result = application_tool.execute(text)
+            with activity("Opening application"):
+                result = application_tool.execute(text)
 
             return ToolResult(
                 True,
@@ -135,7 +143,12 @@ class ToolRouter:
 
             if tool.can_handle(text):
 
-                result = tool.execute(text)
+                with activity(
+                    "Researching"
+                    if tool.name == "research"
+                    else "Working"
+                ):
+                    result = tool.execute(text)
 
                 if (
                     hasattr(result, "success")

@@ -24,6 +24,7 @@ from playwright.sync_api import (
 from tools.base import BaseTool
 from tools.response import ToolResponse
 from research.pipeline import ResearchPipeline
+from ui.status import activity
 
 
 logger = logging.getLogger(__name__)
@@ -184,16 +185,18 @@ class ResearchTool(BaseTool):
             )
             return False
 
-        print(
-            "\nNEXUS research browser needs manual verification. "
-            "Complete the check in the Chromium window, then press "
-            "Enter here to continue."
-        )
+        # Hide the animation while the terminal is used for this prompt.
+        with activity(None):
+            print(
+                "\nNEXUS research browser needs manual verification. "
+                "Complete the check in the Chromium window, then press "
+                "Enter here to continue."
+            )
 
-        try:
-            input("Press Enter after completing verification...")
-        except (EOFError, KeyboardInterrupt):
-            return False
+            try:
+                input("Press Enter after completing verification...")
+            except (EOFError, KeyboardInterrupt):
+                return False
 
         try:
             page.wait_for_load_state(

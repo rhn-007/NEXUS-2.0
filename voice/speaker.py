@@ -14,6 +14,7 @@ import requests
 
 from ai.ollama import get_keep_alive
 
+from ui.status import activity
 from utils.logger import setup_logger
 
 
@@ -310,6 +311,11 @@ class Speaker:
         if not text:
             return
 
+        with activity("Preparing speech"):
+            self._speak(text)
+
+    def _speak(self, text):
+
         # Prepare a speech-only version. The original response remains
         # unchanged for the terminal, conversation history, and memory.
         text = self.prepare_spoken_text(text)
@@ -373,13 +379,15 @@ class Speaker:
 
             if output.exists():
 
-                winsound.PlaySound(
+                with activity("Speaking"):
 
-                    str(output),
+                    winsound.PlaySound(
 
-                    winsound.SND_FILENAME
+                        str(output),
 
-                )
+                        winsound.SND_FILENAME
+
+                    )
 
         except Exception as e:
 
