@@ -3,7 +3,10 @@ from unittest.mock import MagicMock, patch
 
 from ai.ollama import (
     DEFAULT_KEEP_ALIVE,
+    OLD_MESSAGE_MAX_CHARS,
     OllamaClient,
+    RECENT_FULL_MESSAGES,
+    compact_history,
     extract_stats,
     format_stats,
     get_keep_alive
@@ -59,27 +62,70 @@ class KeepAliveTests(unittest.TestCase):
 
 
 class ConversationMemoryIsUntouchedTests(unittest.TestCase):
-    def test_full_history_reaches_the_model_unchanged(self):
-        long_brief = "Research brief. " * 400
+    def long_conversation(self):
+        long_brief = "Research brief sentence. " * 400
         context = []
         for index in range(10):
             context.append({"role": "user", "content": f"question {index}"})
             context.append(
                 {
                     "role": "assistant",
-                    "content": long_brief if index == 2 else f"answer {index}"
+                    "content": long_brief if index in (2, 9) else f"answer {index}"
                 }
             )
         context.append({"role": "user", "content": "latest question"})
+        return context, long_brief
+
+    def test_recent_messages_reach_the_model_unchanged(self):
+        context, long_brief = self.long_conversation()
 
         _, payload = send("latest question", context)
 
         sent = payload["messages"]
 
-        # One system prompt, then every context message in the same order
-        # with exactly the same text, including the very long one.
         self.assertEqual(sent[0]["role"], "system")
-        self.assertEqual(sent[1:], context)
+        # Same number of messages, same order, nothing dropped.
+        self.assertEqual(len(sent) - 1, len(context))
+        # The last messages, including a very long recent reply, are intact.
+        self.assertEqual(
+            sent[-RECENT_FULL_MESSAGES:],
+            context[-RECENT_FULL_MESSAGES:]
+        )
+        self.assertIn(long_brief, [item["content"] for item in sent])
+
+    def test_old_long_messages_are_shortened_for_the_model_only(self):
+        context, long_brief = self.long_conversation()
+        snapshot = [dict(item) for item in context]
+
+        client, payload = send("latest question", context)
+
+        sent_texts = [item["content"] for item in payload["messages"][1:]]
+        old_long = sent_texts[5]  # the long reply from turn 2
+
+        self.assertLess(len(old_long), OLD_MESSAGE_MAX_CHARS)
+        self.assertTrue(long_brief.startswith(old_long.split(" ...")[0][:100]))
+        self.assertEqual(client.last_stats["history_shortened"], 1)
+        self.assertGreater(client.last_stats["history_chars_saved"], 5000)
+        # The stored conversation passed in is not touched.
+        self.assertEqual(context, snapshot)
+
+    def test_short_old_messages_are_never_shortened(self):
+        context, _ = self.long_conversation()
+
+        _, payload = send("latest question", context)
+
+        sent_texts = [item["content"] for item in payload["messages"][1:]]
+
+        self.assertEqual(sent_texts[0], "question 0")
+        self.assertEqual(sent_texts[1], "answer 0")
+
+    def test_full_history_can_be_switched_back_on(self):
+        context, _ = self.long_conversation()
+
+        with patch.dict("os.environ", {"NEXUS_FULL_HISTORY": "1"}):
+            _, payload = send("latest question", context)
+
+        self.assertEqual(payload["messages"][1:], context)
 
     def test_reference_context_messages_are_kept(self):
         context = [
@@ -97,6 +143,44 @@ class ConversationMemoryIsUntouchedTests(unittest.TestCase):
 
         self.assertNotIn("num_ctx", payload["options"])
         self.assertNotIn("num_predict", payload["options"])
+
+
+class CompactHistoryTests(unittest.TestCase):
+    def test_system_reference_material_is_never_shortened(self):
+        reference = {"role": "system", "content": "Stored knowledge: " + "x" * 6000}
+        messages = [
+            {"role": "system", "content": "prompt"},
+            reference,
+            {"role": "user", "content": "hi"}
+        ]
+
+        result, info = compact_history(messages)
+
+        self.assertEqual(result, messages)
+        self.assertEqual(info["shortened"], 0)
+
+    def test_old_long_user_messages_are_shortened_too(self):
+        messages = [{"role": "system", "content": "prompt"}]
+        messages.append({"role": "user", "content": "word " * 600})
+        for index in range(RECENT_FULL_MESSAGES):
+            messages.append({"role": "assistant", "content": f"reply {index}"})
+
+        result, info = compact_history(messages)
+
+        self.assertEqual(info["shortened"], 1)
+        self.assertLess(len(result[1]["content"]), OLD_MESSAGE_MAX_CHARS)
+
+    def test_a_long_message_inside_the_recent_window_is_kept(self):
+        messages = [
+            {"role": "system", "content": "prompt"},
+            {"role": "assistant", "content": "word " * 600},
+            {"role": "user", "content": "follow up"}
+        ]
+
+        result, info = compact_history(messages)
+
+        self.assertEqual(result, messages)
+        self.assertEqual(info["shortened"], 0)
 
 
 class ExtractStatsTests(unittest.TestCase):

@@ -31,6 +31,76 @@ def get_keep_alive():
     )
 
 
+# What the model is shown of the conversation. Everything stays stored in
+# full; this only decides how much of an old, long message is sent along.
+# Set NEXUS_FULL_HISTORY=1 to send every message in full again.
+RECENT_FULL_MESSAGES = 6
+OLD_MESSAGE_MAX_CHARS = 1200
+OLD_MESSAGE_KEEP_CHARS = 500
+
+
+def compact_history(
+    messages,
+    keep_recent=RECENT_FULL_MESSAGES,
+    max_chars=OLD_MESSAGE_MAX_CHARS,
+    keep_chars=OLD_MESSAGE_KEEP_CHARS
+):
+    """
+    Shorten old, long user and assistant messages for the model.
+
+    The most recent messages are always sent in full, and so are short
+    older ones, system messages and reference material. Returns the new
+    list (the input is never changed) and counts of what was shortened.
+    """
+
+    info = {"shortened": 0, "chars_saved": 0}
+
+    if os.environ.get("NEXUS_FULL_HISTORY", "").strip().lower() in (
+        "1", "true", "yes"
+    ):
+        return list(messages), info
+
+    conversation = [
+        index for index, item in enumerate(messages)
+        if item.get("role") in ("user", "assistant")
+    ]
+
+    recent = set(conversation[-keep_recent:]) if keep_recent > 0 else set()
+
+    result = []
+
+    for index, item in enumerate(messages):
+
+        content = str(item.get("content", ""))
+
+        if (
+            item.get("role") in ("user", "assistant")
+            and index not in recent
+            and len(content) > max_chars
+        ):
+
+            cut = content[:keep_chars]
+
+            if " " in cut:
+                cut = cut.rsplit(" ", 1)[0]
+
+            shortened = (
+                cut.rstrip()
+                + " ... (the rest of this older message is shortened here)"
+            )
+
+            info["shortened"] += 1
+            info["chars_saved"] += len(content) - len(shortened)
+
+            result.append({**item, "content": shortened})
+
+        else:
+
+            result.append(item)
+
+    return result, info
+
+
 def extract_stats(data, messages):
     """
     Collect timing and size measurements for one model request.
@@ -240,6 +310,15 @@ class OllamaClient:
                 )
 
             # ==========================
+            # WHAT THE MODEL SEES
+            # ==========================
+
+            # Old long messages are shortened for the model only. The
+            # conversation itself is stored and kept in full.
+
+            messages, history_info = compact_history(messages)
+
+            # ==========================
             # DEBUG
             # ==========================
 
@@ -325,10 +404,14 @@ class OllamaClient:
                 messages
             )
 
+            self.last_stats["history_shortened"] = history_info["shortened"]
+            self.last_stats["history_chars_saved"] = history_info["chars_saved"]
+
             logger.info(
                 f"Ollama timing: {format_stats(self.last_stats)} "
                 f"({self.last_stats.get('messages_sent', 0)} messages, "
-                f"{self.last_stats.get('prompt_chars', 0)} characters)"
+                f"{self.last_stats.get('prompt_chars', 0)} characters, "
+                f"{history_info['shortened']} older shortened)"
             )
 
             result = data["message"].get(
