@@ -16,7 +16,7 @@ import requests
 
 from ai.ollama import get_keep_alive
 from core.intent import BUILTIN_COMMANDS, Step, drop_redundant_steps
-from tools.meet import parse_meet_code
+from tools.meet import mentions_meeting, parse_meet_code
 from tools.system_info import TOPICS as SYSTEM_TOPICS, _APP_NAME
 from utils.logger import setup_logger
 
@@ -245,7 +245,7 @@ class IntentPlanner:
                 # Older Ollama versions only accept the plain "json" format.
                 content = self._call_model(messages, "json")
 
-            plan = self.parse(content)
+            plan = self.parse(content, text)
 
         except Exception as error:
 
@@ -268,7 +268,7 @@ class IntentPlanner:
     # CHECKING THE MODEL'S ANSWER
     # ======================================================
 
-    def parse(self, content):
+    def parse(self, content, text=None):
 
         try:
             data = json.loads(content or "")
@@ -304,7 +304,11 @@ class IntentPlanner:
             if not isinstance(raw, dict):
                 return Plan(valid=False)
 
-            checked = self._check_step(raw.get("action"), raw.get("value"))
+            checked = self._check_step(
+                raw.get("action"),
+                raw.get("value"),
+                text
+            )
 
             if isinstance(checked, Plan):
                 return checked
@@ -316,7 +320,7 @@ class IntentPlanner:
 
         return Plan(kind="act", steps=drop_redundant_steps(steps))
 
-    def _check_step(self, action, value):
+    def _check_step(self, action, value, text=None):
         """Return a Step, a Plan (to ask a question), or None if invalid."""
 
         if action not in ACTIONS:
@@ -388,6 +392,13 @@ class IntentPlanner:
             return Step(action, value, f"calculate {value}")
 
         if action == "join_meeting":
+
+            # A small model sometimes picks this for unrelated requests.
+            # Only believe it when the message really is about a meeting.
+            if text is not None and not (
+                mentions_meeting(text) or parse_meet_code(text)
+            ):
+                return None
 
             code = parse_meet_code(value)
 

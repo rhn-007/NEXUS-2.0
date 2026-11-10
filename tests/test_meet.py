@@ -180,11 +180,11 @@ def answer(data):
     return response
 
 
-def plan_for(step):
+def plan_for(step, text="get me into my meeting"):
     planner = IntentPlanner("u", "m", ["youtube"], ["notepad"])
     data = {"decision": "act", "steps": [step], "question": ""}
     with patch("core.planner.requests.post", return_value=answer(data)):
-        return planner.plan("x")
+        return planner.plan(text)
 
 
 class PlannerMeeting(unittest.TestCase):
@@ -196,6 +196,21 @@ class PlannerMeeting(unittest.TestCase):
         plan = plan_for({"action": "join_meeting", "value": ""})
         self.assertEqual(plan.kind, "ask")
         self.assertEqual(plan.expects, "meet_code")
+
+    def test_meeting_action_is_ignored_for_unrelated_requests(self):
+        # Seen on the real machine: "play the current song on spotify"
+        # made the model pick join_meeting and NEXUS asked for a code.
+        for text in ["play the current song on spotify", "call my mom"]:
+            plan = plan_for({"action": "join_meeting", "value": ""}, text)
+            self.assertEqual(plan.kind, "chat", text)
+            self.assertEqual(plan.question, "", text)
+
+    def test_code_in_the_message_still_counts(self):
+        plan = plan_for(
+            {"action": "join_meeting", "value": "abc defg hij"},
+            "hop on abc-defg-hij"
+        )
+        self.assertEqual([s.command for s in plan.steps], [f"join meeting {CODE}"])
 
     def test_junk_value_never_becomes_a_command(self):
         plan = plan_for({"action": "join_meeting", "value": "x; del /s *"})

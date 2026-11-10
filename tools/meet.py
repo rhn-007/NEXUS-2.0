@@ -67,6 +67,17 @@ def wants_meeting(text):
     return bool(_JOIN.search(lowered) and _MEETING_WORD.search(lowered))
 
 
+_MENTIONS_MEETING = re.compile(
+    r"\b(?:meeting|meet|google meet|video call|conference call)\b"
+)
+
+
+def mentions_meeting(text):
+    """True when the text talks about a meeting, whatever else it says."""
+
+    return bool(_MENTIONS_MEETING.search(str(text or "").lower()))
+
+
 def _letters(tokens, use_letter_names):
 
     letters = []
