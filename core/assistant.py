@@ -30,6 +30,7 @@ from tools.router import ToolRouter
 from tools.browser import BrowserTool
 from tools.application import ApplicationTool
 from tools.meet import MeetTool
+from tools.media import MediaTool
 from tools.system_info import SystemInfoTool
 from tools.research import ResearchTool
 
@@ -183,6 +184,10 @@ class NexusAssistant:
 
         self.tool_registry.register(
             SystemInfoTool()
+        )
+
+        self.tool_registry.register(
+            MediaTool()
         )
 
         self.research_tool = ResearchTool(

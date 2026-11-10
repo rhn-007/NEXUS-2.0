@@ -16,6 +16,7 @@ import requests
 
 from ai.ollama import get_keep_alive
 from core.intent import BUILTIN_COMMANDS, Step, drop_redundant_steps
+from tools.media import SIMPLE_ACTIONS as MEDIA_ACTIONS, mentions_media
 from tools.meet import mentions_meeting, parse_meet_code
 from tools.system_info import TOPICS as SYSTEM_TOPICS, _APP_NAME
 from utils.logger import setup_logger
@@ -49,6 +50,9 @@ ACTION_HELP = {
                    "or continuous)",
     "join_meeting": "open a Google Meet (value: the meeting code, for "
                     "example abc-defg-hij)",
+    "media": "control playing music or video (value: play_pause, next, "
+             "previous, volume_up, volume_down, mute, or \"volume 40\" "
+             "to set the volume from 0 to 100)",
     "system_info": "read-only facts about this PC (value: time, date, "
                    "battery, cpu, memory, disk, uptime, network, apps, pc, "
                    "summary, or \"app NAME\" to check if an app is running)"
@@ -410,6 +414,27 @@ class IntentPlanner:
                 question="What's the meeting code?",
                 expects="meet_code"
             )
+
+        if action == "media":
+
+            # Only believe it when the message is about music or sound.
+            if text is not None and not mentions_media(text):
+                return None
+
+            choice = value.lower().strip()
+
+            if choice in MEDIA_ACTIONS:
+                return Step(action, choice, f"media {choice}")
+
+            level = re.fullmatch(r"volume (\d{1,3})", choice)
+
+            if level and int(level.group(1)) <= 100:
+
+                number = int(level.group(1))
+
+                return Step(action, f"volume {number}", f"media volume {number}")
+
+            return None
 
         if action == "system_info":
 

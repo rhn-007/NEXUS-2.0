@@ -12,6 +12,7 @@ import re
 from urllib.parse import quote_plus
 
 from tools.meet import parse_meet_code, wants_meeting
+from tools.media import command_for as media_command, detect_media
 from tools.system_info import detect_topics
 from dataclasses import dataclass
 
@@ -366,7 +367,7 @@ _TOOL_NOUNS = (
     "browser", "opera", "notepad", "spotify", "google", "youtube",
     "folder", "explorer", "whatsapp", "excel", "speech profile",
     "performance report", "continuous", "keyboard mode", "voice mode",
-    "meeting", "google meet"
+    "meeting", "google meet", "volume", "music", "song"
 )
 
 
@@ -507,7 +508,7 @@ class IntentFastPath:
 
         kind, _ = _match_verb(text)
 
-        if kind or detect_topics(text):
+        if kind or detect_topics(text) or detect_media(text):
             return True
 
         # "open notepad and calculator": a bare app after an open step.
@@ -586,6 +587,19 @@ class IntentFastPath:
             info = f"{topic} {value}".strip()
 
             return Step("system_info", info, f"system info {info}", first=True)
+
+        media = detect_media(text)
+
+        if media:
+
+            action, value = media[0]
+
+            return Step(
+                "media",
+                f"{action} {value}".strip(),
+                media_command(action, value),
+                first=True
+            )
 
         kind, target = _match_verb(text)
 

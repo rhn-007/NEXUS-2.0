@@ -261,8 +261,9 @@ CAPABILITIES:
 NEXUS can open apps, folders and websites, search Google, YouTube and other
 sites, research topics from the web, do arithmetic, open a Google Meet from
 a meeting code, check this PC's time, date, battery, CPU, memory, disk space,
-uptime, Wi-Fi and running apps, and show Rohan's speech profile, the
-performance report, and what NEXUS knows about him.
+uptime, Wi-Fi and running apps, play, pause or skip music and change the
+volume, and show Rohan's speech profile, the performance report, and what
+NEXUS knows about him.
 
 These actions run before a message reaches you. If Rohan asks for one of them
 and the message is in front of you, the action did not run. Do not say you
