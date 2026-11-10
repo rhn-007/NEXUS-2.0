@@ -6,6 +6,7 @@ Handles text-to-speech using Piper.
 
 import html
 import re
+from contextlib import nullcontext
 import subprocess
 import uuid
 from pathlib import Path
@@ -305,16 +306,25 @@ class Speaker:
 
     def speak(
         self,
-        text
+        text,
+        quiet=False
     ):
+        """
+        quiet=True skips the status animation. It is used while a reply is
+        being written to the screen, so the animation does not draw over it.
+        """
 
         if not text:
+            return
+
+        if quiet:
+            self._speak(text, quiet=True)
             return
 
         with activity("Preparing speech"):
             self._speak(text)
 
-    def _speak(self, text):
+    def _speak(self, text, quiet=False):
 
         # Prepare a speech-only version. The original response remains
         # unchanged for the terminal, conversation history, and memory.
@@ -379,7 +389,7 @@ class Speaker:
 
             if output.exists():
 
-                with activity("Speaking"):
+                with (nullcontext() if quiet else activity("Speaking")):
 
                     winsound.PlaySound(
 

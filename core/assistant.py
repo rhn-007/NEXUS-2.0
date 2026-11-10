@@ -32,6 +32,8 @@ from tools.application import ApplicationTool
 from tools.meet import MeetTool
 from tools.media import MediaTool
 from tools.system_info import SystemInfoTool
+from ai.ollama import streaming_enabled
+from core.stream_output import StreamPresenter
 from tools.research import ResearchTool
 
 from ui.status import set_status, clear_status
@@ -118,6 +120,10 @@ class NexusAssistant:
 
         self.status = "READY"
 
+        # True when a reply was already written to the screen while it was
+        # being generated, so the main loop must not print it again.
+        self.response_displayed = False
+
         logger.info("NEXUS initialized successfully.")
 
     # ==========================
@@ -156,11 +162,20 @@ class NexusAssistant:
                 user_input
             )
 
-            print(
-                "\nNEXUS:",
-                response,
-                "\n"
-            )
+            if self.response_displayed:
+
+                # Already written to the screen while it was generated.
+                self.response_displayed = False
+
+                print()
+
+            else:
+
+                print(
+                    "\nNEXUS:",
+                    response,
+                    "\n"
+                )
 
     # ==========================
     # REGISTER TOOLS
@@ -455,10 +470,25 @@ class NexusAssistant:
                     }
                 )
 
+            # The reply appears on screen as it is written, and the first
+            # sentence starts speaking early. What is stored is unchanged.
+            presenter = (
+                StreamPresenter(
+                    self.speaker,
+                    self.response_style.refine
+                )
+                if streaming_enabled()
+                else None
+            )
+
             response = self.llm.generate_response(
                 user_input,
-                context
+                context,
+                on_text=presenter.feed if presenter else None
             )
+
+            if presenter:
+                presenter.finish()
 
             response = self.response_style.refine(
                 response
@@ -473,9 +503,35 @@ class NexusAssistant:
                 response
             )
 
-            self.speaker.speak(
-                response
-            )
+            failed = str(response).lower().startswith((
+                "ollama error",
+                "ollama returned",
+                "ollama took too long",
+                "i can't connect to ollama"
+            ))
+
+            if presenter and presenter.displayed and not failed:
+
+                self.response_displayed = True
+
+                if presenter.spoke_early:
+
+                    # The first sentence was already spoken.
+                    self.speaker.speak(
+                        presenter.unspoken()
+                    )
+
+                else:
+
+                    self.speaker.speak(
+                        response
+                    )
+
+            else:
+
+                self.speaker.speak(
+                    response
+                )
 
             return response
 

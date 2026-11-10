@@ -4,6 +4,7 @@ NEXUS Ollama Client
 Handles communication with the local Ollama model.
 """
 
+import json
 import os
 import time
 
@@ -31,6 +32,35 @@ def get_keep_alive():
     )
 
 
+def streaming_enabled():
+    """Show the reply as it is written. NEXUS_STREAM=0 turns it off."""
+
+    return os.environ.get("NEXUS_STREAM", "").strip().lower() not in (
+        "0", "false", "no", "off"
+    )
+
+
+def model_options():
+    """
+    Settings sent to Ollama. NEXUS_NUM_THREAD and NEXUS_NUM_GPU are only
+    sent when set to a whole number, so by default Ollama decides.
+    """
+
+    options = {"temperature": 0.3, "top_p": 0.9}
+
+    for variable, key in (
+        ("NEXUS_NUM_THREAD", "num_thread"),
+        ("NEXUS_NUM_GPU", "num_gpu")
+    ):
+
+        value = os.environ.get(variable, "").strip()
+
+        if value.isdigit():
+            options[key] = int(value)
+
+    return options
+
+
 # What the model is shown of the conversation. Everything stays stored in
 # full; this only decides how much of an old, long message is sent along.
 # Set NEXUS_FULL_HISTORY=1 to send every message in full again.
@@ -38,12 +68,17 @@ RECENT_FULL_MESSAGES = 6
 OLD_MESSAGE_MAX_CHARS = 1200
 OLD_MESSAGE_KEEP_CHARS = 500
 
+# Older messages (beyond the recent ones) are sent newest first until this
+# many characters are used; anything older is left out of the model's view.
+OLD_HISTORY_BUDGET_CHARS = 3000
+
 
 def compact_history(
     messages,
     keep_recent=RECENT_FULL_MESSAGES,
     max_chars=OLD_MESSAGE_MAX_CHARS,
-    keep_chars=OLD_MESSAGE_KEEP_CHARS
+    keep_chars=OLD_MESSAGE_KEEP_CHARS,
+    old_budget=OLD_HISTORY_BUDGET_CHARS
 ):
     """
     Shorten old, long user and assistant messages for the model.
@@ -53,7 +88,7 @@ def compact_history(
     list (the input is never changed) and counts of what was shortened.
     """
 
-    info = {"shortened": 0, "chars_saved": 0}
+    info = {"shortened": 0, "chars_saved": 0, "dropped": 0}
 
     if os.environ.get("NEXUS_FULL_HISTORY", "").strip().lower() in (
         "1", "true", "yes"
@@ -97,6 +132,38 @@ def compact_history(
         else:
 
             result.append(item)
+
+    # Keep the newest older messages within the budget, drop the rest.
+    if old_budget and old_budget > 0:
+
+        older = [
+            index for index, item in enumerate(result)
+            if item.get("role") in ("user", "assistant")
+            and index not in recent
+        ]
+
+        used = 0
+        drop = set()
+
+        for index in reversed(older):
+
+            used += len(str(result[index].get("content", "")))
+
+            if used > old_budget or drop:
+                drop.add(index)
+
+        if drop:
+
+            info["dropped"] = len(drop)
+            info["chars_saved"] += sum(
+                len(str(messages[index].get("content", "")))
+                for index in drop
+            )
+
+            result = [
+                item for index, item in enumerate(result)
+                if index not in drop
+            ]
 
     return result, info
 
@@ -165,6 +232,83 @@ def format_stats(stats):
     return " | ".join(parts)
 
 
+def read_stream(response, on_text):
+    """
+    Read Ollama's streamed reply and return it shaped like a normal
+    (non-streamed) response. on_text gets each piece as it arrives. If the
+    stream breaks after some text arrived, the text so far is returned.
+    """
+
+    parts = []
+    final = {}
+
+    try:
+
+        for line in response.iter_lines():
+
+            if not line:
+                continue
+
+            chunk = json.loads(line)
+
+            if chunk.get("error"):
+                raise ValueError(str(chunk["error"]))
+
+            piece = (chunk.get("message") or {}).get("content", "")
+
+            if piece:
+
+                parts.append(piece)
+
+                try:
+                    on_text(piece)
+                except Exception as error:
+                    logger.warning("Streaming display error: %s", error)
+
+            if chunk.get("done"):
+                final = chunk
+
+    except (ValueError, requests.exceptions.ChunkedEncodingError) as error:
+
+        if not parts:
+            raise
+
+        logger.warning("Stream ended early, keeping the text so far: %s", error)
+
+    data = {key: value for key, value in final.items() if key != "message"}
+
+    data["message"] = {"role": "assistant", "content": "".join(parts)}
+
+    return data
+
+
+def placement_text(models, name):
+    """Where Ollama says the model is running: CPU, GPU or a mix."""
+
+    for item in models or []:
+
+        if name not in (item.get("name"), item.get("model")):
+            continue
+
+        size = item.get("size") or 0
+        vram = item.get("size_vram") or 0
+
+        if size <= 0:
+            return None
+
+        if vram <= 0:
+            return "100% CPU"
+
+        share = round(vram * 100 / size)
+
+        if share >= 100:
+            return "100% GPU"
+
+        return f"{100 - share}% CPU / {share}% GPU"
+
+    return None
+
+
 class OllamaClient:
 
     def __init__(self, observer=None):
@@ -179,14 +323,47 @@ class OllamaClient:
         # Measurements from the most recent request.
         self.last_stats = {}
 
+        self._placement_logged = False
+
         logger.info(
             "Ollama client ready"
         )
 
-    def generate_response(self, message, context=None):
+    def _log_placement(self):
+        """Log once whether the model runs on the CPU, the GPU or both."""
+
+        if self._placement_logged:
+            return
+
+        self._placement_logged = True
+
+        try:
+
+            reply = requests.get(
+                self.url.replace("/api/chat", "/api/ps"),
+                timeout=2
+            )
+
+            where = placement_text(
+                reply.json().get("models"),
+                self.model
+            )
+
+            if where:
+                logger.info("Ollama is running %s on: %s", self.model, where)
+
+        except Exception:
+            pass
+
+    def generate_response(self, message, context=None, on_text=None):
+        """
+        on_text, when given, is called with each piece of the reply as the
+        model writes it. The finished reply is still returned whole.
+        """
+
         self.last_stats = {}
         started_at = time.perf_counter()
-        result = self._generate_response(message, context)
+        result = self._generate_response(message, context, on_text)
         duration_ms = (time.perf_counter() - started_at) * 1000
 
         if self.observer:
@@ -222,7 +399,8 @@ class OllamaClient:
     def _generate_response(
         self,
         message,
-        context=None
+        context=None,
+        on_text=None
     ):
 
         try:
@@ -330,23 +508,19 @@ class OllamaClient:
             # OLLAMA REQUEST
             # ==========================
 
+            streaming = bool(on_text) and streaming_enabled()
+
             payload = {
 
                 "model": self.model,
 
                 "messages": messages,
 
-                "stream": False,
+                "stream": streaming,
 
                 "keep_alive": get_keep_alive(),
 
-                "options": {
-
-                    "temperature": 0.3,
-
-                    "top_p": 0.9
-
-                }
+                "options": model_options()
 
             }
 
@@ -356,7 +530,9 @@ class OllamaClient:
 
                 json=payload,
 
-                timeout=120
+                timeout=120,
+
+                stream=streaming
 
             )
 
@@ -383,7 +559,13 @@ class OllamaClient:
             # PARSE RESPONSE
             # ==========================
 
-            data = response.json()
+            if streaming:
+
+                data = read_stream(response, on_text)
+
+            else:
+
+                data = response.json()
 
             if "message" not in data:
 
@@ -405,14 +587,18 @@ class OllamaClient:
             )
 
             self.last_stats["history_shortened"] = history_info["shortened"]
+            self.last_stats["history_dropped"] = history_info["dropped"]
             self.last_stats["history_chars_saved"] = history_info["chars_saved"]
 
             logger.info(
                 f"Ollama timing: {format_stats(self.last_stats)} "
                 f"({self.last_stats.get('messages_sent', 0)} messages, "
                 f"{self.last_stats.get('prompt_chars', 0)} characters, "
-                f"{history_info['shortened']} older shortened)"
+                f"{history_info['shortened']} older shortened, "
+                f"{history_info['dropped']} left out)"
             )
+
+            self._log_placement()
 
             result = data["message"].get(
                 "content",
