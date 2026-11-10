@@ -286,3 +286,34 @@ class PlannerSystemInfo(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+class RealWorldPhrasing(unittest.TestCase):
+    """Sentences from the live log that used to fall through to the model."""
+
+    def test_specs_in_either_word_order(self):
+        for text in ["tell me what the specs of the computer is",
+                     "what is the specs of the PC", "show my PC specs",
+                     "what are my pc's specs"]:
+            self.assertEqual(detect_topics(text), [("pc", "")], text)
+
+    def test_other_devices_specs_are_not_the_pc(self):
+        self.assertEqual(detect_topics("what are the specs of the iphone 15"), [])
+
+    def test_running_apps_with_extra_words_and_a_typo(self):
+        for text in ["tell me which all apps are sunning",
+                     "which apps are running", "what's running",
+                     "what programs are open"]:
+            self.assertEqual(detect_topics(text), [("apps", "")], text)
+        self.assertEqual(detect_topics("what apps are good for studying"), [])
+
+    def test_date_and_time_gives_both(self):
+        self.assertEqual(detect_topics("what is the date and time"),
+                         [("date", ""), ("time", "")])
+
+    def test_date_and_time_runs_both_steps(self):
+        fast = IntentFastPath([], [])
+        steps = fast.fast_steps("what is the date and time")
+        self.assertEqual([s.command for s in steps],
+                         ["system info date", "system info time"])

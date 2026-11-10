@@ -14,6 +14,7 @@ import io
 import logging
 import os
 import platform
+import difflib
 import re
 import shutil
 import subprocess
@@ -70,7 +71,8 @@ _PATTERNS = [
     ("summary", r"\b(?:system|pc|computer) (?:info|status|summary)$"),
     ("pc", r"\bwhat (?:pc|computer|laptop) is this\b"),
     ("pc", r"\bwhat (?:version of )?windows\b|\bwhich windows\b"),
-    ("pc", r"\b(?:pc|system|computer) specs\b|\bmy specs\b"),
+    ("pc", r"\b(?:pc|system|computer|laptop|machine)(?:'s)? specs\b|\bmy specs\b"),
+    ("pc", r"\b(?:specs?|specifications?)\b.*\b(?:pc|computer|laptop|system|machine)\b"),
     ("pc", r"\bwhat (?:cpu|processor) do i have\b"),
     ("pc", r"\bwhat(?:'s| is) my (?:pc|computer|laptop) (?:name|called)\b"),
     ("cpu", r"\b(?:cpu|processor)\b.*\b(?:usage|load|using|busy)\b"),
@@ -83,7 +85,9 @@ _PATTERNS = [
     ("uptime", r"\buptime\b"),
     ("network", r"\b(?:which|what) (?:wi-?fi|network)\b"),
     ("network", r"\bwi-?fi\b.*\b(?:connected|name|network|using)\b"),
-    ("apps", r"\b(?:what|which) (?:apps|programs|applications)\b.*\b(?:running|open)\b"),
+    ("apps", r"\b(?:what|which)(?: all| are| the)* (?:apps|programs|applications)\b.*\b(?:running|open|opened)\b"),
+    ("apps", r"\b(?:apps|programs|applications) (?:that )?(?:are )?(?:currently )?(?:running|open)\b"),
+    ("apps", r"\bwhat(?:'s| is) (?:currently )?running\b"),
     ("apps", r"\bshow (?:the |my )?running (?:apps|programs|applications)\b"),
 ]
 
@@ -99,11 +103,40 @@ _TYPED = re.compile(r"^system info (?P<topic>[a-z]+)(?: (?P<value>.+))?$")
 _CLAUSE_SPLIT = re.compile(r"\s*(?:;|,|\band\b|\bthen\b|\bplus\b)\s*")
 
 
+# Words worth repairing when speech or typing garbles them ("sunning").
+_VOCAB = (
+    "running", "battery", "storage", "processor", "computer",
+    "specifications", "applications", "programs", "connected"
+)
+
+_DATE_AND_TIME = re.compile(
+    r"\b(?:date and time|time and date)(?: right now| now| today)?$"
+)
+
+
+def _repair(text):
+
+    words = []
+
+    for word in text.split(" "):
+
+        if len(word) >= 6 and word.isalpha() and word not in _VOCAB:
+
+            close = difflib.get_close_matches(word, _VOCAB, 1, 0.85)
+
+            if close:
+                word = close[0]
+
+        words.append(word)
+
+    return " ".join(words)
+
+
 def _normal(text):
 
     lowered = str(text or "").lower().replace("’", "'")
 
-    return re.sub(r"\s+", " ", lowered).strip(" .!?,")
+    return _repair(re.sub(r"\s+", " ", lowered).strip(" .!?,"))
 
 
 def _topic_for_clause(clause):
@@ -153,6 +186,9 @@ def detect_topics(text):
             return [(topic, "")]
 
         return []
+
+    if _DATE_AND_TIME.search(lowered):
+        return [("date", ""), ("time", "")]
 
     found = []
 

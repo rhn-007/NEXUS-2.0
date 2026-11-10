@@ -11,6 +11,7 @@ Anything left over is normal conversation.
 
 import time
 
+from core.capabilities import answer as capability_answer
 from core.intent import BUILTIN_ACTIONS, Step
 from tools.meet import looks_like_code_attempt, parse_meet_code
 from tools.router import ToolResult
@@ -65,6 +66,14 @@ class IntentRunner:
                     path = "pending"
 
                     return answered
+
+            about_me = capability_answer(text)
+
+            if about_me:
+
+                path = "capabilities"
+
+                return ToolResult(True, about_me)
 
             steps = self.fast.fast_steps(text)
 

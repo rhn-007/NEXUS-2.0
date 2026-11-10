@@ -367,7 +367,9 @@ _TOOL_NOUNS = (
     "browser", "opera", "notepad", "spotify", "google", "youtube",
     "folder", "explorer", "whatsapp", "excel", "speech profile",
     "performance report", "continuous", "keyboard mode", "voice mode",
-    "meeting", "google meet", "volume", "music", "song"
+    "meeting", "google meet", "volume", "music", "song",
+    "specs", "battery", "wifi", "wi-fi", "my pc", "my computer",
+    "my laptop", "running"
 )
 
 
@@ -407,6 +409,16 @@ class IntentFastPath:
 
             if steps:
                 return steps
+
+        # "the date and time" asks two PC questions in one clause.
+        topics = [t for t in detect_topics(cleaned) if t[0] != "app"]
+
+        if len(topics) > 1:
+
+            return [
+                Step("system_info", topic, f"system info {topic}", first=True)
+                for topic, _ in topics
+            ]
 
         step = self._parse_one(cleaned)
 
