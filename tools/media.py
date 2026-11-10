@@ -116,10 +116,46 @@ _MENTIONS_MEDIA = re.compile(
 )
 
 
+_VOLUME_OF = re.compile(r"\bvolume of\b")
+
+
 def mentions_media(text):
     """True when the text talks about music, sound or playback at all."""
 
-    return bool(_MENTIONS_MEDIA.search(str(text or "").lower()))
+    lowered = str(text or "").lower()
+
+    # "the volume of a sphere" is maths, not the speaker volume.
+    if _VOLUME_OF.search(lowered):
+        return False
+
+    return bool(_MENTIONS_MEDIA.search(lowered))
+
+
+# What the message must contain for a planner-chosen action to be believed.
+_EVIDENCE = {
+    "play_pause": r"\b(?:play|pause|resume|stop|continue|unpause)\b",
+    "next": r"\b(?:next|skip)\b",
+    "previous": r"\b(?:previous|last|back)\b",
+    "volume_up": r"\b(?:up|louder|higher|increase|raise|loud)\b",
+    "volume_down": r"\b(?:down|quieter|lower|softer|decrease|reduce|quiet)\b",
+    "mute": r"\b(?:mute|unmute|silence|off)\b",
+    "set_volume": r"\d",
+}
+
+
+def media_choice_fits(text, choice):
+    """
+    Does the message back up this media action? A small model can pick one
+    from a stray word, so the message itself has to point at it.
+    """
+
+    lowered = str(text or "").lower()
+
+    key = "set_volume" if choice.startswith("volume ") else choice
+
+    pattern = _EVIDENCE.get(key)
+
+    return bool(pattern and re.search(pattern, lowered))
 
 
 def _normal(text):

@@ -16,7 +16,11 @@ import requests
 
 from ai.ollama import get_keep_alive
 from core.intent import BUILTIN_COMMANDS, Step, drop_redundant_steps
-from tools.media import SIMPLE_ACTIONS as MEDIA_ACTIONS, mentions_media
+from tools.media import (
+    SIMPLE_ACTIONS as MEDIA_ACTIONS,
+    media_choice_fits,
+    mentions_media
+)
 from tools.meet import mentions_meeting, parse_meet_code
 from tools.system_info import TOPICS as SYSTEM_TOPICS, _APP_NAME
 from utils.logger import setup_logger
@@ -154,7 +158,8 @@ class IntentPlanner:
             "\"pop open my music app\" -> act: open_app spotify\n"
             "\"now compare it with Claude\" after talking about OpenAI -> "
             "act: research OpenAI vs Claude\n"
-            "\"what is the capital of France\" -> chat"
+            "\"what is the capital of France\" -> chat\n"
+            "\"volume of a sphere\" -> chat"
         )
 
         lines = []
@@ -422,6 +427,9 @@ class IntentPlanner:
                 return None
 
             choice = value.lower().strip()
+
+            if text is not None and not media_choice_fits(text, choice):
+                return None
 
             if choice in MEDIA_ACTIONS:
                 return Step(action, choice, f"media {choice}")

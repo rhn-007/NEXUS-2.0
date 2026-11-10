@@ -216,18 +216,37 @@ def plan_for(step, text):
 
 class PlannerMedia(unittest.TestCase):
     def test_valid_choices(self):
-        for value, command in [
-            ("next", "media next"),
-            ("volume_down", "media volume_down"),
-            ("volume 40", "media volume 40"),
+        for value, command, text in [
+            ("next", "media next", "skip to the next song"),
+            ("volume_down", "media volume_down", "make my music quieter"),
+            ("volume 40", "media volume 40", "set the music volume to 40"),
         ]:
-            plan = plan_for({"action": "media", "value": value}, "play something quieter on my music")
-            self.assertEqual([s.command for s in plan.steps], [command])
+            plan = plan_for({"action": "media", "value": value}, text)
+            self.assertEqual([s.command for s in plan.steps], [command], text)
 
     def test_invalid_values_are_rejected(self):
         for value in ["volume 400", "format c:", "next; del *", "volume", ""]:
             plan = plan_for({"action": "media", "value": value}, "turn the music up a notch")
             self.assertEqual(plan.kind, "chat", value)
+
+    def test_the_volume_of_a_sphere_never_presses_a_key(self):
+        # Seen on the real machine: this pressed volume down.
+        for text in ["i want the volume of a sphere", "volume of sphere"]:
+            plan = plan_for({"action": "media", "value": "volume_down"}, text)
+            self.assertEqual(plan.kind, "chat", text)
+
+    def test_a_choice_must_be_backed_by_the_message(self):
+        # "mute the song" cannot justify a volume-up key.
+        plan = plan_for({"action": "media", "value": "volume_up"}, "mute the song")
+        self.assertEqual(plan.kind, "chat")
+        plan = plan_for({"action": "media", "value": "mute"}, "mute the song")
+        self.assertEqual([s.command for s in plan.steps], ["media mute"])
+
+    def test_the_planner_is_not_even_asked_about_maths(self):
+        fast = IntentFastPath(["youtube"], ["notepad"])
+        self.assertFalse(fast.looks_like_request("volume of sphere"))
+        self.assertFalse(fast.looks_like_request("i want the volume of a sphere"))
+        self.assertTrue(fast.looks_like_request("turn the music down a notch"))
 
     def test_unrelated_requests_do_not_become_media_keys(self):
         plan = plan_for({"action": "media", "value": "play_pause"}, "play the guitar for me")

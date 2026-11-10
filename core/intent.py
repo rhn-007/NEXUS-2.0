@@ -454,7 +454,10 @@ class IntentFastPath:
         if kind:
             return True
 
-        return any(has_phrase(lowered, noun) for noun in _TOOL_NOUNS)
+        # "the volume of a sphere" is not about the speakers.
+        nouns_text = lowered.replace("volume of", "")
+
+        return any(has_phrase(nouns_text, noun) for noun in _TOOL_NOUNS)
 
     # ------------------------------------------------------
     # PARSING
