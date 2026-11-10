@@ -12,6 +12,7 @@ import re
 from urllib.parse import quote_plus
 
 from tools.meet import parse_meet_code, wants_meeting
+from tools.system_info import detect_topics
 from dataclasses import dataclass
 
 
@@ -506,7 +507,7 @@ class IntentFastPath:
 
         kind, _ = _match_verb(text)
 
-        if kind:
+        if kind or detect_topics(text):
             return True
 
         # "open notepad and calculator": a bare app after an open step.
@@ -575,6 +576,16 @@ class IntentFastPath:
                 f"join meeting {code}" if code else "",
                 first=True
             )
+
+        topics = detect_topics(text)
+
+        if topics:
+
+            topic, value = topics[0]
+
+            info = f"{topic} {value}".strip()
+
+            return Step("system_info", info, f"system info {info}", first=True)
 
         kind, target = _match_verb(text)
 

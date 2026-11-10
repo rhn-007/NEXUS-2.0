@@ -17,6 +17,7 @@ import requests
 from ai.ollama import get_keep_alive
 from core.intent import BUILTIN_COMMANDS, Step, drop_redundant_steps
 from tools.meet import parse_meet_code
+from tools.system_info import TOPICS as SYSTEM_TOPICS, _APP_NAME
 from utils.logger import setup_logger
 
 
@@ -47,7 +48,10 @@ ACTION_HELP = {
     "switch_mode": "change how Rohan talks to NEXUS (value: voice, keyboard "
                    "or continuous)",
     "join_meeting": "open a Google Meet (value: the meeting code, for "
-                    "example abc-defg-hij)"
+                    "example abc-defg-hij)",
+    "system_info": "read-only facts about this PC (value: time, date, "
+                   "battery, cpu, memory, disk, uptime, network, apps, pc, "
+                   "summary, or \"app NAME\" to check if an app is running)"
 }
 
 ACTIONS = tuple(ACTION_HELP)
@@ -395,6 +399,25 @@ class IntentPlanner:
                 question="What's the meeting code?",
                 expects="meet_code"
             )
+
+        if action == "system_info":
+
+            topic, _, name = value.lower().partition(" ")
+
+            if topic not in SYSTEM_TOPICS:
+                return None
+
+            if topic == "app":
+
+                if not _APP_NAME.match(name.strip()):
+                    return None
+
+                return Step(action, f"app {name.strip()}", f"system info app {name.strip()}")
+
+            if name:
+                return None
+
+            return Step(action, topic, f"system info {topic}")
 
         if action == "switch_mode":
 

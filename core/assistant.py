@@ -30,6 +30,7 @@ from tools.router import ToolRouter
 from tools.browser import BrowserTool
 from tools.application import ApplicationTool
 from tools.meet import MeetTool
+from tools.system_info import SystemInfoTool
 from tools.research import ResearchTool
 
 from ui.status import set_status, clear_status
@@ -178,6 +179,10 @@ class NexusAssistant:
             MeetTool(
                 self.tool_registry.get("browser")
             )
+        )
+
+        self.tool_registry.register(
+            SystemInfoTool()
         )
 
         self.research_tool = ResearchTool(

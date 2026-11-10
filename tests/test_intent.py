@@ -102,7 +102,6 @@ class FastPathLeavesChatAlone(unittest.TestCase):
             "i searched for it yesterday",
             "tell me about openai",
             "how are you doing today",
-            "what is the current time?",
             "research it",
             "open the pod bay doors",
             "lunch with sam",
