@@ -32,7 +32,7 @@ from tools.application import ApplicationTool
 from tools.meet import MeetTool
 from tools.media import MediaTool
 from tools.system_info import SystemInfoTool
-from ai.ollama import streaming_enabled
+from ai.ollama import is_failure, streaming_enabled
 from core.stream_output import StreamPresenter
 from tools.research import ResearchTool
 
@@ -261,14 +261,10 @@ class NexusAssistant:
 
         try:
             response = self._process_input(user_input)
-            lowered = str(response or "").lower()
-            if lowered.startswith((
-                "error:",
-                "ollama error",
-                "ollama returned",
-                "ollama took too long",
-                "i can't connect to ollama"
-            )):
+            if (
+                str(response or "").lower().startswith("error:")
+                or is_failure(response)
+            ):
                 status = "failed"
             return response
         except Exception:
@@ -503,14 +499,7 @@ class NexusAssistant:
                 response
             )
 
-            failed = str(response).lower().startswith((
-                "ollama error",
-                "ollama returned",
-                "ollama took too long",
-                "i can't connect to ollama"
-            ))
-
-            if presenter and presenter.displayed and not failed:
+            if presenter and presenter.displayed and not is_failure(response):
 
                 self.response_displayed = True
 
@@ -518,7 +507,9 @@ class NexusAssistant:
 
                     # The first sentence was already spoken.
                     self.speaker.speak(
-                        presenter.unspoken()
+                        self.response_style.refine(
+                            presenter.unspoken()
+                        )
                     )
 
                 else:

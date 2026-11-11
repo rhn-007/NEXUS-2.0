@@ -32,6 +32,22 @@ def get_keep_alive():
     )
 
 
+# What generate_response returns when the model could not answer.
+FAILURE_PREFIXES = (
+    "ollama error",
+    "ollama returned",
+    "ollama took too long",
+    "ollama request error",
+    "i can't connect to ollama"
+)
+
+
+def is_failure(reply):
+    """True when the text is one of the client's own error messages."""
+
+    return str(reply or "").lower().startswith(FAILURE_PREFIXES)
+
+
 def streaming_enabled():
     """Show the reply as it is written. NEXUS_STREAM=0 turns it off."""
 
@@ -268,7 +284,7 @@ def read_stream(response, on_text):
             if chunk.get("done"):
                 final = chunk
 
-    except (ValueError, requests.exceptions.ChunkedEncodingError) as error:
+    except (ValueError, requests.exceptions.RequestException) as error:
 
         if not parts:
             raise
@@ -367,16 +383,9 @@ class OllamaClient:
         duration_ms = (time.perf_counter() - started_at) * 1000
 
         if self.observer:
-            lowered = str(result or "").lower()
-            failed_prefixes = (
-                "ollama error",
-                "ollama returned",
-                "ollama took too long",
-                "i can't connect to ollama"
-            )
             status = (
                 "failed"
-                if lowered.startswith(failed_prefixes)
+                if is_failure(result)
                 else "completed"
             )
             try:

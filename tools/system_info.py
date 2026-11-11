@@ -65,6 +65,8 @@ _PATTERNS = [
     ("battery", r"\bhow much battery\b"),
     ("battery", r"\bbattery (?:level|percentage|percent|left|life|status)\b"),
     ("battery", r"\bwhat(?:'s| is) my battery\b"),
+    ("battery", r"\b(?:status|state|level|percentage|percent) of my battery\b"),
+    ("battery", r"^(?:what(?:'s| is)|how(?:'s| is)|show me|check|tell me)(?: about)? (?:the |my )?battery(?: now| right now| status| level)?$"),
     ("battery", r"\bis (?:my|the|this) \w+ (?:charging|plugged in)$"),
     ("summary", r"\bhow(?:'s| is) my (?:pc|computer|laptop|system|machine) (?:doing|running|performing)\b"),
     ("summary", r"\bis my (?:pc|computer|laptop|system|machine) (?:running |being )?(?:slow|laggy|lagging|okay|ok|fine)\b"),
@@ -139,6 +141,21 @@ def _normal(text):
     return _repair(re.sub(r"\s+", " ", lowered).strip(" .!?,"))
 
 
+# "the battery life of an iphone" or "uptime of aws" is about something
+# else, not this PC. "of my", "in the background", "in total" still are.
+_OTHER_SUBJECT = re.compile(
+    r"\b(?:of|in)\s+(?!"
+    r"(?:my|this|your|our)\b"
+    r"|the (?:background|pc|computer|laptop|system|machine|taskbar|tray)\b"
+    r"|(?:pc|computer|laptop|total|use|general|background)\b"
+    r")\w+"
+)
+
+_ABOUT_THIS_PC = {
+    "battery", "summary", "pc", "cpu", "memory", "uptime", "apps"
+}
+
+
 def _topic_for_clause(clause):
 
     clause = clause.strip(" .!?,")
@@ -149,6 +166,10 @@ def _topic_for_clause(clause):
     for topic, pattern in _COMPILED:
 
         if pattern.search(clause):
+
+            if topic in _ABOUT_THIS_PC and _OTHER_SUBJECT.search(clause):
+                continue
+
             return topic, ""
 
     running = _IS_RUNNING.search(clause)

@@ -284,6 +284,28 @@ class PlannerSystemInfo(unittest.TestCase):
             self.assertEqual(plan_for({"action": "system_info", "value": value}).kind, "chat", value)
 
 
+class AboutSomethingElse(unittest.TestCase):
+    """Questions about other things must not read this PC."""
+
+    def test_other_subjects_are_left_to_the_model(self):
+        for text in ["what's the battery life of an iphone 15",
+                     "what is the uptime of aws",
+                     "what's running in marathon",
+                     "what is the cpu usage of a ps5"]:
+            self.assertEqual(detect_topics(text), [], text)
+
+    def test_this_pc_phrasings_still_work(self):
+        for text, topic in [("what's the battery", "battery"),
+                            ("how's the battery", "battery"),
+                            ("status of my battery", "battery"),
+                            ("what is the battery level of my laptop", "battery"),
+                            ("how much ram is being used in total", "memory"),
+                            ("which apps are running in the background", "apps"),
+                            ("what's the uptime of this computer", "uptime"),
+                            ("what is running on my pc", "apps")]:
+            self.assertEqual(detect_topics(text), [(topic, "")], text)
+
+
 if __name__ == "__main__":
     unittest.main()
 

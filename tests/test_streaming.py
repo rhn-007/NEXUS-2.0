@@ -10,6 +10,7 @@ import requests
 
 from ai.ollama import (
     OllamaClient,
+    is_failure,
     compact_history,
     model_options,
     placement_text,
@@ -211,6 +212,141 @@ class Presenter(unittest.TestCase):
         presenter, text, _ = self.run_stream([])
         self.assertFalse(presenter.displayed)
         self.assertEqual(text, "")
+
+
+class FailureMessages(unittest.TestCase):
+    def test_every_client_error_message_is_recognised(self):
+        for text in ["Ollama error (HTTP 500)", "Ollama error: boom",
+                     "Ollama returned an invalid response.",
+                     "Ollama returned an empty response.",
+                     "Ollama took too long to respond.",
+                     "Ollama request error: x", "I can't connect to Ollama."]:
+            self.assertTrue(is_failure(text), text)
+
+    def test_normal_replies_are_not_failures(self):
+        for text in ["", None, "Four.", "Ollama is a tool for running models."]:
+            self.assertFalse(is_failure(text), text)
+
+    def test_a_dropped_connection_keeps_the_text_already_received(self):
+        response = MagicMock()
+        def dropped():
+            yield json.dumps({"message": {"content": "Half an answer"}}).encode()
+            raise requests.exceptions.ConnectionError("reset")
+        response.iter_lines.return_value = dropped()
+        data = read_stream(response, lambda piece: None)
+        self.assertEqual(data["message"]["content"], "Half an answer")
+
+    def test_a_dropped_connection_with_no_text_still_raises(self):
+        response = MagicMock()
+        def dropped():
+            raise requests.exceptions.ConnectionError("reset")
+            yield
+        response.iter_lines.return_value = dropped()
+        with self.assertRaises(requests.exceptions.ConnectionError):
+            read_stream(response, lambda piece: None)
+
+
+def load_assistant_class():
+    """
+    Import core.assistant on a machine without the Windows-only and audio
+    packages by standing in for whichever ones are missing.
+    """
+
+    import importlib
+    from types import ModuleType
+
+    stubbed = []
+
+    # Installed but unusable here (no audio hardware library, or Windows only).
+    for name in ("sounddevice", "pynput", "pynput.keyboard", "winsound"):
+        try:
+            importlib.import_module(name)
+        except Exception:
+            stub = MagicMock(name=name)
+            stub.__path__ = []
+            sys.modules[name] = stub
+
+    for _ in range(40):
+        try:
+            return importlib.import_module("core.assistant").NexusAssistant
+        except ModuleNotFoundError as error:
+            name = error.name
+            if not name or name in sys.modules:
+                raise
+            for part in (name, ):
+                stub = MagicMock(name=part)
+                stub.__path__ = []
+                sys.modules[part] = stub
+                stubbed.append(part)
+            sys.modules.pop("core.assistant", None)
+
+    raise ImportError("could not stub the missing modules")
+
+
+class ChatPathWithStreaming(unittest.TestCase):
+    """_process_input's general chat branch, with everything else stubbed."""
+
+    def assistant(self, pieces, reply):
+        NexusAssistant = load_assistant_class()
+        a = NexusAssistant.__new__(NexusAssistant)
+        for name in ("conversation", "language_learner", "input_manager", "speaker",
+                     "memory", "intent_fast", "llm", "intent", "observer"):
+            setattr(a, name, MagicMock())
+        a.language_learner.observe.return_value = None
+        a.intent_fast.builtin_command.return_value = None
+        a.intent_fast.is_exit_request.return_value = False
+        a.intent.resolve.return_value = MagicMock(success=False, message="")
+        a.conversation.get_context.return_value = []
+        a.input_manager.last_input_was_voice = False
+        a.memory.process_memory.return_value = None
+        a.response_style = MagicMock()
+        a.response_style.refine.side_effect = lambda t: t.replace("Certainly! ", "").strip()
+        a.check_memory = lambda text: None
+        a.get_relevant_knowledge = lambda text: ""
+        a.response_displayed = False
+        def generate(text, context, on_text=None):
+            for piece in pieces:
+                on_text and on_text(piece)
+            return reply
+        a.llm.generate_response.side_effect = generate
+        return a
+
+    def test_streamed_reply_is_shown_once_and_stored_whole(self):
+        text = "Certainly! The sky is really blue. Grass is green today."
+        a = self.assistant([text[:20], text[20:]], text)
+        with patch("sys.stdout"):
+            result = a._process_input("tell me about colours")
+        self.assertEqual(result, "The sky is really blue. Grass is green today.")
+        self.assertTrue(a.response_displayed)
+        a.conversation.add_assistant_message.assert_called_once_with(result)
+        a.memory.save_conversation.assert_called_once_with("tell me about colours", result)
+
+    def test_the_spoken_remainder_is_cleaned_like_the_screen_text(self):
+        text = "The sky is really blue. Certainly! Grass is green today."
+        a = self.assistant([text], text)
+        with patch("sys.stdout"):
+            a._process_input("tell me about colours")
+        spoken = [c.args[0] for c in a.speaker.speak.call_args_list]
+        self.assertEqual(spoken, ["The sky is really blue.", "Grass is green today."])
+
+    def test_a_one_sentence_reply_is_spoken_once_in_full(self):
+        a = self.assistant(["Four is the answer."], "Four is the answer.")
+        with patch("sys.stdout"):
+            a._process_input("2+2")
+        a.speaker.speak.assert_called_once_with("Four is the answer.")
+
+    def test_an_error_is_left_for_the_main_loop_to_print(self):
+        a = self.assistant(["Half an"], "Ollama took too long to respond.")
+        with patch("sys.stdout"):
+            a._process_input("hi")
+        self.assertFalse(a.response_displayed)
+
+    def test_streaming_off_behaves_as_before(self):
+        a = self.assistant([], "Four is the answer.")
+        with patch.dict("os.environ", {"NEXUS_STREAM": "0"}):
+            a._process_input("2+2")
+        self.assertFalse(a.response_displayed)
+        a.speaker.speak.assert_called_once_with("Four is the answer.")
 
 
 if __name__ == "__main__":

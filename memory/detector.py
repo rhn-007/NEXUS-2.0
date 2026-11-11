@@ -2,6 +2,42 @@ import re
 
 
 
+# Words after "my name is" that are not a name.
+_NOT_A_NAME = {
+    "not", "what", "is", "the", "a", "an", "none", "unknown", "secret",
+    "important", "nothing", "and", "your", "my"
+}
+
+# "i am tired" is a state, not a name.
+_NOT_A_NAME_CASUAL = _NOT_A_NAME | {
+    "tired", "hungry", "happy", "sad", "fine", "good", "great", "well",
+    "ok", "okay", "sorry", "back", "here", "there", "ready", "bored",
+    "busy", "sick", "late", "done", "sure", "confused", "angry", "excited",
+    "free", "alone", "scared", "lost", "right", "wrong", "very", "so",
+    "too", "just", "also", "still", "always", "never", "currently",
+    "going", "able", "glad", "proud", "afraid", "curious", "interested",
+    "new", "old", "young", "in", "on", "at", "from", "to", "about", "his",
+    "her", "our", "their", "who", "student", "teacher", "engineer",
+    "developer", "programmer"
+}
+
+_NAME_ENDINGS = ("ing", "ed", "ly", "ful", "ous", "ive", "ish", "ble")
+
+_NOT_A_STATEMENT = re.compile(
+    r"^(?:what|who|why|how|when|where|which|do|does|did|can|could|would|"
+    r"should|is|are|will)\b"
+)
+
+
+def _looks_like_name(word):
+
+    return (
+        len(word) >= 2
+        and word not in _NOT_A_NAME_CASUAL
+        and not word.endswith(_NAME_ENDINGS)
+    )
+
+
 class MemoryDetector:
 
 
@@ -20,6 +56,14 @@ class MemoryDetector:
 
         text = text.lower().strip()
 
+        # Questions and "forget ..." are not things to remember.
+        if (
+            text.endswith("?")
+            or "forget" in text
+            or _NOT_A_STATEMENT.match(text)
+        ):
+            return []
+
 
         memories = []
 
@@ -30,43 +74,28 @@ class MemoryDetector:
         # ==========================
 
         name = re.search(
-            r"(?:my name is|i am|i'm)\s+([a-z]+)",
+            r"\bmy name is\s+([a-z]+)",
             text
         )
 
+        casual = re.search(
+            r"\b(?:i am|i'm)\s+([a-z]+)",
+            text
+        )
 
         if name:
 
-
-            value = name.group(1)
-
-
-            if value not in [
-
-                "currently",
-                "working",
-                "a",
-                "the"
-
-            ]:
-
+            if name.group(1) not in _NOT_A_NAME:
 
                 memories.append(
-
-                    {
-                        "key": "name",
-
-                        "value": value
-
-                    }
-
+                    {"key": "name", "value": name.group(1)}
                 )
 
+        elif casual and _looks_like_name(casual.group(1)):
 
-
-
-
-
+            memories.append(
+                {"key": "name", "value": casual.group(1)}
+            )
 
         # ==========================
         # INTERESTS
@@ -143,7 +172,9 @@ class MemoryDetector:
 
         if re.search(
 
-            r"coding|programming|python",
+            r"\bi (?:code|program|develop|write code)\b.*\bpython\b"
+            r"|\b(?:i use|i'm using|i am using|i'm learning|"
+            r"i am learning|i know|i love|i like)\s+python\b",
 
             text
 

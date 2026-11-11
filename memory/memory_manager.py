@@ -38,22 +38,35 @@ class MemoryManager:
     
     
     
+        # Do not store the same fact twice.
+        known = {
+            (str(key).lower(), str(value).lower())
+            for key, value in self.db.get_facts()
+        }
+
+        stored = False
+
         for memory in memories:
-    
-    
-            self.db.insert(
-    
-                memory["key"],
-    
-                memory["value"],
-    
-                "fact"
-    
+
+            pair = (
+                str(memory["key"]).lower(),
+                str(memory["value"]).lower()
             )
-    
-    
-    
-        return True
+
+            if pair in known:
+                continue
+
+            self.db.insert(
+                memory["key"],
+                memory["value"],
+                "fact"
+            )
+
+            known.add(pair)
+
+            stored = True
+
+        return stored
 
 
 

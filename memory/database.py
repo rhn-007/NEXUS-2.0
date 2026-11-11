@@ -71,16 +71,22 @@ class MemoryDatabase:
 
     def insert(self, key, value, memory_type="fact"):
         cursor = self.connection.cursor()
-        cursor.execute("""
-            INSERT INTO memories (key, value, type, created_at)
-            VALUES (?, ?, ?, ?)
-        """, (
-            key,
-            value,
-            memory_type,
-            datetime.now().isoformat()
-        ))
-        self.connection.commit()
+
+        try:
+            cursor.execute("""
+                INSERT INTO memories (key, value, type, created_at)
+                VALUES (?, ?, ?, ?)
+            """, (
+                key,
+                value,
+                memory_type,
+                datetime.now().isoformat()
+            ))
+            self.connection.commit()
+        except Exception:
+            # A failed write must not keep the database locked.
+            self.connection.rollback()
+            raise
 
     def search(self, keyword):
         cursor = self.connection.cursor()
@@ -166,6 +172,7 @@ class MemoryDatabase:
             return cursor.lastrowid
 
         except sqlite3.IntegrityError:
+            self.connection.rollback()
             return None
 
     def search_knowledge(self, keyword, limit=20):
@@ -219,30 +226,36 @@ class MemoryDatabase:
         verification_status,
         confidence=None
     ):
-        cursor = self.connection.cursor()
+        try:
+            cursor = self.connection.cursor()
 
-        if confidence is None:
-            cursor.execute("""
-                UPDATE knowledge
-                SET verification_status = ?
-                WHERE id = ?
-            """, (
-                verification_status,
-                knowledge_id
-            ))
-        else:
-            cursor.execute("""
-                UPDATE knowledge
-                SET verification_status = ?,
-                    confidence = ?
-                WHERE id = ?
-            """, (
-                verification_status,
-                confidence,
-                knowledge_id
-            ))
+            if confidence is None:
+                cursor.execute("""
+                    UPDATE knowledge
+                    SET verification_status = ?
+                    WHERE id = ?
+                """, (
+                    verification_status,
+                    knowledge_id
+                ))
+            else:
+                cursor.execute("""
+                    UPDATE knowledge
+                    SET verification_status = ?,
+                        confidence = ?
+                    WHERE id = ?
+                """, (
+                    verification_status,
+                    confidence,
+                    knowledge_id
+                ))
 
-        self.connection.commit()
+
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            raise
+
         return cursor.rowcount > 0
 
     def get_all_knowledge(self, limit=100):
@@ -266,26 +279,32 @@ class MemoryDatabase:
         details=None,
         status="completed"
     ):
-        cursor = self.connection.cursor()
+        try:
+            cursor = self.connection.cursor()
 
-        cursor.execute("""
-            INSERT INTO learning_history (
+            cursor.execute("""
+                INSERT INTO learning_history (
+                    activity,
+                    topic,
+                    details,
+                    status,
+                    created_at
+                )
+                VALUES (?, ?, ?, ?, ?)
+            """, (
                 activity,
                 topic,
                 details,
                 status,
-                created_at
-            )
-            VALUES (?, ?, ?, ?, ?)
-        """, (
-            activity,
-            topic,
-            details,
-            status,
-            datetime.now().isoformat()
-        ))
+                datetime.now().isoformat()
+            ))
 
-        self.connection.commit()
+
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            raise
+
         return cursor.lastrowid
 
     def get_learning_history(self, limit=50):
