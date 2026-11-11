@@ -63,7 +63,7 @@ _TRAILING_FILLER = {"please", "thanks", "thank", "now"}
 # "open" and "get" only count together with "new" or "instant".
 _NEW_MEETING = re.compile(
     r"\b(?P<verb>start|create|make|host|begin|launch|set up|setup|kick off|open|get)\b"
-    r"(?:\s+(?:me|us|up|a|an|the|my|one|new|instant|quick|another|google|video|conference))*"
+    r"(?:\s+(?:me|us|up|a|an|the|my|one|new|instant|quick|another|google|video|conference|online|virtual|group|team))*"
     r"\s+(?:google meet|meeting|video call|conference call|meet)\b"
     r"|\bnew\s+(?:google\s+)?(?:meet|meeting|video call)\b"
     r"|\binstant meeting\b"

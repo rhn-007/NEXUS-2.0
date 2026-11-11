@@ -229,7 +229,8 @@ class StartNewMeeting(unittest.TestCase):
                      "create a google meet", "make me a new google meet",
                      "host a video call", "open a new meeting", "new meeting",
                      "start an instant meeting", "set up a meeting",
-                     "get me a new google meet"]:
+                     "get me a new google meet", "start an online meeting",
+                     "start a virtual meeting"]:
             self.assertTrue(wants_new_meeting(text), text)
 
     def test_these_do_not(self):
