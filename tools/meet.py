@@ -59,6 +59,43 @@ _LEADING_FILLER = {
 _TRAILING_FILLER = {"please", "thanks", "thank", "now"}
 
 
+# "start a meeting", "create a new google meet", "host a video call". Plain
+# "open" and "get" only count together with "new" or "instant".
+_NEW_MEETING = re.compile(
+    r"\b(?P<verb>start|create|make|host|begin|launch|set up|setup|kick off|open|get)\b"
+    r"(?:\s+(?:me|us|up|a|an|the|my|one|new|instant|quick|another|google|video|conference))*"
+    r"\s+(?:google meet|meeting|video call|conference call|meet)\b"
+    r"|\bnew\s+(?:google\s+)?(?:meet|meeting|video call)\b"
+    r"|\binstant meeting\b"
+)
+
+_QUESTION_START = re.compile(r"^(?:how|what|why|when|where|who|which)\b")
+
+
+def wants_new_meeting(text):
+    """True when the sentence asks to start a new meeting (no code)."""
+
+    lowered = re.sub(r"\s+", " ", str(text or "").lower()).strip(" .!?")
+
+    if not lowered or _QUESTION_START.search(lowered):
+        return False
+
+    if _DASHED_CODE.search(lowered):
+        return False
+
+    match = _NEW_MEETING.search(lowered)
+
+    if not match:
+        return False
+
+    if match.group("verb") in ("open", "get") and not re.search(
+        r"\b(?:new|instant)\b", lowered
+    ):
+        return False
+
+    return True
+
+
 def wants_meeting(text):
     """True when the sentence asks to join a meeting or call."""
 
@@ -197,7 +234,9 @@ class MeetTool(BaseTool):
 
     name = "meet"
 
-    description = "Opens a Google Meet from a meeting code."
+    description = (
+        "Opens a Google Meet from a meeting code, or starts a new one."
+    )
 
     def __init__(self, browser):
 
@@ -207,11 +246,16 @@ class MeetTool(BaseTool):
 
         return bool(
             query
-            and wants_meeting(query)
-            and parse_meet_code(query)
+            and (
+                (wants_meeting(query) and parse_meet_code(query))
+                or wants_new_meeting(query)
+            )
         )
 
     def execute(self, query):
+
+        if wants_new_meeting(query):
+            return self._start_new()
 
         code = parse_meet_code(query)
 
@@ -239,4 +283,25 @@ class MeetTool(BaseTool):
 
         return ToolResponse.success(
             f"Opening Meet {code}. Press Join now when the page loads."
+        )
+
+    def _start_new(self):
+
+        if self.browser is None:
+
+            return ToolResponse.failure(
+                "I couldn't find the browser tool."
+            )
+
+        logger.info("Opening a new Google Meet.")
+
+        # Google's own link that creates an instant meeting.
+        result = self.browser.open_opera("https://meet.google.com/new")
+
+        if not result.success:
+            return result
+
+        return ToolResponse.success(
+            "Starting a new Google Meet in Opera. You need to be signed in "
+            "to Google. Copy the link from the address bar to share it."
         )

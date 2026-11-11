@@ -9,7 +9,8 @@ from tools.meet import (
     MeetTool,
     looks_like_code_attempt,
     parse_meet_code,
-    wants_meeting
+    wants_meeting,
+    wants_new_meeting
 )
 from tools.response import ToolResponse
 from tools.router import ToolResult
@@ -215,6 +216,94 @@ class PlannerMeeting(unittest.TestCase):
     def test_junk_value_never_becomes_a_command(self):
         plan = plan_for({"action": "join_meeting", "value": "x; del /s *"})
         self.assertEqual(plan.kind, "ask")
+
+
+class StartNewMeeting(unittest.TestCase):
+    def tool(self):
+        browser = MagicMock()
+        browser.open_opera.return_value = ToolResponse.success("Opening the website in Opera.")
+        return MeetTool(browser), browser
+
+    def test_these_start_a_new_meeting(self):
+        for text in ["start a new meeting", "can you start a meeting",
+                     "create a google meet", "make me a new google meet",
+                     "host a video call", "open a new meeting", "new meeting",
+                     "start an instant meeting", "set up a meeting",
+                     "get me a new google meet"]:
+            self.assertTrue(wants_new_meeting(text), text)
+
+    def test_these_do_not(self):
+        for text in ["join the meeting abc-defg-hij", "start meeting abc-defg-hij",
+                     "how do i start a meeting", "make a call to mom",
+                     "open the meeting", "what is a google meet",
+                     "schedule a meeting for 5pm", "i have a meeting at 5",
+                     "start the music", "get a meeting"]:
+            self.assertFalse(wants_new_meeting(text), text)
+
+    def test_it_opens_only_the_new_meeting_link(self):
+        tool, browser = self.tool()
+        self.assertTrue(tool.can_handle("start meeting"))
+        result = tool.execute("start meeting; open notepad && del *")
+        browser.open_opera.assert_called_once_with("https://meet.google.com/new")
+        self.assertTrue(result.success)
+        self.assertIn("signed in", result.message)
+        self.assertIn("address bar", result.message)
+
+    def test_joining_with_a_code_still_joins(self):
+        tool, browser = self.tool()
+        # A code always means "open that meeting", whatever the verb.
+        tool.execute(f"start meeting {CODE}")
+        browser.open_opera.assert_called_once_with(f"https://meet.google.com/{CODE}")
+
+    def test_browser_problems_are_passed_on(self):
+        tool, browser = self.tool()
+        browser.open_opera.return_value = ToolResponse.failure("I couldn't find Opera on your computer.")
+        self.assertIn("Opera", tool.execute("start meeting").message)
+        self.assertFalse(MeetTool(None).execute("start meeting").success)
+
+    def test_fast_path_runs_it_before_the_router(self):
+        steps = fast().fast_steps("ok can you start a new google meet")
+        self.assertEqual([(s.action, s.command, s.first) for s in steps],
+                         [("start_meeting", "start meeting", True)])
+
+    def test_a_code_goes_to_join_not_start(self):
+        steps = fast().fast_steps(f"join the meeting {CODE}")
+        self.assertEqual(steps[0].action, "join_meeting")
+
+
+class PlannerStartMeeting(unittest.TestCase):
+    def test_valid(self):
+        plan = plan_for({"action": "start_meeting", "value": ""},
+                        "let's set up a video call")
+        self.assertEqual([s.command for s in plan.steps], ["start meeting"])
+
+    def test_ignored_without_a_meeting_in_the_message(self):
+        plan = plan_for({"action": "start_meeting", "value": ""}, "start the music")
+        self.assertEqual(plan.kind, "chat")
+
+    def test_ignored_when_the_message_does_not_ask_to_start(self):
+        plan = plan_for({"action": "start_meeting", "value": ""},
+                        "what time is my meeting")
+        self.assertEqual(plan.kind, "chat")
+
+
+class StartMeetingEndToEnd(unittest.TestCase):
+    def test_through_the_real_router_and_runner(self):
+        from tools.registry import ToolRegistry
+        from tools.router import ToolRouter
+
+        browser = MagicMock()
+        browser.name = "browser"
+        browser.can_handle.return_value = False
+        browser.open_opera.return_value = ToolResponse.success("Opening the website in Opera.")
+        registry = ToolRegistry()
+        registry.register(browser)
+        registry.register(MeetTool(browser))
+        runner = IntentRunner(ToolRouter(registry), fast(), MagicMock(), MagicMock())
+        result = runner.resolve("can u start a new meeting")
+        self.assertTrue(result.success)
+        self.assertIn("new Google Meet", result.message)
+        browser.open_opera.assert_called_once_with("https://meet.google.com/new")
 
 
 if __name__ == "__main__":

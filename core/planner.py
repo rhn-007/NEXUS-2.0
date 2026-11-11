@@ -54,6 +54,7 @@ ACTION_HELP = {
                    "or continuous)",
     "join_meeting": "open a Google Meet (value: the meeting code, for "
                     "example abc-defg-hij)",
+    "start_meeting": "start a brand new Google Meet (value: empty)",
     "media": "control playing music or video (value: play_pause, next, "
              "previous, volume_up, volume_down, mute, or \"volume 40\" "
              "to set the volume from 0 to 100)",
@@ -159,7 +160,8 @@ class IntentPlanner:
             "\"now compare it with Claude\" after talking about OpenAI -> "
             "act: research OpenAI vs Claude\n"
             "\"what is the capital of France\" -> chat\n"
-            "\"volume of a sphere\" -> chat"
+            "\"volume of a sphere\" -> chat\n"
+            "\"let's set up a video call\" -> act: start_meeting"
         )
 
         lines = []
@@ -419,6 +421,21 @@ class IntentPlanner:
                 question="What's the meeting code?",
                 expects="meet_code"
             )
+
+        if action == "start_meeting":
+
+            # Believe it only when the message is about starting a meeting.
+            if text is not None and not (
+                mentions_meeting(text)
+                and re.search(
+                    r"\b(?:start|create|new|host|make|begin|launch|set up|"
+                    r"instant)\b",
+                    text.lower()
+                )
+            ):
+                return None
+
+            return Step(action, "", "start meeting")
 
         if action == "media":
 

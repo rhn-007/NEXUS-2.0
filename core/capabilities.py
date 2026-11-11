@@ -26,6 +26,9 @@ CAPABILITIES = (
     ("Google Meet",
      "open a Google Meet from a meeting code",
      "join the meeting abc-defg-hij"),
+    ("New meeting",
+     "start a new Google Meet (you must be signed in to Google in Opera)",
+     "start a new meeting"),
     ("PC checks",
      "read the time, date, battery, CPU, memory, disk space, uptime, "
      "Wi-Fi, running apps and PC specs",
@@ -53,6 +56,7 @@ LIMITS = (
     ("install software or run arbitrary commands", ("install", "uninstall", "run command", "terminal", "cmd")),
     ("shut down, restart or lock the PC", ("shut down", "shutdown", "restart", "reboot", "lock my")),
     ("check the weather or live news without researching it", ("weather", "forecast")),
+    ("schedule a meeting for later or invite people to one", ("schedule a meeting", "invite")),
     ("turn your camera or mic on in a meeting (it only opens the meeting link)", ("camera", "unmute me")),
 )
 

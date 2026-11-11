@@ -11,7 +11,7 @@ import difflib
 import re
 from urllib.parse import quote_plus
 
-from tools.meet import parse_meet_code, wants_meeting
+from tools.meet import parse_meet_code, wants_meeting, wants_new_meeting
 from tools.media import command_for as media_command, detect_media
 from tools.system_info import detect_topics
 from dataclasses import dataclass
@@ -579,6 +579,15 @@ class IntentFastPath:
                 "calculate",
                 expression,
                 f"calculate {expression}"
+            )
+
+        if wants_new_meeting(text):
+
+            return Step(
+                "start_meeting",
+                "",
+                "start meeting",
+                first=True
             )
 
         if wants_meeting(text):
