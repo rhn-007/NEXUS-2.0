@@ -178,6 +178,41 @@ class NexusAssistant:
                 )
 
     # ==========================
+    # SHUTDOWN
+    # ==========================
+
+    def shutdown(self):
+        """
+        Close the databases NEXUS opened. Safe to call more than once, and
+        one failure never stops the others from closing.
+        """
+
+        if getattr(self, "_closed", False):
+            return
+
+        self._closed = True
+
+        closers = [
+            ("conversation", lambda: self.conversation.close()),
+            ("memory", lambda: self.memory.db.close()),
+            ("knowledge", lambda: self.knowledge.close()),
+            ("observer", lambda: self.observer.close()),
+            ("language learner", lambda: self.language_learner.close()),
+            ("research", lambda: self.tool_registry.get(
+                "research"
+            ).research_pipeline.close()),
+        ]
+
+        for name, close in closers:
+
+            try:
+                close()
+            except Exception as error:
+                logger.debug(f"Closing {name}: {error}")
+
+        logger.info("NEXUS closed its databases.")
+
+    # ==========================
     # REGISTER TOOLS
     # ==========================
 
@@ -490,14 +525,39 @@ class NexusAssistant:
                 response
             )
 
-            self.conversation.add_assistant_message(
-                response
+            stats = getattr(self.llm, "last_stats", None)
+
+            incomplete = (
+                isinstance(stats, dict)
+                and stats.get("incomplete") is True
             )
 
-            self.memory.save_conversation(
-                user_input,
-                response
-            )
+            if incomplete:
+
+                # The connection dropped mid-reply. Show what arrived, say
+                # so, and keep it out of memory and speech.
+                note = (
+                    "(The reply was cut off because the connection to "
+                    "Ollama dropped. Please ask again.)"
+                )
+
+                print(note)
+
+                self.response_displayed = True
+
+                return note
+
+            if not is_failure(response):
+
+                # Error messages are not part of the conversation.
+                self.conversation.add_assistant_message(
+                    response
+                )
+
+                self.memory.save_conversation(
+                    user_input,
+                    response
+                )
 
             if presenter and presenter.displayed and not is_failure(response):
 

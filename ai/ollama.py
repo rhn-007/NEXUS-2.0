@@ -257,6 +257,7 @@ def read_stream(response, on_text):
 
     parts = []
     final = {}
+    incomplete = False
 
     try:
 
@@ -291,7 +292,12 @@ def read_stream(response, on_text):
 
         logger.warning("Stream ended early, keeping the text so far: %s", error)
 
+        incomplete = True
+
     data = {key: value for key, value in final.items() if key != "message"}
+
+    # A reply that was cut off must not be mistaken for a finished one.
+    data["incomplete"] = incomplete or not final
 
     data["message"] = {"role": "assistant", "content": "".join(parts)}
 
@@ -572,6 +578,7 @@ class OllamaClient:
 
                 data = read_stream(response, on_text)
 
+
             else:
 
                 data = response.json()
@@ -594,6 +601,9 @@ class OllamaClient:
                 data,
                 messages
             )
+
+            if data.get("incomplete"):
+                self.last_stats["incomplete"] = True
 
             self.last_stats["history_shortened"] = history_info["shortened"]
             self.last_stats["history_dropped"] = history_info["dropped"]

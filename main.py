@@ -78,6 +78,8 @@ def main():
     finally:
 
 
+        assistant.shutdown()
+
         animation.stop()
 
         clear_status()

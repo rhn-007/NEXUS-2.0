@@ -1,7 +1,9 @@
 import json
 import sys
 import unittest
+from importlib.machinery import ModuleSpec
 from pathlib import Path
+from types import ModuleType
 from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -53,6 +55,23 @@ class ReadStream(unittest.TestCase):
         with self.assertRaises(ValueError):
             read_stream(response, lambda piece: None)
 
+    def test_a_finished_stream_is_not_marked_incomplete(self):
+        data = read_stream(lines({"message": {"content": "Done."}}, {"done": True}),
+                           lambda piece: None)
+        self.assertFalse(data["incomplete"])
+
+    def test_a_stream_that_never_says_done_is_incomplete(self):
+        data = read_stream(lines({"message": {"content": "Cut"}}), lambda piece: None)
+        self.assertTrue(data["incomplete"])
+
+    def test_a_broken_stream_is_marked_incomplete(self):
+        response = MagicMock()
+        def broken():
+            yield json.dumps({"message": {"content": "Half an"}}).encode()
+            raise requests.exceptions.ConnectionError("reset")
+        response.iter_lines.return_value = broken()
+        self.assertTrue(read_stream(response, lambda piece: None)["incomplete"])
+
     def test_a_failing_display_callback_does_not_lose_the_reply(self):
         def boom(piece):
             raise RuntimeError("screen")
@@ -80,6 +99,22 @@ class ClientStreaming(unittest.TestCase):
         self.assertEqual(result, "Four.")
         self.assertEqual(pieces, ["Four."])
         self.assertEqual(client.last_stats["prompt_tokens"], 10)
+
+    def test_the_client_reports_a_cut_off_reply(self):
+        client = OllamaClient()
+        response = self.reply([{"message": {"content": "Half"}}])
+        with patch("ai.ollama.requests.post", return_value=response), \
+             patch.object(client, "_log_placement"):
+            client.generate_response("hi", [], on_text=lambda p: None)
+        self.assertTrue(client.last_stats.get("incomplete"))
+
+    def test_a_finished_reply_is_not_reported_as_cut_off(self):
+        client = OllamaClient()
+        response = self.reply([{"message": {"content": "Whole."}}, {"done": True}])
+        with patch("ai.ollama.requests.post", return_value=response), \
+             patch.object(client, "_log_placement"):
+            client.generate_response("hi", [], on_text=lambda p: None)
+        self.assertFalse(client.last_stats.get("incomplete"))
 
     def test_without_a_callback_nothing_streams(self):
         client = OllamaClient()
@@ -246,6 +281,26 @@ class FailureMessages(unittest.TestCase):
             read_stream(response, lambda piece: None)
 
 
+class _StubModule(ModuleType):
+    """A stand-in for a package that is missing or unusable on this machine."""
+
+    def __init__(self, name):
+        super().__init__(name)
+        self.__path__ = []
+        self.__spec__ = ModuleSpec(name, None, is_package=True)
+
+    def __getattr__(self, attribute):
+        if attribute.startswith("__"):
+            raise AttributeError(attribute)
+        value = MagicMock(name=f"{self.__name__}.{attribute}")
+        setattr(self, attribute, value)
+        return value
+
+
+def _stub(name):
+    sys.modules[name] = _StubModule(name)
+
+
 def load_assistant_class():
     """
     Import core.assistant on a machine without the Windows-only and audio
@@ -262,9 +317,7 @@ def load_assistant_class():
         try:
             importlib.import_module(name)
         except Exception:
-            stub = MagicMock(name=name)
-            stub.__path__ = []
-            sys.modules[name] = stub
+            _stub(name)
 
     for _ in range(40):
         try:
@@ -273,14 +326,56 @@ def load_assistant_class():
             name = error.name
             if not name or name in sys.modules:
                 raise
-            for part in (name, ):
-                stub = MagicMock(name=part)
-                stub.__path__ = []
-                sys.modules[part] = stub
-                stubbed.append(part)
+            _stub(name)
+            stubbed.append(name)
             sys.modules.pop("core.assistant", None)
 
     raise ImportError("could not stub the missing modules")
+
+
+class Shutdown(unittest.TestCase):
+    def assistant(self):
+        NexusAssistant = load_assistant_class()
+        a = NexusAssistant.__new__(NexusAssistant)
+        for name in ("conversation", "memory", "knowledge", "observer",
+                     "language_learner", "tool_registry"):
+            setattr(a, name, MagicMock())
+        return a
+
+    def test_every_database_is_closed(self):
+        a = self.assistant()
+        a.shutdown()
+        a.conversation.close.assert_called_once()
+        a.memory.db.close.assert_called_once()
+        a.knowledge.close.assert_called_once()
+        a.observer.close.assert_called_once()
+        a.language_learner.close.assert_called_once()
+        a.tool_registry.get.return_value.research_pipeline.close.assert_called_once()
+
+    def test_one_failure_does_not_stop_the_rest(self):
+        a = self.assistant()
+        a.conversation.close.side_effect = RuntimeError("locked")
+        a.memory.db.close.side_effect = RuntimeError("locked")
+        a.shutdown()
+        a.knowledge.close.assert_called_once()
+        a.language_learner.close.assert_called_once()
+
+    def test_calling_it_twice_closes_once(self):
+        a = self.assistant()
+        a.shutdown()
+        a.shutdown()
+        a.observer.close.assert_called_once()
+
+    def test_main_calls_it_even_after_an_error(self):
+        load_assistant_class()
+        import main
+        assistant = MagicMock()
+        assistant.start.side_effect = RuntimeError("boom")
+        with patch.object(main, "NexusAssistant", return_value=assistant), \
+             patch.object(main, "animation"), patch.object(main, "clear_status"), \
+             patch("builtins.print"):
+            main.main()
+        assistant.shutdown.assert_called_once()
 
 
 class ChatPathWithStreaming(unittest.TestCase):
@@ -340,6 +435,28 @@ class ChatPathWithStreaming(unittest.TestCase):
         with patch("sys.stdout"):
             a._process_input("hi")
         self.assertFalse(a.response_displayed)
+
+    def test_a_cut_off_reply_is_shown_flagged_and_never_stored_or_spoken(self):
+        a = self.assistant(["The sky is really blue. Grass is"], "The sky is really blue. Grass is")
+        a.llm.last_stats = {"incomplete": True}
+        with patch("sys.stdout"):
+            result = a._process_input("tell me about colours")
+        self.assertIn("cut off", result)
+        self.assertTrue(a.response_displayed)
+        a.conversation.add_assistant_message.assert_not_called()
+        a.memory.save_conversation.assert_not_called()
+        # only the first sentence, spoken while streaming, was ever voiced
+        spoken = [c.args[0] for c in a.speaker.speak.call_args_list]
+        self.assertEqual(spoken, ["The sky is really blue."])
+
+    def test_error_messages_are_not_saved_as_conversation(self):
+        a = self.assistant([], "I can't connect to Ollama.")
+        with patch.dict("os.environ", {"NEXUS_STREAM": "0"}):
+            result = a._process_input("hi")
+        self.assertEqual(result, "I can't connect to Ollama.")
+        a.conversation.add_assistant_message.assert_not_called()
+        a.memory.save_conversation.assert_not_called()
+        a.speaker.speak.assert_called_once_with("I can't connect to Ollama.")
 
     def test_streaming_off_behaves_as_before(self):
         a = self.assistant([], "Four is the answer.")
