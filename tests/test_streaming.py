@@ -186,9 +186,14 @@ class HistoryBudget(unittest.TestCase):
         contents = [m["content"] for m in result]
         self.assertGreater(info["dropped"], 0)
         self.assertEqual(result[0]["role"], "system")
-        # the 6 most recent are always kept in full
+        # The newest two messages remain in the recent window. Older
+        # messages are retained newest-first within the character budget.
         self.assertEqual(contents[-1][:3], "19:")
-        self.assertEqual(sum(1 for c in contents if c.startswith("14:")), 1)
+        self.assertEqual(contents[-2][:3], "18:")
+        self.assertEqual(sum(1 for c in contents if c.startswith("15:")), 1)
+        self.assertEqual(sum(1 for c in contents if c.startswith("16:")), 1)
+        self.assertEqual(sum(1 for c in contents if c.startswith("17:")), 1)
+        self.assertFalse(any(c.startswith("14:") for c in contents))
         # oldest ones went first
         self.assertFalse(any(c.startswith("0:") for c in contents))
 
@@ -456,7 +461,9 @@ class ChatPathWithStreaming(unittest.TestCase):
     def test_error_messages_are_not_saved_as_conversation(self):
         a = self.assistant([], "I can't connect to Ollama.")
         with patch.dict("os.environ", {"NEXUS_STREAM": "0"}):
-            result = a._process_input("hi")
+            # Use a normal question so the greeting fast path does not
+            # bypass the mocked model error.
+            result = a._process_input("tell me about colours")
         self.assertEqual(result, "I can't connect to Ollama.")
         a.conversation.add_assistant_message.assert_not_called()
         a.memory.save_conversation.assert_not_called()
