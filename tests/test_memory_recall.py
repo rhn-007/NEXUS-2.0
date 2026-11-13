@@ -265,7 +265,7 @@ class AssistantWiring(unittest.TestCase):
         self.assertIn("you prefer concise explanations", response)
         self.assertIn("one piece", response)
         self.assertNotIn("Name:", response)
-        self.assertIn("\\n\\n", response)
+        self.assertIn("\n\n", response)
         a.memory.answer_fact_question.assert_not_called()
 
     def test_a_fact_question_is_answered_without_the_model(self):
