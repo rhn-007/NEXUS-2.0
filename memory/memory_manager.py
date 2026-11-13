@@ -1,6 +1,45 @@
 from memory.database import MemoryDatabase
+import re
+
 from memory.detector import MemoryDetector
 
+
+
+# Facts that can hold several values; every other key keeps its latest.
+MULTI_VALUE_KEYS = {"preference", "interest", "coding"}
+
+_FILLERS = re.compile(
+    r"^(?:(?:hey|ok|okay|so|and|nexus|please|can you|could you|can u)\s+)+"
+)
+
+_FACT_QUESTIONS = (
+    re.compile(r"^what(?:'s| is| are) my (?P<favourite>favou?rite )?(?P<thing>.+)$"),
+    re.compile(r"^what (?P<thing>[a-z ]{2,25}?) am i (?:currently |now )?(?:working on|building|doing)$"),
+    re.compile(r"^(?:tell me|remind me of) my (?P<favourite>favou?rite )?(?P<thing>.+)$"),
+    re.compile(r"^(?:do you (?:know|remember)|you know|you remember) my (?P<favourite>favou?rite )?(?P<thing>.+)$"),
+)
+
+_PREFERENCE_QUESTIONS = re.compile(
+    r"^(?:what do i prefer|what are my preferences|what(?:'s| is) my preferred "
+    r"(?:style|way|format)|what style do i prefer|how do i (?:like|want) "
+    r"my (?:answers|explanations|replies|responses))$"
+)
+
+
+def _norm(word):
+
+    return re.sub(r"\s+", " ", str(word or "").lower().replace("_", " ")
+                  .replace("colour", "color")).strip()
+
+
+def _join(values):
+
+    values = list(values)
+
+    if len(values) <= 1:
+        return "".join(values)
+
+    return ", ".join(values[:-1]) + " and " + values[-1]
 
 
 class MemoryManager:
@@ -393,3 +432,138 @@ class MemoryManager:
             ""
 
         )
+
+    # =====================================
+    # WHAT NEXUS KNOWS, AS NEXT-TO-USE FACTS
+    # =====================================
+
+    def _facts_by_key(self):
+        """
+        {key: [values]} in the order first told. Keys that hold one value keep
+        the latest; preferences, interests and coding keep every value.
+        """
+
+        grouped = {}
+
+        for key, value in self.db.get_facts():
+
+            key = str(key)
+            value = str(value)
+
+            values = grouped.setdefault(key, [])
+
+            if key in MULTI_VALUE_KEYS:
+
+                if value not in values:
+                    values.append(value)
+
+            else:
+
+                grouped[key] = [value]
+
+        return grouped
+
+    @staticmethod
+    def _show(key, value):
+
+        return value.title() if key == "name" else value
+
+    def facts_context(self, max_chars=600):
+        """
+        A short note for the model with what he has told Nexus, or None.
+        """
+
+        grouped = self._facts_by_key()
+
+        if not grouped:
+            return None
+
+        parts = []
+
+        for key, values in grouped.items():
+
+            shown = ", ".join(self._show(key, v) for v in values[-5:])
+
+            parts.append(f"{key.replace('_', ' ')}: {shown}")
+
+        note = (
+            "What Rohan has told you about himself. Use it when it helps. "
+            "Follow his preferences. Do not recite it unless he asks: "
+        )
+
+        for part in parts:
+
+            if len(note) + len(part) + 2 > max_chars:
+                break
+
+            note += part + "; "
+
+        return note.rstrip("; ") + "."
+
+    # =====================================
+    # DIRECT ANSWERS TO "WHAT IS MY ..."
+    # =====================================
+
+    def answer_fact_question(self, text):
+        """
+        Answer "what is my name", "what's my favourite programming language",
+        "what project am I working on" or "what do I prefer" from stored
+        facts. Returns None when nothing stored matches, so the question
+        carries on to the rest of NEXUS.
+        """
+
+        question = " ".join(
+            re.sub(r"[?.!,]", " ", str(text or "").lower()).split()
+        )
+
+        question = _FILLERS.sub("", question)
+
+        if not question or len(question) > 90:
+            return None
+
+        grouped = self._facts_by_key()
+
+        if not grouped:
+            return None
+
+        if _PREFERENCE_QUESTIONS.match(question):
+
+            values = grouped.get("preference")
+
+            if not values:
+                return None
+
+            return "You prefer " + _join(values) + "."
+
+        for pattern in _FACT_QUESTIONS:
+
+            match = pattern.match(question)
+
+            if not match:
+                continue
+
+            thing = _norm(match.group("thing"))
+
+            thing = re.sub(r"^(?:the|a|an)\s+", "", thing)
+
+            favourite = bool(
+                match.groupdict().get("favourite")
+            )
+
+            for key, values in grouped.items():
+
+                name = _norm(key)
+
+                if (
+                    thing == name
+                    or name.endswith(" " + thing)
+                    or thing.endswith(" " + name)
+                ):
+
+                    shown = _join(self._show(key, v) for v in values)
+
+                    label = ("favourite " if favourite else "") + thing
+
+                    return f"Your {label} is {shown}."
+
+        return None

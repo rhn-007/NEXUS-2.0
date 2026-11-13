@@ -33,6 +33,7 @@ from tools.meet import MeetTool
 from tools.media import MediaTool
 from tools.system_info import SystemInfoTool
 from ai.ollama import is_failure, streaming_enabled
+from core.action_history import ActionHistory
 from core.stream_output import StreamPresenter
 from tools.research import ResearchTool
 
@@ -198,6 +199,7 @@ class NexusAssistant:
             ("knowledge", lambda: self.knowledge.close()),
             ("observer", lambda: self.observer.close()),
             ("language learner", lambda: self.language_learner.close()),
+            ("action history", lambda: self.action_history.close()),
             ("research", lambda: self.tool_registry.get(
                 "research"
             ).research_pipeline.close()),
@@ -485,6 +487,13 @@ class NexusAssistant:
                     }
                 )
 
+            # What he has told NEXUS about himself (short, only if any).
+            try:
+                facts_context = self.memory.facts_context()
+            except Exception as error:
+                logger.warning(f"Could not load stored facts: {error}")
+                facts_context = None
+
             # Retrieve relevant stored knowledge
             knowledge_context = self.get_relevant_knowledge(
                 user_input
@@ -498,6 +507,16 @@ class NexusAssistant:
                     {
                         "role": "system",
                         "content": knowledge_context
+                    }
+                )
+
+            # Put what he has told NEXUS first, right after the system prompt.
+            if facts_context:
+                context.insert(
+                    0,
+                    {
+                        "role": "system",
+                        "content": facts_context
                     }
                 )
 
@@ -631,12 +650,20 @@ class NexusAssistant:
             app_checker=app_known
         )
 
+        # A record of what NEXUS did, so it can answer "did that work?".
+        try:
+            self.action_history = ActionHistory()
+        except Exception as error:
+            logger.warning(f"Action history is unavailable: {error}")
+            self.action_history = None
+
         return IntentRunner(
             router=self.tool_router,
             fast=self.intent_fast,
             planner=planner,
             run_builtin=self._run_builtin,
-            observer=self.observer
+            observer=self.observer,
+            history=self.action_history
         )
 
     def _run_builtin(self, action, value=""):
@@ -843,4 +870,7 @@ class NexusAssistant:
                 "I have memories stored, but no personal details about you yet."
             )
 
-        return None
+        # "what is my name", "what's my favourite language", "what do I prefer"
+        return self.memory.answer_fact_question(
+            user_input
+        )

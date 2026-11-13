@@ -29,7 +29,8 @@ class IntentRunner:
         fast,
         planner,
         run_builtin,
-        observer=None
+        observer=None,
+        history=None
     ):
 
         self.router = router
@@ -37,6 +38,7 @@ class IntentRunner:
         self.planner = planner
         self.run_builtin = run_builtin
         self.observer = observer
+        self.history = history
 
         # Set after NEXUS asks for a meeting code, so the next message
         # is read as the code.
@@ -75,6 +77,16 @@ class IntentRunner:
 
                 return ToolResult(True, about_me)
 
+            if self.history:
+
+                past = self.history.answer(text)
+
+                if past:
+
+                    path = "history"
+
+                    return ToolResult(True, past)
+
             steps = self.fast.fast_steps(text)
 
             if len(steps) > 1:
@@ -82,7 +94,7 @@ class IntentRunner:
                 path = "fast_multi"
                 actions = [step.action for step in steps]
 
-                return self._run_steps(steps)
+                return self._run_steps(steps, text)
 
             if steps and steps[0].first:
 
@@ -90,13 +102,15 @@ class IntentRunner:
                 path = "fast"
                 actions = [step.action for step in steps]
 
-                return self._run_steps(steps)
+                return self._run_steps(steps, text)
 
             result = self.router.execute(text)
 
             if result.success:
 
                 path = "router"
+
+                self._remember(text, "command", text, result)
 
                 return result
 
@@ -105,7 +119,7 @@ class IntentRunner:
                 path = "fast"
                 actions = [step.action for step in steps]
 
-                return self._run_steps(steps)
+                return self._run_steps(steps, text)
 
             if self.fast.looks_like_request(text):
 
@@ -126,7 +140,7 @@ class IntentRunner:
 
                     actions = [step.action for step in plan.steps]
 
-                    return self._run_steps(plan.steps)
+                    return self._run_steps(plan.steps, text)
 
             return result
 
@@ -171,7 +185,8 @@ class IntentRunner:
             self.pending = None
 
             return self._run_steps(
-                [Step("join_meeting", code, f"join meeting {code}")]
+                [Step("join_meeting", code, f"join meeting {code}")],
+                text
             )
 
         state["tries"] += 1
@@ -196,7 +211,7 @@ class IntentRunner:
     # RUN STEPS
     # ======================================================
 
-    def _run_steps(self, steps):
+    def _run_steps(self, steps, request=""):
 
         messages = []
 
@@ -215,6 +230,8 @@ class IntentRunner:
 
                 message = result.message or ""
 
+                self._remember(request, step.action, step.command, result)
+
                 if not result.success:
 
                     messages.append(
@@ -232,6 +249,23 @@ class IntentRunner:
                 messages.append(message)
 
         return ToolResult(True, "\n".join(messages) or "Done.")
+
+    # ======================================================
+    # ACTION HISTORY
+    # ======================================================
+
+    def _remember(self, request, action, command, result):
+
+        if not self.history:
+            return
+
+        self.history.record(
+            request,
+            action,
+            command,
+            result.success,
+            result.message
+        )
 
     # ======================================================
     # OBSERVATION

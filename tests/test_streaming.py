@@ -338,7 +338,7 @@ class Shutdown(unittest.TestCase):
         NexusAssistant = load_assistant_class()
         a = NexusAssistant.__new__(NexusAssistant)
         for name in ("conversation", "memory", "knowledge", "observer",
-                     "language_learner", "tool_registry"):
+                     "language_learner", "tool_registry", "action_history"):
             setattr(a, name, MagicMock())
         return a
 
@@ -350,6 +350,7 @@ class Shutdown(unittest.TestCase):
         a.knowledge.close.assert_called_once()
         a.observer.close.assert_called_once()
         a.language_learner.close.assert_called_once()
+        a.action_history.close.assert_called_once()
         a.tool_registry.get.return_value.research_pipeline.close.assert_called_once()
 
     def test_one_failure_does_not_stop_the_rest(self):

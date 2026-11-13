@@ -136,7 +136,7 @@ class MemoryDetector:
 
         favorites = re.findall(
 
-            r"my favorite ([a-z ]+) is ([^.,]+)",
+            r"my favou?rite ([a-z ]+?) is ([^.,]+)",
 
             text
 
@@ -202,34 +202,58 @@ class MemoryDetector:
 
 
         # ==========================
-        # PROJECT
+        # PROJECT (only when he gives its name)
         # ==========================
 
-        if re.search(
-
-            r"working on a project|working on my project",
-
+        project = re.search(
+            r"\b(?:working on|building|developing|making)\s+"
+            r"(?:a |an |the |my )?project\s+(?:called|named)\s+"
+            r"([a-z0-9][a-z0-9 _\-]*?)"
+            r"(?=\s*(?:[,.;!]|$)|\s+(?:and|which|that|it|for)\b)"
+            r"|\bmy project is\s+(?:called\s+)?"
+            r"([a-z0-9][a-z0-9 _\-]*?)"
+            r"(?=\s*(?:[,.;!]|$)|\s+(?:and|which|that|it|for)\b)",
             text
+        )
 
-        ):
+        if project:
 
+            name = (project.group(1) or project.group(2)).strip()
 
-            memories.append(
+            if name and name not in _NOT_A_NAME:
+                memories.append(
+                    {"key": "project", "value": name}
+                )
 
-                {
-                    "key": "project",
+        # ==========================
+        # PREFERENCES
+        # ==========================
 
-                    "value": "a personal project"
+        preferences = re.findall(
+            r"\bi prefer\s+([^.,;!]+)",
+            text
+        )
 
-                }
+        preferences += re.findall(
+            r"\bi want\s+((?:shorter|short|brief|concise|detailed|longer|"
+            r"simple|simpler)\s+(?:answers|explanations|replies|responses))",
+            text
+        )
 
-            )
+        preferences += re.findall(
+            r"\bkeep\s+(?:your |the )?((?:answers|explanations|replies|"
+            r"responses)\s+(?:short|brief|concise|simple))",
+            text
+        )
 
+        for item in preferences:
 
+            item = item.strip()[:80]
 
-
-
-
+            if item:
+                memories.append(
+                    {"key": "preference", "value": item}
+                )
 
         # ==========================
         # REMOVE DUPLICATES
