@@ -367,7 +367,7 @@ class Speaker:
                 "0.35",
 
                 "--sentence_silence",
-                "0.18"
+                "0.28"
 
             ]
 
