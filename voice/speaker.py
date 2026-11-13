@@ -276,9 +276,9 @@ class Speaker:
         replacements = {
 
             # Rohan
-            "Rohan": "Row-han",
-            "rohan": "Row-han",
-            "ROHAN": "Row-han",
+            "Rohan": "Ro-hen",
+            "rohan": "Ro-hen",
+            "ROHAN": "Ro-hen",
 
             # NEXUS
             "NEXUS": "Nexus",
