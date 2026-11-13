@@ -228,8 +228,24 @@ class AssistantWiring(unittest.TestCase):
 
     def test_the_whole_profile_question_still_uses_the_profile(self):
         a = self.assistant()
-        a.memory.get_memory_context.return_value = [("name", "rohan", "fact")]
-        self.assertIn("Name: rohan", a.check_memory("what do you know about me"))
+        a.memory.get_memory_context.return_value = [
+            ("name", "rohan", "fact"),
+            ("interest", "drawing and sculpting with clay", "fact"),
+            ("coding", "python", "fact"),
+            ("project", "nexus", "fact"),
+            ("preference", "concise explanations", "fact"),
+            ("anime", "one piece", "fact")
+        ]
+        response = a.check_memory("what do you know about me")
+        self.assertIn("Here's what I remember about you.", response)
+        self.assertIn("I remember your name is Rohan.", response)
+        self.assertIn("drawing and sculpting with clay", response)
+        self.assertIn("Python is one of the programming languages", response)
+        self.assertIn("You're also working on nexus.", response)
+        self.assertIn("you prefer concise explanations", response)
+        self.assertIn("one piece", response)
+        self.assertNotIn("Name:", response)
+        self.assertIn("\\n\\n", response)
         a.memory.answer_fact_question.assert_not_called()
 
     def test_a_fact_question_is_answered_without_the_model(self):
