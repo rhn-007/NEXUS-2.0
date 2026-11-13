@@ -5,7 +5,7 @@ import re
 # Words after "my name is" that are not a name.
 _NOT_A_NAME = {
     "not", "what", "is", "the", "a", "an", "none", "unknown", "secret",
-    "important", "nothing", "and", "your", "my"
+    "important", "nothing", "and", "your", "my", "i", "me"
 }
 
 # "i am tired" is a state, not a name.
