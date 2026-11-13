@@ -8,7 +8,7 @@ import time
 class ShutdownPhraseHandler:
     """Handle an exact trigger, a time-limited confirmation, and cancellation."""
 
-    CONFIRMATION_TIMEOUT_SECONDS = 15
+    CONFIRMATION_TIMEOUT_SECONDS = 60
 
     def __init__(self, runner=None, clock=None, platform_name=None):
         self.runner = runner or subprocess.run
@@ -42,7 +42,7 @@ class ShutdownPhraseHandler:
             self.pending_since = self.clock()
             return (
                 "Do you want me to shut down this computer? "
-                "Say confirm within 15 seconds, or say cancel."
+                "Say confirm within 60 seconds, or say cancel."
             )
 
         if command == "confirm":
