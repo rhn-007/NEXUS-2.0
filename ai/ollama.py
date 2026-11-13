@@ -23,6 +23,9 @@ logger = setup_logger(__name__)
 # Override with the NEXUS_OLLAMA_KEEP_ALIVE environment variable.
 DEFAULT_KEEP_ALIVE = "30m"
 
+# Default local model used by NEXUS conversations and dependent features.
+DEFAULT_MODEL = "qwen2.5:7b"
+
 
 def get_keep_alive():
 
@@ -337,7 +340,7 @@ class OllamaClient:
 
         self.url = "http://localhost:11434/api/chat"
 
-        self.model = "qwen2.5:3b"
+        self.model = DEFAULT_MODEL
 
         self.response_style = ResponseStyleController()
         self.observer = observer
