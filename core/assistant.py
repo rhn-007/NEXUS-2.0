@@ -96,6 +96,8 @@ class NexusAssistant:
 
         self.speaker = Speaker()
 
+        self.input_manager.command_speaker = self.speaker.speak
+
         self.input_manager.listener.set_language_profile(
             self.language_learner.get_vocabulary(),
             self.language_learner.get_corrections()
