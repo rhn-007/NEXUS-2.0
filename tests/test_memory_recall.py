@@ -111,11 +111,11 @@ class Answers(WithMemory):
 
     def test_invalid_old_name_rows_are_ignored(self):
         self.memory.db.insert("name", "i", "fact")
+        self.memory.db.insert("name", "in", "fact")
         self.assertEqual(self.ask("what is my name"), "Your name is Rohan.")
-        self.assertNotIn(
-            ("name", "i", "fact"),
-            [tuple(row) for row in self.memory.get_memory_context()]
-        )
+        visible_memories = [tuple(row) for row in self.memory.get_memory_context()]
+        self.assertNotIn(("name", "i", "fact"), visible_memories)
+        self.assertNotIn(("name", "in", "fact"), visible_memories)
 
     def test_nothing_stored_means_no_answer_for_non_personal_queries(self):
         for text in ["what is my battery", "what is my ip address",
