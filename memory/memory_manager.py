@@ -429,7 +429,7 @@ class MemoryManager:
         rows = self.db.search("")
 
         invalid_names = {
-            "i", "me", "my", "you", "he", "she", "they", "we", "prefer"
+            "i", "me", "my", "you", "he", "she", "they", "we", "in", "prefer"
         }
 
         return [
@@ -460,7 +460,7 @@ class MemoryManager:
             # Older detector versions could save pronouns or sentence
             # fragments as a name. Ignore those rows without deleting data.
             if key == "name" and value.strip().lower() in {
-                "i", "me", "my", "you", "he", "she", "they", "we", "prefer"
+                "i", "me", "my", "you", "he", "she", "they", "we", "in", "prefer"
             }:
                 continue
 
