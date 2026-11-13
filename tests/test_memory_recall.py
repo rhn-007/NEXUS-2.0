@@ -43,6 +43,12 @@ class Detector(unittest.TestCase):
     def test_questions_about_preferences_store_nothing(self):
         self.assertEqual(found("what do i prefer"), [])
 
+    def test_preference_statements_are_not_names(self):
+        self.assertEqual(
+            found("I prefer concise explanations"),
+            [("preference", "concise explanations")]
+        )
+
 
 class WithMemory(unittest.TestCase):
     def setUp(self):
@@ -106,6 +112,10 @@ class Answers(WithMemory):
     def test_invalid_old_name_rows_are_ignored(self):
         self.memory.db.insert("name", "i", "fact")
         self.assertEqual(self.ask("what is my name"), "Your name is Rohan.")
+        self.assertNotIn(
+            ("name", "i", "fact"),
+            [tuple(row) for row in self.memory.get_memory_context()]
+        )
 
     def test_nothing_stored_means_no_answer_for_non_personal_queries(self):
         for text in ["what is my battery", "what is my ip address",
