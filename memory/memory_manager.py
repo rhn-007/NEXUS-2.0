@@ -25,6 +25,16 @@ _PREFERENCE_QUESTIONS = re.compile(
     r"my (?:answers|explanations|replies|responses))$"
 )
 
+_INTEREST_QUESTIONS = re.compile(
+    r"^(?:what (?:is my hobby|are my hobbies|are my interests)|"
+    r"what about my (?:hobbies|interests)|"
+    r"what (?:hobbies|interests) do i have|"
+    r"what do i like doing|"
+    r"tell me about my (?:hobbies|interests)|"
+    r"what do you know about my (?:hobbies|interests)|"
+    r"what have i told you about my (?:hobbies|interests))$"
+)
+
 
 def _norm(word):
 
@@ -542,6 +552,19 @@ class MemoryManager:
                 return None
 
             return "You prefer " + _join(values) + "."
+
+        if _INTEREST_QUESTIONS.match(question):
+
+            values = grouped.get("interest", []) + grouped.get("hobby", [])
+            values = list(dict.fromkeys(value.strip() for value in values if value.strip()))
+
+            if not values:
+                return "You haven't told me about your hobbies or interests yet."
+
+            return "You've mentioned enjoying " + _join(values) + "."
+
+        # Correct a common speech/typing variant before matching saved favourites.
+        question = re.sub(r"\\bfavoraite\\b", "favourite", question)
 
         for pattern in _FACT_QUESTIONS:
 
