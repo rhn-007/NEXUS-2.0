@@ -25,6 +25,7 @@ import time
 
 from pynput import keyboard
 from voice.listener import Listener
+from core.power_command import ShutdownPhraseHandler
 from core.hotkey import (
     DEFAULT_HOTKEY,
     HotkeyTracker,
@@ -51,6 +52,9 @@ class InputManager:
 
         self.mode = "voice"
         self.last_input_was_voice = False
+
+        self.shutdown_phrase = ShutdownPhraseHandler()
+        self.command_speaker = None
 
         logger.info("Loading voice input system...")
 
@@ -518,6 +522,19 @@ class InputManager:
     def handle_command(self, text):
 
         command = text.lower().strip()
+
+        # High-impact power commands are handled before generic cancellation.
+        # Only exact standalone phrases are accepted; sentence mentions pass
+        # through to normal conversation.
+        power_response = self.shutdown_phrase.handle(text)
+        if power_response is not None:
+            print("\\nNEXUS: " + power_response)
+            if self.command_speaker:
+                try:
+                    self.command_speaker(power_response)
+                except Exception as error:
+                    logger.warning("Could not speak power-command response: %s", error)
+            return True
 
         # Return to voice mode
 
