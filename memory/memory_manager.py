@@ -426,12 +426,19 @@ class MemoryManager:
 
     ):
 
+        rows = self.db.search("")
 
-        return self.db.search(
+        invalid_names = {
+            "i", "me", "my", "you", "he", "she", "they", "we", "prefer"
+        }
 
-            ""
-
-        )
+        return [
+            row for row in rows
+            if not (
+                str(row[0]).lower() == "name"
+                and str(row[1]).strip().lower() in invalid_names
+            )
+        ]
 
     # =====================================
     # WHAT NEXUS KNOWS, AS NEXT-TO-USE FACTS
