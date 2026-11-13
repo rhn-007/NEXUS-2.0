@@ -68,9 +68,16 @@ class ShutdownPhraseHandlerTests(unittest.TestCase):
         self.assertIn("cancelled", response.lower())
         self.assertEqual(self.calls[-1][0], ["shutdown", "/a"])
 
+    def test_confirmation_accepts_delayed_voice_response(self):
+        self.handler.handle("green apple")
+        self.now += 30
+        response = self.handler.handle("confirm")
+        self.assertIn("30 seconds", response)
+        self.assertEqual(self.calls[0][0], ["shutdown", "/s", "/t", "30"])
+
     def test_confirmation_expires(self):
         self.handler.handle("green apple")
-        self.now += 16
+        self.now += 61
         response = self.handler.handle("confirm")
         self.assertIn("expired", response.lower())
         self.assertEqual(self.calls, [])
