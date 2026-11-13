@@ -20,7 +20,7 @@ class ShutdownPhraseHandler:
     @staticmethod
     def _normalise(text):
         text = str(text or "").lower().replace("’", "'")
-        text = re.sub(r"[^a-z\\s]", " ", text)
+        text = re.sub(r"[^a-z\s]", " ", text)
         return " ".join(text.split())
 
     def _is_windows(self):
