@@ -528,7 +528,7 @@ class InputManager:
         # through to normal conversation.
         power_response = self.shutdown_phrase.handle(text)
         if power_response is not None:
-            print("\\nNEXUS: " + power_response)
+            print("\nNEXUS: " + power_response)
             if self.command_speaker:
                 try:
                     self.command_speaker(power_response)
