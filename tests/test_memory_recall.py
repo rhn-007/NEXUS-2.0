@@ -66,8 +66,7 @@ class WithMemory(unittest.TestCase):
         for text in ["my name is rohan", "my favourite programming language is python",
                      "i'm working on a project called Nexus", "i prefer concise explanations",
                      "i prefer short answers", "my favorite food is pizza",
-                     "i enjoy drawing and sculpting with clay", "i enjoy anime",
-                     "my favorite anime is one piece"]:
+                     "i enjoy drawing and sculpting with clay", "i enjoy anime"]:
             self.memory.process_memory(text)
 
     def tearDown(self):
@@ -117,6 +116,7 @@ class Answers(WithMemory):
             self.assertEqual(self.ask(question), expected, question)
 
     def test_common_favourite_typo_still_uses_direct_memory(self):
+        self.memory.process_memory("my favorite anime is one piece")
         self.assertEqual(
             self.ask("what is my favoraite anime?"),
             "Your favourite anime is one piece."
