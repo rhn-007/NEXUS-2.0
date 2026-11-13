@@ -124,6 +124,20 @@ class Answers(WithMemory):
         self.assertNotIn(("name", "i", "fact"), visible_memories)
         self.assertNotIn(("name", "in", "fact"), visible_memories)
 
+    def test_profile_filters_legacy_invalid_names_and_deduplicates_facts(self):
+        for invalid in ("so", "kidding", "still"):
+            self.memory.db.insert("name", invalid, "fact")
+        self.memory.db.insert("coding", "Python", "fact")
+        self.memory.db.insert("coding", " python ", "fact")
+
+        visible = [tuple(row) for row in self.memory.get_memory_context()]
+        names = [row[1] for row in visible if row[0] == "name"]
+        coding = [row[1] for row in visible if row[0] == "coding"]
+
+        self.assertEqual(names, ["rohan"])
+        self.assertEqual(coding, ["python"])
+        self.assertTrue(all(row[2] == "fact" for row in visible))
+
     def test_nothing_stored_means_no_answer_for_non_personal_queries(self):
         for text in ["what is my battery", "what is my ip address",
                      "what is the capital of france", "explain recursion",
