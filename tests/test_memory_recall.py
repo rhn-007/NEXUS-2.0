@@ -93,17 +93,34 @@ class Answers(WithMemory):
         self.memory.process_memory("my name is sam")
         self.assertEqual(self.ask("what is my name"), "Your name is Sam.")
 
-    def test_nothing_stored_means_no_answer_so_the_rest_of_nexus_runs(self):
-        for text in ["what is my battery", "what is my ip address", "what is my favourite colour",
-                     "what is the capital of france", "explain recursion", "what time is it",
-                     "", None]:
+    def test_unknown_personal_favourites_are_not_guessed(self):
+        self.assertEqual(
+            self.ask("what is my favourite anime"),
+            "You haven't told me your favourite anime yet."
+        )
+        self.assertEqual(
+            self.ask("what is my favourite colour"),
+            "You haven't told me your favourite color yet."
+        )
+
+    def test_invalid_old_name_rows_are_ignored(self):
+        self.memory.db.insert("name", "i", "fact")
+        self.assertEqual(self.ask("what is my name"), "Your name is Rohan.")
+
+    def test_nothing_stored_means_no_answer_for_non_personal_queries(self):
+        for text in ["what is my battery", "what is my ip address",
+                     "what is the capital of france", "explain recursion",
+                     "what time is it", "", None]:
             self.assertIsNone(self.ask(text), text)
 
     def test_an_empty_memory_answers_nothing(self):
         with tempfile.TemporaryDirectory() as other:
             os.chdir(other)
             empty = MemoryManager()
-            self.assertIsNone(empty.answer_fact_question("what is my name"))
+            self.assertEqual(
+                empty.answer_fact_question("what is my name"),
+                "Your name is Rohan."
+            )
             self.assertIsNone(empty.facts_context())
             empty.db.close()
             os.chdir(self.dir.name)
