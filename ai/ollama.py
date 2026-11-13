@@ -81,7 +81,7 @@ def model_options():
 
 
 # What the model is shown of the conversation. Everything stays stored in
-# full; this only decides how much of an old, long message is sent along.
+# full; this only bounds the context sent to Ollama on each request.
 # Set NEXUS_FULL_HISTORY=1 to send every message in full again.
 RECENT_FULL_MESSAGES = 2
 RECENT_MESSAGE_MAX_CHARS = 1800
@@ -102,11 +102,11 @@ def compact_history(
     old_budget=OLD_HISTORY_BUDGET_CHARS
 ):
     """
-    Shorten old, long user and assistant messages for the model.
+    Bound conversation history sent to the model without changing storage.
 
-    The most recent messages are always sent in full, and so are short
-    older ones, system messages and reference material. Returns the new
-    list (the input is never changed) and counts of what was shortened.
+    The latest user message and short recent messages stay intact. Very long
+    recent assistant replies and older messages are shortened; system messages
+    and reference material are preserved. Returns a new list and edit counts.
     """
 
     info = {"shortened": 0, "chars_saved": 0, "dropped": 0}
