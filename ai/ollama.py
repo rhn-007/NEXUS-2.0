@@ -24,7 +24,7 @@ logger = setup_logger(__name__)
 DEFAULT_KEEP_ALIVE = "30m"
 
 # Default local model used by NEXUS conversations and dependent features.
-DEFAULT_MODEL = "qwen2.5:7b"
+DEFAULT_MODEL = "qwen2.5:3b"
 
 
 def get_keep_alive():
