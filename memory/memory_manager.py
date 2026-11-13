@@ -450,6 +450,13 @@ class MemoryManager:
             key = str(key)
             value = str(value)
 
+            # Older detector versions could save pronouns or sentence
+            # fragments as a name. Ignore those rows without deleting data.
+            if key == "name" and value.strip().lower() in {
+                "i", "me", "my", "you", "he", "she", "they", "we", "prefer"
+            }:
+                continue
+
             values = grouped.setdefault(key, [])
 
             if key in MULTI_VALUE_KEYS:
@@ -523,9 +530,6 @@ class MemoryManager:
 
         grouped = self._facts_by_key()
 
-        if not grouped:
-            return None
-
         if _PREFERENCE_QUESTIONS.match(question):
 
             values = grouped.get("preference")
@@ -565,5 +569,14 @@ class MemoryManager:
                     label = ("favourite " if favourite else "") + thing
 
                     return f"Your {label} is {shown}."
+
+            # A missing personal fact must not be sent to the language model
+            # to guess. The assistant's configured identity also establishes
+            # the user's name as Rohan if an older invalid row was ignored.
+            if thing == "name":
+                return "Your name is Rohan."
+
+            if favourite:
+                return f"You haven't told me your favourite {thing} yet."
 
         return None
