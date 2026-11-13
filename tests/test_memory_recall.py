@@ -65,7 +65,9 @@ class WithMemory(unittest.TestCase):
         self.memory = MemoryManager()
         for text in ["my name is rohan", "my favourite programming language is python",
                      "i'm working on a project called Nexus", "i prefer concise explanations",
-                     "i prefer short answers", "my favorite food is pizza"]:
+                     "i prefer short answers", "my favorite food is pizza",
+                     "i enjoy drawing and sculpting with clay", "i enjoy anime",
+                     "my favorite anime is one piece"]:
             self.memory.process_memory(text)
 
     def tearDown(self):
@@ -101,6 +103,24 @@ class Answers(WithMemory):
         for text in ["what do i prefer", "what are my preferences",
                      "how do i like my answers", "what is my preferred style"]:
             self.assertEqual(self.ask(text), "You prefer concise explanations and short answers.", text)
+
+    def test_hobby_and_interest_questions_use_saved_facts(self):
+        expected = "You've mentioned enjoying drawing and sculpting with clay and anime."
+        for question in [
+            "what about my hobbies?",
+            "what are my hobbies?",
+            "what are my interests?",
+            "what hobbies do i have?",
+            "tell me about my hobbies",
+            "what do you know about my interests?",
+        ]:
+            self.assertEqual(self.ask(question), expected, question)
+
+    def test_common_favourite_typo_still_uses_direct_memory(self):
+        self.assertEqual(
+            self.ask("what is my favoraite anime?"),
+            "Your favourite anime is one piece."
+        )
 
     def test_the_latest_value_wins_for_single_facts(self):
         self.memory.process_memory("my name is sam")
