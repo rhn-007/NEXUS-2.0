@@ -20,7 +20,7 @@ class ShutdownPhraseHandler:
     @staticmethod
     def _normalise(text):
         text = str(text or "").lower().replace("’", "'")
-        text = re.sub(r"[^a-z\s]", " ", text)
+        text = re.sub(r"[^a-z\\s]", " ", text)
         return " ".join(text.split())
 
     def _is_windows(self):
@@ -42,10 +42,10 @@ class ShutdownPhraseHandler:
             self.pending_since = self.clock()
             return (
                 "Do you want me to shut down this computer? "
-                "Say confirm shutdown within 15 seconds, or say cancel."
+                "Say confirm within 15 seconds, or say cancel."
             )
 
-        if command == "confirm shutdown":
+        if command == "confirm":
             if self.pending_since is None:
                 return None
             self.pending_since = None
@@ -84,4 +84,10 @@ class ShutdownPhraseHandler:
                     return f"I couldn't cancel the scheduled shutdown: {error}"
                 self.shutdown_scheduled = False
                 return "The scheduled shutdown has been cancelled."
+
+        # While awaiting confirmation, keep unrelated speech away from the
+        # language model so it cannot claim that a shutdown was initiated.
+        if self.pending_since is not None:
+            return "Please say confirm to schedule the shutdown, or cancel to keep this computer on."
+
         return None
