@@ -475,8 +475,12 @@ class MemoryManager:
 
             if key in MULTI_VALUE_KEYS:
 
-                if not any(_norm(existing) == _norm(value) for existing in values):
-                    values.append(value)
+                # Coding-language labels use a consistent lowercase form,
+                # and surrounding whitespace is never meaningful.
+                clean_value = _norm(value) if key == "coding" else value.strip()
+
+                if not any(_norm(existing) == _norm(clean_value) for existing in values):
+                    values.append(clean_value)
 
             else:
 
