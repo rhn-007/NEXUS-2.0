@@ -92,6 +92,32 @@ def clean(text):
     return text.strip(" .,!?;:")
 
 
+def greeting_response(text):
+    """Return a local reply for an exact standalone greeting, or None."""
+
+    greetings = {
+        "hello", "hello there", "hello nexus",
+        "hi", "hi there", "hi nexus",
+        "hey", "hey there", "hey nexus",
+        "good morning", "good afternoon", "good evening",
+        "howdy"
+    }
+
+    if clean(text) not in greetings:
+        return None
+
+    greeting = clean(text)
+
+    if greeting.startswith("good morning"):
+        return "Good morning! I'm here. What can I help you with?"
+    if greeting.startswith("good afternoon"):
+        return "Good afternoon! I'm here. What can I help you with?"
+    if greeting.startswith("good evening"):
+        return "Good evening! I'm here. What can I help you with?"
+
+    return "Hello! I'm here. What can I help you with?"
+
+
 def strip_fillers(text):
     """Remove politeness and lead-in words from both ends."""
 
