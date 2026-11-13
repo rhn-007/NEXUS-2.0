@@ -1,7 +1,7 @@
 from memory.database import MemoryDatabase
 import re
 
-from memory.detector import MemoryDetector
+from memory.detector import MemoryDetector, _looks_like_name
 
 
 
@@ -425,20 +425,19 @@ class MemoryManager:
         self
 
     ):
+        """
+        Return a clean, deduplicated view of personal facts.
+        The original SQLite rows are preserved; filtering happens at read time.
+        """
 
-        rows = self.db.search("")
+        grouped = self._facts_by_key()
+        rows = []
 
-        invalid_names = {
-            "i", "me", "my", "you", "he", "she", "they", "we", "in", "prefer"
-        }
+        for key, values in grouped.items():
+            for value in values:
+                rows.append((key, value, "fact"))
 
-        return [
-            row for row in rows
-            if not (
-                str(row[0]).lower() == "name"
-                and str(row[1]).strip().lower() in invalid_names
-            )
-        ]
+        return rows
 
     # =====================================
     # WHAT NEXUS KNOWS, AS NEXT-TO-USE FACTS
@@ -459,16 +458,14 @@ class MemoryManager:
 
             # Older detector versions could save pronouns or sentence
             # fragments as a name. Ignore those rows without deleting data.
-            if key == "name" and value.strip().lower() in {
-                "i", "me", "my", "you", "he", "she", "they", "we", "in", "prefer"
-            }:
+            if key == "name" and not _looks_like_name(value.strip().lower()):
                 continue
 
             values = grouped.setdefault(key, [])
 
             if key in MULTI_VALUE_KEYS:
 
-                if value not in values:
+                if not any(_norm(existing) == _norm(value) for existing in values):
                     values.append(value)
 
             else:
