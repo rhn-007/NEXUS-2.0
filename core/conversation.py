@@ -17,7 +17,7 @@ logger = setup_logger(__name__)
 
 class ConversationManager:
     def __init__(self, database_path="nexus_memory.db",
-                 conversation_id="default", context_limit=20):
+                 conversation_id="default", context_limit=6):
         self.database_path = str(Path(database_path))
         self.conversation_id = conversation_id
         self.context_limit = max(4, int(context_limit))
