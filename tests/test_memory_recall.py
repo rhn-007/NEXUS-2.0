@@ -49,6 +49,13 @@ class Detector(unittest.TestCase):
             [("preference", "concise explanations")]
         )
 
+    def test_name_statements_reject_common_words_and_states(self):
+        for text in ["my name is still", "my name is tired",
+                     "my name is currently", "my name is in"]:
+            self.assertEqual(found(text), [], text)
+
+        self.assertEqual(found("my name is rohan"), [("name", "rohan")])
+
 
 class WithMemory(unittest.TestCase):
     def setUp(self):
