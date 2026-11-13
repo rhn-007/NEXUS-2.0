@@ -85,7 +85,7 @@ class MemoryDetector:
 
         if name:
 
-            if name.group(1) not in _NOT_A_NAME:
+            if _looks_like_name(name.group(1)):
 
                 memories.append(
                     {"key": "name", "value": name.group(1)}
