@@ -13,7 +13,7 @@ from pathlib import Path
 import winsound
 import requests
 
-from ai.ollama import get_keep_alive
+from ai.ollama import DEFAULT_MODEL, get_keep_alive
 
 from ui.status import activity
 from utils.logger import setup_logger
@@ -40,7 +40,7 @@ class Speaker:
         self.spoken_summary_word_limit = 65
         self.speech_length_scale = "1.03"
         self.ollama_url = "http://localhost:11434/api/chat"
-        self.ollama_model = "qwen2.5:3b"
+        self.ollama_model = DEFAULT_MODEL
 
         logger.info(
             "Voice system ready"
