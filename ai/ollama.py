@@ -83,13 +83,15 @@ def model_options():
 # What the model is shown of the conversation. Everything stays stored in
 # full; this only decides how much of an old, long message is sent along.
 # Set NEXUS_FULL_HISTORY=1 to send every message in full again.
-RECENT_FULL_MESSAGES = 6
-OLD_MESSAGE_MAX_CHARS = 1200
-OLD_MESSAGE_KEEP_CHARS = 500
+RECENT_FULL_MESSAGES = 2
+RECENT_MESSAGE_MAX_CHARS = 1800
+RECENT_MESSAGE_KEEP_CHARS = 1600
+OLD_MESSAGE_MAX_CHARS = 900
+OLD_MESSAGE_KEEP_CHARS = 350
 
 # Older messages (beyond the recent ones) are sent newest first until this
 # many characters are used; anything older is left out of the model's view.
-OLD_HISTORY_BUDGET_CHARS = 3000
+OLD_HISTORY_BUDGET_CHARS = 1200
 
 
 def compact_history(
@@ -127,20 +129,25 @@ def compact_history(
 
         content = str(item.get("content", ""))
 
+        is_conversation_message = item.get("role") in ("user", "assistant")
+        is_recent_assistant = index in recent and item.get("role") == "assistant"
+        limit = RECENT_MESSAGE_MAX_CHARS if is_recent_assistant else max_chars
+        keep = RECENT_MESSAGE_KEEP_CHARS if is_recent_assistant else keep_chars
+
         if (
-            item.get("role") in ("user", "assistant")
-            and index not in recent
-            and len(content) > max_chars
+            is_conversation_message
+            and (is_recent_assistant or index not in recent)
+            and len(content) > limit
         ):
 
-            cut = content[:keep_chars]
+            cut = content[:keep]
 
             if " " in cut:
                 cut = cut.rsplit(" ", 1)[0]
 
             shortened = (
                 cut.rstrip()
-                + " ... (the rest of this older message is shortened here)"
+                + " ... (the rest of this message is shortened for context)"
             )
 
             info["shortened"] += 1
