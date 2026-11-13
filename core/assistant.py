@@ -19,7 +19,7 @@ from core.response_style import ResponseStyleController
 from core.conversation import ConversationManager
 
 from core.input_manager import InputManager
-from core.intent import IntentFastPath, app_targets_from
+from core.intent import IntentFastPath, app_targets_from, greeting_response
 from core.intent_runner import IntentRunner
 from core.planner import IntentPlanner
 
@@ -350,6 +350,15 @@ class NexusAssistant:
             self.conversation.add_user_message(
                 user_input
             )
+
+            # Exact standalone greetings do not need a full local-model
+            # generation. Substantive conversation still uses the configured
+            # Qwen model through the normal response path.
+            greeting = greeting_response(user_input)
+            if greeting:
+                self.conversation.add_assistant_message(greeting)
+                self.speaker.speak(greeting)
+                return greeting
 
             # Learn only from voice transcripts; explicit corrections can
             # be taught through either voice or keyboard input.
