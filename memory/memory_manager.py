@@ -564,7 +564,7 @@ class MemoryManager:
             return "You've mentioned enjoying " + _join(values) + "."
 
         # Correct a common speech/typing variant before matching saved favourites.
-        question = re.sub(r"\\bfavoraite\\b", "favourite", question)
+        question = re.sub(r"\bfavoraite\b", "favourite", question)
 
         for pattern in _FACT_QUESTIONS:
 
