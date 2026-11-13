@@ -157,7 +157,7 @@ class RequestGate(unittest.TestCase):
 def planner():
     return IntentPlanner(
         "http://localhost:11434/api/chat",
-        "qwen2.5:3b",
+        "qwen2.5:7b",
         websites=WEBSITES,
         app_names=APPS,
         app_checker=lambda name: name.lower() in APPS
