@@ -147,6 +147,9 @@ class ClientStreaming(unittest.TestCase):
 
 
 class Options(unittest.TestCase):
+    def test_client_defaults_to_qwen_7b(self):
+        self.assertEqual(OllamaClient().model, "qwen2.5:7b")
+
     def test_defaults_leave_cpu_and_gpu_to_ollama(self):
         with patch.dict("os.environ", {}, clear=True):
             options = model_options()
@@ -164,7 +167,7 @@ class Options(unittest.TestCase):
             self.assertNotIn("num_thread", model_options())
 
     def test_placement_wording(self):
-        name = "qwen2.5:3b"
+        name = "qwen2.5:7b"
         self.assertEqual(placement_text([{"name": name, "size": 100, "size_vram": 0}], name), "100% CPU")
         self.assertEqual(placement_text([{"name": name, "size": 100, "size_vram": 100}], name), "100% GPU")
         self.assertEqual(placement_text([{"name": name, "size": 100, "size_vram": 60}], name), "40% CPU / 60% GPU")
