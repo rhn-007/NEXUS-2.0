@@ -21,7 +21,7 @@ class ShutdownPhraseHandlerTests(unittest.TestCase):
 
     def test_exact_trigger_requests_confirmation_only(self):
         response = self.handler.handle("Green apple!")
-        self.assertIn("confirm shutdown", response)
+        self.assertIn("say confirm", response.lower())
         self.assertEqual(self.calls, [])
 
     def test_phrase_inside_normal_sentence_is_ignored(self):
@@ -33,14 +33,27 @@ class ShutdownPhraseHandlerTests(unittest.TestCase):
         self.assertEqual(self.calls, [])
 
     def test_confirmation_without_pending_request_is_ignored(self):
-        self.assertIsNone(self.handler.handle("confirm shutdown"))
+        self.assertIsNone(self.handler.handle("confirm"))
         self.assertEqual(self.calls, [])
 
-    def test_confirmation_schedules_shutdown_after_trigger(self):
+    def test_confirm_alone_schedules_shutdown_after_trigger(self):
         self.handler.handle("green apple")
-        response = self.handler.handle("confirm shutdown")
+        response = self.handler.handle("confirm")
         self.assertIn("30 seconds", response)
         self.assertEqual(self.calls[0][0], ["shutdown", "/s", "/t", "30"])
+
+    def test_punctuated_confirm_is_accepted(self):
+        self.handler.handle("green apple")
+        response = self.handler.handle("Confirm!")
+        self.assertIn("30 seconds", response)
+        self.assertEqual(self.calls[0][0], ["shutdown", "/s", "/t", "30"])
+
+    def test_unrelated_speech_while_confirmation_pending_does_not_reach_model(self):
+        self.handler.handle("green apple")
+        response = self.handler.handle("confirm, shut down")
+        self.assertIn("Please say confirm", response)
+        self.assertEqual(self.calls, [])
+        self.assertIsNotNone(self.handler.pending_since)
 
     def test_cancel_before_confirmation(self):
         self.handler.handle("green apple")
@@ -50,7 +63,7 @@ class ShutdownPhraseHandlerTests(unittest.TestCase):
 
     def test_cancel_after_scheduling(self):
         self.handler.handle("green apple")
-        self.handler.handle("confirm shutdown")
+        self.handler.handle("confirm")
         response = self.handler.handle("cancel shutdown")
         self.assertIn("cancelled", response.lower())
         self.assertEqual(self.calls[-1][0], ["shutdown", "/a"])
@@ -58,11 +71,10 @@ class ShutdownPhraseHandlerTests(unittest.TestCase):
     def test_confirmation_expires(self):
         self.handler.handle("green apple")
         self.now += 16
-        response = self.handler.handle("confirm shutdown")
+        response = self.handler.handle("confirm")
         self.assertIn("expired", response.lower())
         self.assertEqual(self.calls, [])
 
 
 if __name__ == "__main__":
     unittest.main()
-
