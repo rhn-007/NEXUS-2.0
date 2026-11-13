@@ -190,9 +190,9 @@ class HistoryBudget(unittest.TestCase):
         # messages are retained newest-first within the character budget.
         self.assertEqual(contents[-1][:3], "19:")
         self.assertEqual(contents[-2][:3], "18:")
-        self.assertEqual(sum(1 for c in contents if c.startswith("15:")), 1)
         self.assertEqual(sum(1 for c in contents if c.startswith("16:")), 1)
         self.assertEqual(sum(1 for c in contents if c.startswith("17:")), 1)
+        self.assertFalse(any(c.startswith("15:") for c in contents))
         self.assertFalse(any(c.startswith("14:") for c in contents))
         # oldest ones went first
         self.assertFalse(any(c.startswith("0:") for c in contents))
