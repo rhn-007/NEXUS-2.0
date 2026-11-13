@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 from ai.ollama import (
     DEFAULT_KEEP_ALIVE,
     OLD_MESSAGE_MAX_CHARS,
+    RECENT_MESSAGE_MAX_CHARS,
     OllamaClient,
     RECENT_FULL_MESSAGES,
     compact_history,
@@ -76,22 +77,24 @@ class ConversationMemoryIsUntouchedTests(unittest.TestCase):
         context.append({"role": "user", "content": "latest question"})
         return context, long_brief
 
-    def test_recent_messages_reach_the_model_unchanged(self):
+    def test_recent_messages_are_bounded_without_changing_stored_history(self):
         context, long_brief = self.long_conversation()
+        snapshot = [dict(item) for item in context]
 
         _, payload = send("latest question", context)
 
         sent = payload["messages"]
 
         self.assertEqual(sent[0]["role"], "system")
-        # Same number of messages, same order, nothing dropped.
         self.assertEqual(len(sent) - 1, len(context))
-        # The last messages, including a very long recent reply, are intact.
-        self.assertEqual(
-            sent[-RECENT_FULL_MESSAGES:],
-            context[-RECENT_FULL_MESSAGES:]
+        # Keep the latest user message intact, but bound a huge recent reply.
+        self.assertEqual(sent[-1], context[-1])
+        self.assertLessEqual(
+            len(sent[-2]["content"]),
+            RECENT_MESSAGE_MAX_CHARS
         )
-        self.assertIn(long_brief, [item["content"] for item in sent])
+        self.assertNotIn(long_brief, [item["content"] for item in sent])
+        self.assertEqual(context, snapshot)
 
     def test_old_long_messages_are_shortened_for_the_model_only(self):
         context, long_brief = self.long_conversation()
@@ -104,8 +107,8 @@ class ConversationMemoryIsUntouchedTests(unittest.TestCase):
 
         self.assertLess(len(old_long), OLD_MESSAGE_MAX_CHARS)
         self.assertTrue(long_brief.startswith(old_long.split(" ...")[0][:100]))
-        self.assertEqual(client.last_stats["history_shortened"], 1)
-        self.assertGreater(client.last_stats["history_chars_saved"], 5000)
+        self.assertEqual(client.last_stats["history_shortened"], 2)
+        self.assertGreater(client.last_stats["history_chars_saved"], 10000)
         # The stored conversation passed in is not touched.
         self.assertEqual(context, snapshot)
 
@@ -170,7 +173,7 @@ class CompactHistoryTests(unittest.TestCase):
         self.assertEqual(info["shortened"], 1)
         self.assertLess(len(result[1]["content"]), OLD_MESSAGE_MAX_CHARS)
 
-    def test_a_long_message_inside_the_recent_window_is_kept(self):
+    def test_a_long_recent_assistant_message_is_shortened(self):
         messages = [
             {"role": "system", "content": "prompt"},
             {"role": "assistant", "content": "word " * 600},
@@ -179,8 +182,12 @@ class CompactHistoryTests(unittest.TestCase):
 
         result, info = compact_history(messages)
 
-        self.assertEqual(result, messages)
-        self.assertEqual(info["shortened"], 0)
+        self.assertEqual(result[-1], messages[-1])
+        self.assertLessEqual(
+            len(result[1]["content"]),
+            RECENT_MESSAGE_MAX_CHARS
+        )
+        self.assertEqual(info["shortened"], 1)
 
 
 class ExtractStatsTests(unittest.TestCase):
