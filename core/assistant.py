@@ -817,6 +817,15 @@ class NexusAssistant:
 
             return None
 
+    @staticmethod
+    def _join_recollection(values):
+        values = [str(value).strip() for value in values if str(value).strip()]
+        if len(values) <= 1:
+            return values[0] if values else ""
+        if len(values) == 2:
+            return values[0] + " and " + values[1]
+        return ", ".join(values[:-1]) + ", and " + values[-1]
+
     # ==========================
     # MEMORY CHECK
     # ==========================
@@ -847,37 +856,76 @@ class NexusAssistant:
                     "I don't have any stored information about you yet."
                 )
 
-            profile = []
-
+            # Turn stored facts into a short recollection rather than
+            # reading database fields aloud. Keep claims grounded in saved facts.
+            grouped = {}
             for item in memories:
-
                 try:
-
-                    key = item[0]
-                    value = item[1]
+                    key = str(item[0]).strip().lower()
+                    value = str(item[1]).strip()
                     category = item[2]
-
-                    if category != "conversation":
-
-                        profile.append(
-                            f"• {key.replace('_',' ').title()}: {value}"
-                        )
-
+                    if category == "conversation" or not key or not value:
+                        continue
+                    values = grouped.setdefault(key, [])
+                    if not any(existing.casefold() == value.casefold() for existing in values):
+                        values.append(value)
                 except Exception:
-
                     continue
 
-            if profile:
+            if not grouped:
+                return "I have some memories stored, but no reliable personal details to share yet."
 
-                return (
-                    "Here's what I know about you, Rohan:\n\n"
-                    +
-                    "\n".join(profile)
+            parts = []
+
+            names = grouped.get("name", [])
+            if names:
+                parts.append(f"I remember your name is {names[-1].title()}.")
+
+            interests = grouped.get("interest", [])
+            if interests:
+                readable = [value for value in interests if value.casefold() != "coding"]
+                if readable:
+                    parts.append("You've mentioned enjoying " + self._join_recollection(readable) + ".")
+
+            coding = grouped.get("coding", [])
+            languages = grouped.get("programming_language", [])
+            coding_values = list(dict.fromkeys(coding + languages))
+            if coding_values:
+                parts.append(
+                    "Python is one of the programming languages you've mentioned using."
+                    if any(value.casefold() == "python" for value in coding_values)
+                    else "You've mentioned working with " + self._join_recollection(coding_values) + "."
                 )
 
-            return (
-                "I have memories stored, but no personal details about you yet."
-            )
+            projects = grouped.get("project", [])
+            named_projects = [
+                value for value in projects
+                if value.casefold() not in {"a personal project", "personal project", "a project", "project"}
+            ]
+            if named_projects:
+                parts.append(
+                    "You're also working on " + self._join_recollection(named_projects) + "."
+                )
+
+            preferences = grouped.get("preference", [])
+            if preferences:
+                parts.append("And you've told me you prefer " + self._join_recollection(preferences) + ".")
+
+            for key, values in grouped.items():
+                if key in {
+                    "name", "interest", "coding", "programming_language",
+                    "project", "preference"
+                }:
+                    continue
+                label = key.replace("_", " ")
+                parts.append(
+                    f"You've also mentioned {self._join_recollection(values)} when talking about {label}."
+                )
+
+            if not parts:
+                return "I remember a few things you've shared, but I don't have enough reliable detail to summarise them yet."
+
+            return "Here's what I remember about you.\n\n" + "\n\n".join(parts)
 
         # "what is my name", "what's my favourite language", "what do I prefer"
         return self.memory.answer_fact_question(
