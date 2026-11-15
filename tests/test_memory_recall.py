@@ -50,6 +50,12 @@ class Detector(unittest.TestCase):
         )
         self.assertEqual(detected, [{"key": "sport", "value": "badminton"}])
 
+        detected = MemoryDetector().detect_answer(
+            "It's badminton. I like badminton.",
+            "What is my favorite sport?"
+        )
+        self.assertEqual(detected, [{"key": "sport", "value": "badminton"}])
+
     def test_short_answer_is_not_linked_to_an_unrelated_question(self):
         detected = MemoryDetector().detect_answer(
             "it is badminton",
@@ -119,10 +125,13 @@ class WithMemory(unittest.TestCase):
                 "INSERT INTO conversation_messages "
                 "(conversation_id, role, content, created_at) "
                 "VALUES ('default', 'user', ?, 'now')",
-                ("it is badminton",)
+                ("It's badminton. I like badminton.",)
             )
 
-        self.assertTrue(self.memory.process_memory("it is badminton"))
+        self.assertTrue(self.memory.process_memory("It's badminton. I like badminton."))
+        saved_facts = self.memory.db.get_facts()
+        self.assertIn(("sport", "badminton"), saved_facts)
+        self.assertIn(("interest", "badminton"), saved_facts)
         self.assertEqual(
             self.ask("what is my favourite sport"),
             "Your favourite sport is badminton."
