@@ -286,3 +286,35 @@ class MemoryDetector:
 
 
         return result
+
+    def detect_answer(self, answer, previous_question):
+        """
+        Resolve a short answer only when the previous user message clearly
+        asked for a favourite fact, such as "what is my favourite sport?".
+        """
+        if not answer or not previous_question:
+            return []
+
+        question = re.sub(r"[?.!,]", " ", str(previous_question).lower())
+        question = " ".join(question.split())
+        question_match = re.fullmatch(
+            r"what(?:'s| is) my favou?rite ([a-z][a-z ]{0,30})",
+            question
+        )
+        if not question_match:
+            return []
+
+        answer_text = str(answer).lower().strip()
+        answer_match = re.fullmatch(
+            r"(?:it is|it's|it’s|the answer is)\\s+([a-z][a-z0-9' -]{0,59})[.!?]*",
+            answer_text
+        )
+        if not answer_match:
+            return []
+
+        key = question_match.group(1).strip().replace(" ", "_")
+        value = answer_match.group(1).strip(" .!?")
+        if not key or not value:
+            return []
+
+        return [{"key": key, "value": value}]

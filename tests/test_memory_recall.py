@@ -43,6 +43,20 @@ class Detector(unittest.TestCase):
     def test_questions_about_preferences_store_nothing(self):
         self.assertEqual(found("what do i prefer"), [])
 
+    def test_short_answer_is_linked_to_a_previous_favourite_question(self):
+        detected = MemoryDetector().detect_answer(
+            "it is badminton",
+            "what is my favorite sport?"
+        )
+        self.assertEqual(detected, [{"key": "sport", "value": "badminton"}])
+
+    def test_short_answer_is_not_linked_to_an_unrelated_question(self):
+        detected = MemoryDetector().detect_answer(
+            "it is badminton",
+            "what time is it?"
+        )
+        self.assertEqual(detected, [])
+
     def test_preference_statements_are_not_names(self):
         self.assertEqual(
             found("I prefer concise explanations"),
@@ -76,6 +90,43 @@ class WithMemory(unittest.TestCase):
 
     def ask(self, text):
         return self.memory.answer_fact_question(text)
+
+    def test_short_answer_to_favourite_question_is_saved_and_recalled(self):
+        connection = self.memory.db.connection
+        connection.execute("""
+            CREATE TABLE conversation_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+        with connection:
+            connection.execute(
+                "INSERT INTO conversation_messages "
+                "(conversation_id, role, content, created_at) "
+                "VALUES ('default', 'user', ?, 'now')",
+                ("what is my favorite sport?",)
+            )
+            connection.execute(
+                "INSERT INTO conversation_messages "
+                "(conversation_id, role, content, created_at) "
+                "VALUES ('default', 'assistant', ?, 'now')",
+                ("You haven't told me your favourite sport yet.",)
+            )
+            connection.execute(
+                "INSERT INTO conversation_messages "
+                "(conversation_id, role, content, created_at) "
+                "VALUES ('default', 'user', ?, 'now')",
+                ("it is badminton",)
+            )
+
+        self.assertTrue(self.memory.process_memory("it is badminton"))
+        self.assertEqual(
+            self.ask("what is my favourite sport"),
+            "Your favourite sport is badminton."
+        )
 
 
 class Answers(WithMemory):

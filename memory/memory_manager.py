@@ -1,5 +1,6 @@
 from memory.database import MemoryDatabase
 import re
+import sqlite3
 
 from memory.detector import MemoryDetector, _looks_like_name
 
@@ -70,19 +71,40 @@ class MemoryManager:
     # PROCESS USER MEMORY
     # =====================================
 
+    def _previous_user_message(self):
+        """
+        Return the user message immediately before the current one from the
+        persistent conversation transcript. NEXUS records the current input
+        before asking MemoryManager to save facts.
+        """
+        try:
+            rows = self.db.connection.execute(
+                """
+                SELECT content FROM conversation_messages
+                WHERE conversation_id = 'default' AND role = 'user'
+                ORDER BY id DESC
+                LIMIT 2
+                """
+            ).fetchall()
+        except sqlite3.Error:
+            return None
+
+        return rows[1]["content"] if len(rows) >= 2 else None
+
     def process_memory(
         self,
         text
     ):
-    
-    
-        memories = self.detector.detect(
-            text
-        )
-    
-    
+
+        memories = self.detector.detect(text)
+
+        # Short replies such as "it is badminton" need the previous user
+        # question to identify which personal fact the answer belongs to.
         if not memories:
-    
+            previous_question = self._previous_user_message()
+            memories = self.detector.detect_answer(text, previous_question)
+
+        if not memories:
             return False
     
     
