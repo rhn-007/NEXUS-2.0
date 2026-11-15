@@ -135,7 +135,7 @@ class WithMemory(unittest.TestCase):
             )
 
         self.assertTrue(self.memory.process_memory("It's badminton. I like badminton."))
-        saved_facts = self.memory.db.get_facts()
+        saved_facts = [tuple(row) for row in self.memory.db.get_facts()]
         self.assertIn(("sport", "badminton"), saved_facts)
         self.assertIn(("interest", "badminton"), saved_facts)
         self.assertEqual(
