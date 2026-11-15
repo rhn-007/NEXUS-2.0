@@ -39,6 +39,12 @@ class Detector(unittest.TestCase):
         self.assertEqual(found("my favorite colour is blue"), [("colour", "blue")])
         self.assertEqual(found("my favourite programming language is python"),
                          [("programming_language", "python")])
+        self.assertEqual(found("my favorite sport was badminton"),
+                         [("sport", "badminton")])
+        self.assertEqual(
+            found("Now just informing you that my favorite sport was badminton, just remember that"),
+            [("sport", "badminton")]
+        )
 
     def test_questions_about_preferences_store_nothing(self):
         self.assertEqual(found("what do i prefer"), [])
