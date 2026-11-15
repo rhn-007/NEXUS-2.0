@@ -136,7 +136,7 @@ class MemoryDetector:
 
         favorites = re.findall(
 
-            r"my favou?rite ([a-z ]+?) is ([^.,]+)",
+            r"my favou?rite ([a-z ]+?) (?:is|was) ([^.,]+)",
 
             text
 
