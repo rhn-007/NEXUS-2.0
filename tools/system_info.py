@@ -68,7 +68,11 @@ _PATTERNS = [
     ("battery", r"\b(?:status|state|level|percentage|percent) of my battery\b"),
     ("battery", r"^(?:what(?:'s| is)|how(?:'s| is)|show me|check|tell me)(?: about)? (?:the |my )?battery(?: now| right now| status| level)?$"),
     ("battery", r"\bis (?:my|the|this) \w+ (?:charging|plugged in)$"),
-    ("summary", r"\bhow(?:'s| is) my (?:pc|computer|laptop|system|machine) (?:doing|running|performing)\b"),
+    ("summary", r"\bhow(?:'s| is) (?:my |the |this )?(?:pc|computer|laptop|system|machine) (?:doing|running|performing)\b"),
+    ("summary", r"^how(?:'s| is) (?:my |the |this )?(?:pc|computer|laptop|machine)$"),
+    ("summary", r"^(?:check|scan|check up on|look at)(?: on)? (?:my |the |this )?(?:pc|computer|laptop|machine)(?: out)?$"),
+    ("summary", r"\b(?:pc|computer|laptop|system|machine) (?:performance|health)\b"),
+    ("summary", r"\b(?:performance|health) of (?:my |the |this )?(?:pc|computer|laptop|system|machine)\b"),
     ("summary", r"\bis my (?:pc|computer|laptop|system|machine) (?:running |being )?(?:slow|laggy|lagging|okay|ok|fine)\b"),
     ("summary", r"\b(?:system|pc|computer) (?:info|status|summary)$"),
     ("pc", r"\bwhat (?:pc|computer|laptop) is this\b"),
@@ -458,15 +462,33 @@ def describe_pc(info, memory=None):
     return text + "."
 
 
+def _used_fraction(memory):
+
+    if not memory or not memory.get("total"):
+        return None
+
+    return (memory["total"] - memory["available"]) / memory["total"]
+
+
 def describe_summary(cpu, memory, battery, disks):
+    """What NEXUS says out loud: only the things worth knowing."""
 
     problems = []
+    advice = []
+    tight = []
 
     if cpu is not None and cpu >= 85:
         problems.append(f"CPU is very busy ({cpu:.0f}%)")
+        advice.append("Something is using a lot of processing power, so it may feel slow.")
 
-    if memory and (memory["total"] - memory["available"]) / memory["total"] >= 0.9:
+    used = _used_fraction(memory)
+
+    if used is not None and used >= 0.9:
         problems.append("memory is nearly full")
+        advice.append("Closing some apps would free up memory.")
+
+    elif used is not None and used >= 0.8:
+        tight.append("memory is getting full")
 
     if (
         battery and battery.get("has_battery")
@@ -475,36 +497,77 @@ def describe_summary(cpu, memory, battery, disks):
         and not battery.get("charging")
     ):
         problems.append(f"battery is low ({battery['percent']}%)")
+        advice.append("You should plug in soon.")
+
+    disk_advice = False
 
     for letter, total, free in disks or []:
 
-        if total and free / total < 0.1:
-            problems.append(f"{letter}: is almost full")
+        if not total:
+            continue
+
+        if free / total < 0.1:
+            problems.append(f"{letter}: is almost full, only {format_size(free)} free")
+            disk_advice = True
+
+        elif free / total < 0.2:
+            tight.append(f"{letter}: is getting tight on space")
+
+    if disk_advice:
+        advice.append("Clearing some space will help Windows run smoothly.")
 
     if problems:
-        return "Heads up: " + ", ".join(problems) + "."
 
-    details = []
+        text = "Heads up: " + ", ".join(problems) + "."
+
+        if advice:
+            text += " " + " ".join(advice)
+
+        if tight:
+            text += " Also, " + " and ".join(tight) + "."
+
+        return text
+
+    if tight:
+        return "Mostly fine, but " + " and ".join(tight) + "."
+
+    return "Everything looks fine."
+
+
+def describe_summary_screen(cpu, memory, battery, disks, uptime=None):
+    """The full readout shown on screen (not spoken)."""
+
+    lines = []
+
+    spoken = describe_summary(cpu, memory, battery, disks)
+
+    lines.append(spoken if spoken.startswith("Heads up") else "PC status: " + spoken)
 
     if cpu is not None:
-        details.append(f"CPU at {cpu:.0f}%")
+        lines.append(f"CPU: {cpu:.0f}%")
 
-    if memory:
+    used = _used_fraction(memory)
 
-        used = (memory["total"] - memory["available"]) / memory["total"]
-        details.append(f"memory {used * 100:.0f}% used")
+    if used is not None:
+
+        in_use = memory["total"] - memory["available"]
+        lines.append(
+            f"Memory: {used * 100:.0f}% used "
+            f"({format_size(in_use)} of {format_size(memory['total'])})"
+        )
 
     if battery and battery.get("has_battery") and battery.get("percent") is not None:
 
-        state = "and charging" if battery.get("charging") else "on battery"
-        details.append(f"battery {battery['percent']}% {state}")
+        state = "charging" if battery.get("charging") else "on battery"
+        lines.append(f"Battery: {battery['percent']}% ({state})")
 
-    if disks:
+    for letter, total, free in (disks or [])[:4]:
+        lines.append(f"{letter}: {format_size(free)} free of {format_size(total)}")
 
-        letter, total, free = disks[0]
-        details.append(f"{letter}: {format_size(free)} free")
+    if uptime is not None:
+        lines.append(f"Uptime: {format_duration(uptime)}")
 
-    return "Everything looks fine. " + ", ".join(details) + "."
+    return "\n".join(lines)
 
 
 # ==========================================================
@@ -809,7 +872,7 @@ class SystemInfoTool(BaseTool):
 
         try:
 
-            answers = [self.answer(topic, value) for topic, value in topics]
+            pairs = [self.answer_pair(topic, value) for topic, value in topics]
 
         except Exception as error:
 
@@ -819,7 +882,35 @@ class SystemInfoTool(BaseTool):
                 "I couldn't read that from the PC."
             )
 
-        return ToolResponse.success(" ".join(answers))
+        shown = "\n".join(pair[0] for pair in pairs) if any(
+            "\n" in pair[0] for pair in pairs
+        ) else " ".join(pair[0] for pair in pairs)
+
+        spoken = " ".join(pair[1] for pair in pairs)
+
+        data = {"spoken": spoken} if spoken != shown else None
+
+        return ToolResponse.success(shown, data)
+
+    def answer_pair(self, topic, value=""):
+        """(text for the screen, text to say out loud)."""
+
+        if topic == "summary":
+
+            reader = self.reader
+            cpu, memory = reader.cpu_percent(), reader.memory()
+            battery, disks = reader.battery(), reader.disks()
+
+            return (
+                describe_summary_screen(
+                    cpu, memory, battery, disks, reader.uptime_seconds()
+                ),
+                describe_summary(cpu, memory, battery, disks),
+            )
+
+        text = self.answer(topic, value)
+
+        return text, text
 
     def answer(self, topic, value=""):
 

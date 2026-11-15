@@ -214,6 +214,7 @@ class IntentRunner:
     def _run_steps(self, steps, request=""):
 
         messages = []
+        spoken_parts = []
 
         for step in steps:
 
@@ -221,6 +222,7 @@ class IntentRunner:
 
                 self.pending = {"kind": "meet_code", "tries": 0}
                 messages.append("What's the meeting code?")
+                spoken_parts.append(messages[-1])
 
                 break
 
@@ -238,17 +240,25 @@ class IntentRunner:
                         message
                         or f"I couldn't do that ({step.action.replace('_', ' ')})."
                     )
+                    spoken_parts.append(messages[-1])
 
                     break
+
+                spoken = getattr(result, "spoken", None)
 
             else:
 
                 message = self.run_builtin(step.action, step.value)
+                spoken = None
 
             if message:
                 messages.append(message)
+                spoken_parts.append(spoken or message)
 
-        return ToolResult(True, "\n".join(messages) or "Done.")
+        shown = "\n".join(messages) or "Done."
+        said = "\n".join(spoken_parts) or "Done."
+
+        return ToolResult(True, shown, said if said != shown else None)
 
     # ======================================================
     # ACTION HISTORY

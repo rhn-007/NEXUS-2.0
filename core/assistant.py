@@ -476,7 +476,8 @@ class NexusAssistant:
                 )
 
                 self.speaker.speak(
-                    tool_result.message
+                    getattr(tool_result, "spoken", None)
+                    or tool_result.message
                 )
 
                 return tool_result.message

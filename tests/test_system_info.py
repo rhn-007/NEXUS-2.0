@@ -339,3 +339,62 @@ class RealWorldPhrasing(unittest.TestCase):
         steps = fast.fast_steps("what is the date and time")
         self.assertEqual([s.command for s in steps],
                          ["system info date", "system info time"])
+
+
+class SummaryIsSpokenShortAndShownInFull(unittest.TestCase):
+    def test_more_ways_of_asking_for_the_summary(self):
+        for text in [
+            "how is the pc doing", "how is my pc doing", "how's the computer doing",
+            "no i want to know the performance of my pc", "check my pc health",
+            "pc performance", "check my pc", "how is my pc",
+        ]:
+            self.assertEqual(topic(text), ("summary", ""), text)
+
+    def test_other_things_are_not_the_summary(self):
+        for text in [
+            "what is the performance of a sphere",
+            "performance review of my project",
+            "how is the weather doing",
+            "check my email",
+            "tell me about the health of the economy",
+        ]:
+            self.assertNotEqual(topic(text), ("summary", ""), text)
+
+    def test_healthy_pc_speaks_one_line_and_shows_the_numbers(self):
+        result = SystemInfoTool(FakeReader()).execute("how is my pc doing")
+        self.assertEqual(result.data["spoken"], "Everything looks fine.")
+        for line in ["CPU: 14%", "Memory: 50% used (8.0 GB of 16.0 GB)",
+                     "C: 120 GB free of 476 GB", "Uptime: 3 hours"]:
+            self.assertIn(line, result.message)
+
+    def test_trouble_is_spoken_with_advice_and_still_shown_in_full(self):
+        result = SystemInfoTool(FakeReader(
+            disks=[("C", 476 * GB, 20 * GB)], cpu=30.0
+        )).execute("how is my pc doing")
+        spoken = result.data["spoken"]
+        self.assertTrue(spoken.startswith("Heads up: C: is almost full, only 20.0 GB free."))
+        self.assertIn("Clearing some space", spoken)
+        self.assertNotIn("CPU", spoken)
+        self.assertTrue(result.message.startswith("Heads up"))
+        self.assertIn("CPU: 30%", result.message)
+        self.assertIn("C: 20.0 GB free of 476 GB", result.message)
+
+    def test_getting_tight_is_a_softer_mention(self):
+        text = describe_summary(
+            10, {"total": 16 * GB, "available": 2.5 * GB},
+            {"has_battery": False}, [("C", 500 * GB, 80 * GB)]
+        )
+        self.assertTrue(text.startswith("Mostly fine"))
+        self.assertIn("memory is getting full", text)
+        self.assertIn("C: is getting tight", text)
+
+    def test_other_questions_speak_exactly_what_they_show(self):
+        result = SystemInfoTool(FakeReader()).execute("what's my cpu usage")
+        self.assertFalse(result.data)
+
+    def test_runner_passes_the_spoken_text_through(self):
+        outcome = IntegrationWithIntentLayer().runner().resolve("how is my pc doing")
+        self.assertEqual(outcome.spoken, "Everything looks fine.")
+        self.assertIn("CPU: 14%", outcome.message)
+        plain = IntegrationWithIntentLayer().runner().resolve("what is the current time?")
+        self.assertIsNone(plain.spoken)

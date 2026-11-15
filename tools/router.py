@@ -14,11 +14,15 @@ class ToolResult:
     def __init__(
         self,
         success=False,
-        message=""
+        message="",
+        spoken=None
     ):
 
         self.success = success
         self.message = message
+
+        # Optional shorter text to say out loud. None means say the message.
+        self.spoken = spoken
 
 
 class ToolRouter:
@@ -155,9 +159,14 @@ class ToolRouter:
                     and hasattr(result, "message")
                 ):
 
+                    spoken = (
+                        getattr(result, "data", None) or {}
+                    ).get("spoken")
+
                     return ToolResult(
                         result.success,
-                        result.message
+                        result.message,
+                        spoken
                     )
 
                 return ToolResult(
