@@ -98,11 +98,22 @@ class MemoryManager:
 
         memories = self.detector.detect(text)
 
-        # Short replies such as "it is badminton" need the previous user
-        # question to identify which personal fact the answer belongs to.
-        if not memories:
-            previous_question = self._previous_user_message()
-            memories = self.detector.detect_answer(text, previous_question)
+        # Also inspect the previous question even when this message contains
+        # another detectable fact. For example, "It's badminton. I like
+        # badminton." expresses both a favourite sport and an interest.
+        previous_question = self._previous_user_message()
+        answer_memories = self.detector.detect_answer(text, previous_question)
+        memories.extend(answer_memories)
+
+        # Remove duplicates produced by overlapping detectors.
+        unique_memories = []
+        seen_memories = set()
+        for memory in memories:
+            pair = (memory["key"].lower(), memory["value"].lower())
+            if pair not in seen_memories:
+                seen_memories.add(pair)
+                unique_memories.append(memory)
+        memories = unique_memories
 
         if not memories:
             return False
