@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 TOPICS = (
     "time", "date", "battery", "cpu", "memory", "disk", "uptime",
-    "network", "apps", "summary", "pc", "app"
+    "network", "apps", "summary", "pc", "app", "usage"
 )
 
 # An app name that is safe to compare against process names.
@@ -91,6 +91,10 @@ _PATTERNS = [
     ("uptime", r"\buptime\b"),
     ("network", r"\b(?:which|what) (?:wi-?fi|network)\b"),
     ("network", r"\bwi-?fi\b.*\b(?:connected|name|network|using)\b"),
+    ("usage", r"\banything else\b.*\b(?:pc|computer|laptop|machine)\b"),
+    ("usage", r"\bwhat else\b.*\b(?:know|should|need)\b.*\b(?:pc|computer|laptop|machine)\b"),
+    ("usage", r"\bwhat(?:'s| is) slowing (?:down )?(?:my |the |this )?(?:pc|computer|laptop|machine)\b"),
+    ("usage", r"\bwhy is (?:my |the |this )?(?:pc|computer|laptop|machine) (?:so )?(?:slow|laggy|lagging)\b"),
     ("apps", r"\b(?:what|which)(?: all| are| the)* (?:apps|programs|applications)\b.*\b(?:running|open|opened)\b"),
     ("apps", r"\b(?:apps|programs|applications) (?:that )?(?:are )?(?:currently )?(?:running|open)\b"),
     ("apps", r"\bwhat(?:'s| is) (?:currently )?running\b"),
@@ -156,7 +160,7 @@ _OTHER_SUBJECT = re.compile(
 )
 
 _ABOUT_THIS_PC = {
-    "battery", "summary", "pc", "cpu", "memory", "uptime", "apps"
+    "battery", "summary", "pc", "cpu", "memory", "uptime", "apps", "usage"
 }
 
 
@@ -424,6 +428,69 @@ def describe_apps(processes):
     )
 
     return f"Using the most memory: {listed}."
+
+
+_HEAVY_KB = 2 * 1024 * 1024  # an app using 2 GB or more is worth mentioning
+
+
+def _ranked_apps(processes):
+
+    return sorted(
+        (
+            (stem, kilobytes)
+            for stem, kilobytes in (
+                (_stem(image), kb) for image, kb in processes.items()
+            )
+            if stem not in _BACKGROUND
+        ),
+        key=lambda item: item[1],
+        reverse=True
+    )
+
+
+def _app_label(stem):
+
+    return _FRIENDLY_NAMES.get(stem, stem.replace("-", " ").title())
+
+
+def describe_usage(processes):
+    """
+    (screen text, spoken text): what is using the PC's memory. The screen
+    gets the top five apps; speech only mentions the heavy ones.
+    """
+
+    if not processes:
+
+        text = "I couldn't read what the apps are using."
+
+        return text, text
+
+    ranked = _ranked_apps(processes)
+
+    if not ranked:
+
+        text = "I couldn't see any apps running."
+
+        return text, text
+
+    screen = describe_apps(processes)
+
+    heavy = [(stem, kb) for stem, kb in ranked if kb >= _HEAVY_KB][:3]
+
+    if not heavy:
+
+        return screen, "Nothing is hogging memory right now. Your apps look light."
+
+    names = ", ".join(
+        f"{_app_label(stem)} ({format_size(kb * KB)})" for stem, kb in heavy
+    )
+
+    spoken = (
+        f"The heaviest on memory: {names}. "
+        "Closing what you don't need would free it up."
+    )
+
+    return screen, spoken
 
 
 def describe_app_running(name, processes):
@@ -908,6 +975,10 @@ class SystemInfoTool(BaseTool):
                 describe_summary(cpu, memory, battery, disks),
             )
 
+        if topic == "usage":
+
+            return describe_usage(self.reader.processes())
+
         text = self.answer(topic, value)
 
         return text, text
@@ -957,5 +1028,8 @@ class SystemInfoTool(BaseTool):
                 reader.battery(),
                 reader.disks()
             )
+
+        if topic == "usage":
+            return describe_usage(reader.processes())[0]
 
         return "I'm not sure what you'd like to know about the PC."

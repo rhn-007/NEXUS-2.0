@@ -60,7 +60,7 @@ ACTION_HELP = {
              "to set the volume from 0 to 100)",
     "system_info": "read-only facts about this PC (value: time, date, "
                    "battery, cpu, memory, disk, uptime, network, apps, pc, "
-                   "summary, or \"app NAME\" to check if an app is running)"
+                   "summary, usage (what is using memory), or \"app NAME\" to check if an app is running)"
 }
 
 ACTIONS = tuple(ACTION_HELP)
@@ -471,6 +471,10 @@ class IntentPlanner:
             if topic == "app":
 
                 if not _APP_NAME.match(name.strip()):
+                    return None
+
+                # The app has to be one the user actually named.
+                if text is not None and name.strip() not in text.lower():
                     return None
 
                 return Step(action, f"app {name.strip()}", f"system info app {name.strip()}")

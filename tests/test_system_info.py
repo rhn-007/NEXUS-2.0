@@ -258,14 +258,14 @@ class IntegrationWithIntentLayer(unittest.TestCase):
         self.assertEqual([s.command for s in steps], ["system info cpu", "open notepad"])
 
 
-def plan_for(step):
+def plan_for(step, text="x"):
     planner = IntentPlanner("u", "m", ["youtube"], ["notepad"])
     response = MagicMock()
     response.ok = True
     response.json.return_value = {"message": {"content": json.dumps(
         {"decision": "act", "steps": [step], "question": ""})}}
     with patch("core.planner.requests.post", return_value=response):
-        return planner.plan("x")
+        return planner.plan(text)
 
 
 class PlannerSystemInfo(unittest.TestCase):
@@ -275,7 +275,7 @@ class PlannerSystemInfo(unittest.TestCase):
             ["system info battery"]
         )
         self.assertEqual(
-            [s.command for s in plan_for({"action": "system_info", "value": "app Spotify"}).steps],
+            [s.command for s in plan_for({"action": "system_info", "value": "app Spotify"}, "is spotify running").steps],
             ["system info app spotify"]
         )
 
@@ -398,3 +398,46 @@ class SummaryIsSpokenShortAndShownInFull(unittest.TestCase):
         self.assertIn("CPU: 14%", outcome.message)
         plain = IntegrationWithIntentLayer().runner().resolve("what is the current time?")
         self.assertIsNone(plain.spoken)
+
+
+class UsageAndInventedApps(unittest.TestCase):
+    def test_follow_up_questions_ask_about_usage(self):
+        for text in [
+            "Anything else I need to know about my PC with regards to performance?",
+            "what else should i know about my pc",
+            "what's slowing my pc down",
+            "why is my computer so slow",
+        ]:
+            self.assertEqual(topic(text), ("usage", ""), text)
+
+    def test_decoys_are_not_usage(self):
+        for text in [
+            "anything else about my project",
+            "what else should i know about python",
+            "anything else i should know about the weather",
+        ]:
+            self.assertNotEqual(topic(text), ("usage", ""), text)
+
+    def test_heavy_apps_are_spoken_and_all_top_apps_shown(self):
+        result = SystemInfoTool(FakeReader(processes={
+            "chrome.exe": 3 * 1024 * 1024, "spotify.exe": 400000, "code.exe": 900000,
+        })).execute("anything else i should know about my pc")
+        self.assertIn("Chrome (3.0 GB)", result.data["spoken"])
+        self.assertNotIn("Spotify", result.data["spoken"])
+        self.assertIn("Spotify", result.message)
+        self.assertIn("VS Code", result.message)
+
+    def test_light_apps_get_a_short_spoken_answer(self):
+        result = SystemInfoTool(FakeReader()).execute("what's slowing my pc down")
+        self.assertEqual(
+            result.data["spoken"],
+            "Nothing is hogging memory right now. Your apps look light."
+        )
+
+    def test_planner_rejects_an_app_the_user_never_named(self):
+        text = "Anything else I need to know about my PC?"
+        for value in ["app explorer", "app files and docs", "app idle"]:
+            plan = plan_for({"action": "system_info", "value": value}, text)
+            self.assertEqual(plan.kind, "chat", value)
+        plan = plan_for({"action": "system_info", "value": "app spotify"}, "is spotify running")
+        self.assertEqual([s.command for s in plan.steps], ["system info app spotify"])
