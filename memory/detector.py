@@ -306,7 +306,7 @@ class MemoryDetector:
 
         answer_text = str(answer).lower().strip()
         answer_match = re.fullmatch(
-            r"(?:it is|it's|it’s|the answer is)\\s+([a-z][a-z0-9' -]{0,59})[.!?]*",
+            r"(?:it is|it's|it’s|the answer is)\s+([a-z][a-z0-9' -]{0,59})[.!?]*",
             answer_text
         )
         if not answer_match:
