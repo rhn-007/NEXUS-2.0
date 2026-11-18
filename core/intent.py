@@ -671,11 +671,11 @@ class IntentFastPath:
         if kind == "search":
 
             site_first = re.match(
-                r"^(?:on\s+)?(youtube|github|wikipedia|reddit)\s+for\s+(.+)$",
+                r"^(?:on\s+)?(youtube|github|wikipedia|reddit|spotify)\s+for\s+(.+)$",
                 target
             )
             site_last = re.match(
-                r"^(.+?)\s+(?:on|in)\s+(youtube|github|wikipedia|reddit)$",
+                r"^(.+?)\s+(?:on|in)\s+(youtube|github|wikipedia|reddit|spotify)$",
                 target
             )
 
@@ -758,11 +758,25 @@ class IntentFastPath:
 
 
 def site_search_step(site, query):
-    """Search a site directly, e.g. YouTube, instead of through Google."""
+    """Search a supported site directly instead of using Google."""
+
+    if site == "spotify":
+        return spotify_search_step(query)
 
     url = SITE_SEARCH_URLS[site].format(quote_plus(query))
 
     return Step("open_website", url, f"go to {url}", first=True)
+
+
+def spotify_search_step(query):
+    """Send a search to the installed Spotify desktop application."""
+
+    return Step(
+        "spotify_search",
+        query,
+        f"spotify search {query}",
+        first=True
+    )
 
 
 def drop_redundant_steps(steps):
@@ -775,14 +789,19 @@ def drop_redundant_steps(steps):
         previous = merged[-1] if merged else None
 
         # "open youtube" then "search for X" means search YouTube for X.
-        if (
-            step.action == "web_search"
-            and previous is not None
-            and previous.action == "open_website"
-            and previous.value in SITE_SEARCH_URLS
-        ):
-            merged[-1] = site_search_step(previous.value, step.value)
-            continue
+        if step.action == "web_search" and previous is not None:
+
+            if (
+                previous.action == "open_website"
+                and previous.value in SITE_SEARCH_URLS
+            ):
+                merged[-1] = site_search_step(previous.value, step.value)
+                continue
+
+            # A search after opening Spotify belongs inside Spotify, not Google.
+            if previous.action == "open_app" and previous.value == "spotify":
+                merged[-1] = spotify_search_step(step.value)
+                continue
 
         merged.append(step)
 
