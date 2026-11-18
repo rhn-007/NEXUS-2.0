@@ -85,6 +85,18 @@ class FastPathUnderstandsRequests(unittest.TestCase):
             commands("search github for flask"),
             ["go to https://github.com/search?q=flask"]
         )
+        self.assertEqual(
+            commands("search for the weeknd on spotify"),
+            ["spotify search the weeknd"]
+        )
+        self.assertEqual(
+            commands("search spotify for the weeknd"),
+            ["spotify search the weeknd"]
+        )
+        self.assertEqual(
+            commands("open spotify and search for the weeknd"),
+            ["spotify search the weeknd"]
+        )
         # Plain searches still go to Google.
         self.assertEqual(commands("search for the weeknd"), ["search the weeknd"])
 
@@ -440,6 +452,22 @@ class RealToolsEndToEnd(unittest.TestCase):
             self.opened("search for the weeknd"),
             ["https://www.google.com/search?q=the%20weeknd"]
         )
+
+    def test_spotify_search_uses_the_desktop_app(self):
+        with patch("tools.browser.os.startfile", create=True) as startfile:
+            result = self.runner.resolve("search for the weeknd on spotify")
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.message, "Searching Spotify for the weeknd.")
+        startfile.assert_called_once_with("spotify:search:the%20weeknd")
+
+    def test_open_spotify_and_search_uses_spotify_not_google(self):
+        with patch("tools.browser.os.startfile", create=True) as startfile:
+            result = self.runner.resolve("open spotify and search for the weeknd")
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.message, "Searching Spotify for the weeknd.")
+        startfile.assert_called_once_with("spotify:search:the%20weeknd")
 
 
 if __name__ == "__main__":
