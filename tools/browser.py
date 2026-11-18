@@ -12,6 +12,7 @@ Handles:
 import subprocess
 import re
 import logging
+import os
 
 from pathlib import Path
 from urllib.parse import quote
@@ -63,6 +64,9 @@ class BrowserTool(BaseTool):
         text = query.lower().strip()
 
         if "whatsapp web" in text:
+            return True
+
+        if text.startswith("spotify search "):
             return True
 
         if text in [
@@ -145,6 +149,30 @@ class BrowserTool(BaseTool):
             )
 
     # ======================================================
+    # SPOTIFY SEARCH
+    # ======================================================
+
+    def search_spotify(self, search):
+        """Open a Spotify search URI in the registered desktop application."""
+
+        startfile = getattr(os, "startfile", None)
+
+        if startfile is None:
+            return ToolResponse.failure(
+                "Spotify app search is only supported on Windows."
+            )
+
+        try:
+            uri = "spotify:search:" + quote(search, safe="")
+            startfile(uri)
+            return ToolResponse.success(f"Searching Spotify for {search}.")
+        except Exception as error:
+            logger.error("Spotify search error: %s", error)
+            return ToolResponse.failure(
+                "I couldn't open that search in the Spotify app."
+            )
+
+    # ======================================================
     # EXECUTE REQUEST
     # ======================================================
 
@@ -153,6 +181,17 @@ class BrowserTool(BaseTool):
         text = query.lower().strip()
 
         try:
+
+            # Send searches to the installed Spotify desktop application.
+            if text.startswith("spotify search "):
+                search = query.strip()[len("spotify search "):].strip()
+
+                if not search:
+                    return ToolResponse.failure(
+                        "What would you like me to search for on Spotify?"
+                    )
+
+                return self.search_spotify(search)
 
             # Open Opera.
             if text in [
