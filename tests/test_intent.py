@@ -484,5 +484,22 @@ class RealToolsEndToEnd(unittest.TestCase):
         startfile.assert_called_once_with("spotify:search:C%2B%2B")
 
 
+    def test_spotify_search_cleans_the_full_legacy_style_command(self):
+        with patch("tools.browser.os.startfile", create=True) as startfile:
+            result = self.browser.execute("spotify search The Weeknd")
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.message, "Searching Spotify for The Weeknd.")
+        startfile.assert_called_once_with("spotify:search:The%20Weeknd")
+
+    def test_spotify_search_does_not_remove_command_words_inside_song_names(self):
+        with patch("tools.browser.os.startfile", create=True) as startfile:
+            result = self.browser.search_spotify("spotify search Coldplay")
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.message, "Searching Spotify for Coldplay.")
+        startfile.assert_called_once_with("spotify:search:Coldplay")
+
+
 if __name__ == "__main__":
     unittest.main()
