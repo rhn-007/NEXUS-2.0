@@ -49,7 +49,8 @@ class BrowserTool(BaseTool):
             "reddit": "https://www.reddit.com",
             "chatgpt": "https://chatgpt.com",
             "instagram": "https://www.instagram.com",
-            "whatsapp web": "https://web.whatsapp.com"
+            "whatsapp web": "https://web.whatsapp.com",
+            "the hindu": "https://www.thehindu.com"
         }
 
     # ======================================================
