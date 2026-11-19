@@ -163,6 +163,17 @@ class BrowserTool(BaseTool):
             )
 
         try:
+            # Some callers provide form-encoded search text, where "+" means
+            # a word separator. Convert only separators between word characters;
+            # literal trailing symbols such as the "+" in "C++" stay intact.
+            search = re.sub(r"(?<=\\w)\\+(?=\\w)", " ", search)
+            search = re.sub(r"\\s+", " ", search).strip()
+
+            if not search:
+                return ToolResponse.failure(
+                    "What would you like me to search for on Spotify?"
+                )
+
             uri = "spotify:search:" + quote(search, safe="")
             startfile(uri)
             return ToolResponse.success(f"Searching Spotify for {search}.")
