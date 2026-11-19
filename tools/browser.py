@@ -167,14 +167,14 @@ class BrowserTool(BaseTool):
             # the incoming text before encoding the actual search term.
             # Word boundaries avoid damaging titles such as "Coldplay".
             search = re.sub(
-                r"\\b(?:play|open|search|find|spotify)\\b",
+                r"\b(?:play|open|search|find|spotify)\b",
                 " ",
                 str(search or ""),
                 flags=re.IGNORECASE
             )
-            search = re.sub(r"\\s+on\\s+spotify\\b", " ", search, flags=re.IGNORECASE)
-            search = re.sub(r"(?<=\\w)\\+(?=\\w)", " ", search)
-            search = re.sub(r"\\s+", " ", search).strip()
+            search = re.sub(r"\s+on\s+spotify\b", " ", search, flags=re.IGNORECASE)
+            search = re.sub(r"(?<=\w)\+(?=\w)", " ", search)
+            search = re.sub(r"\s+", " ", search).strip()
 
             if not search:
                 return ToolResponse.failure(
