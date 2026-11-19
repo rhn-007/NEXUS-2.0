@@ -709,12 +709,16 @@ class IntentFastPath:
 
     def _parse_open(self, kind, target):
 
-        target = re.sub(r"^(?:up\s+)?(?:the|my|a|an)\s+", "", target)
-        target = re.sub(
-            r"\s+(?:app|application|program|for me|please)$",
+        # Keep the article-bearing form for matching site names such as
+        # "the hindu", while still removing articles for app/browser checks.
+        site_target = re.sub(
+            r"\\s+(?:app|application|program|for me|please)$",
             "",
             target
         ).strip()
+
+        target = re.sub(r"^(?:up\\s+)?(?:the|my|a|an)\\s+", "", site_target)
+        target = target.strip()
 
         if not target or target in GENERIC_TARGETS:
             return None
@@ -727,8 +731,10 @@ class IntentFastPath:
 
         for site in self.websites:
 
-            if target == site or (
-                kind == "go" and has_phrase(target, site)
+            if site_target == site or target == site or (
+                kind == "go" and (
+                    has_phrase(site_target, site) or has_phrase(target, site)
+                )
             ):
                 return Step("open_website", site, f"go to {site}")
 
