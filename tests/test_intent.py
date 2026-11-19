@@ -469,6 +469,20 @@ class RealToolsEndToEnd(unittest.TestCase):
         self.assertEqual(result.message, "Searching Spotify for the weeknd.")
         startfile.assert_called_once_with("spotify:search:the%20weeknd")
 
+    def test_spotify_search_treats_plus_as_a_word_separator(self):
+        with patch("tools.browser.os.startfile", create=True) as startfile:
+            result = self.browser.search_spotify("the+weeknd")
+
+        self.assertTrue(result.success)
+        startfile.assert_called_once_with("spotify:search:the%20weeknd")
+
+    def test_spotify_search_preserves_literal_trailing_plus_symbols(self):
+        with patch("tools.browser.os.startfile", create=True) as startfile:
+            result = self.browser.search_spotify("C++")
+
+        self.assertTrue(result.success)
+        startfile.assert_called_once_with("spotify:search:C%2B%2B")
+
 
 if __name__ == "__main__":
     unittest.main()
