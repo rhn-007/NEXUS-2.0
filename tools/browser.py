@@ -153,7 +153,7 @@ class BrowserTool(BaseTool):
     # ======================================================
 
     def search_spotify(self, search):
-        """Open a Spotify search URI in the registered desktop application."""
+        """Clean a Spotify command and open its desktop-app search URI."""
 
         startfile = getattr(os, "startfile", None)
 
@@ -163,17 +163,26 @@ class BrowserTool(BaseTool):
             )
 
         try:
-            # Some callers provide form-encoded search text, where "+" means
-            # a word separator. Convert only separators between word characters;
-            # literal trailing symbols such as the "+" in "C++" stay intact.
-            search = re.sub(r"(?<=\w)\+(?=\w)", " ", search)
-            search = re.sub(r"\s+", " ", search).strip()
+            # Match the old Spotify integration: remove command words from
+            # the incoming text before encoding the actual search term.
+            # Word boundaries avoid damaging titles such as "Coldplay".
+            search = re.sub(
+                r"\\b(?:play|open|search|find|spotify)\\b",
+                " ",
+                str(search or ""),
+                flags=re.IGNORECASE
+            )
+            search = re.sub(r"\\s+on\\s+spotify\\b", " ", search, flags=re.IGNORECASE)
+            search = re.sub(r"(?<=\\w)\\+(?=\\w)", " ", search)
+            search = re.sub(r"\\s+", " ", search).strip()
 
             if not search:
                 return ToolResponse.failure(
                     "What would you like me to search for on Spotify?"
                 )
 
+            # quote() encodes spaces as %20, the expected form for Spotify's
+            # spotify:search: URI. Literal symbols remain safely encoded.
             uri = "spotify:search:" + quote(search, safe="")
             startfile(uri)
             return ToolResponse.success(f"Searching Spotify for {search}.")
@@ -195,14 +204,9 @@ class BrowserTool(BaseTool):
 
             # Send searches to the installed Spotify desktop application.
             if text.startswith("spotify search "):
-                search = query.strip()[len("spotify search "):].strip()
-
-                if not search:
-                    return ToolResponse.failure(
-                        "What would you like me to search for on Spotify?"
-                    )
-
-                return self.search_spotify(search)
+                # Pass the complete command so search_spotify applies the
+                # same command-word cleanup used by the previous integration.
+                return self.search_spotify(query)
 
             # Open Opera.
             if text in [
