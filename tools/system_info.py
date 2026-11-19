@@ -601,6 +601,73 @@ def describe_summary(cpu, memory, battery, disks):
     return "Everything looks fine."
 
 
+def describe_explanation(topic, cpu, memory, battery, disks):
+    """Why the last reading does or doesn't matter, from the real numbers."""
+
+    used = _used_fraction(memory)
+
+    if topic in ("summary", "usage", "apps"):
+
+        return describe_summary(cpu, memory, battery, disks)
+
+    if topic == "disk":
+
+        worst = None
+
+        for letter, total, free in disks or []:
+
+            if total and (worst is None or free / total < worst[1]):
+                worst = (letter, free / total, free)
+
+        if worst is None:
+            return "I couldn't read the disks to say."
+
+        if worst[1] < 0.1:
+            return (
+                f"Yes, that matters. {worst[0]}: has only {format_size(worst[2])} "
+                "free. Windows needs room for updates and its page file, so "
+                "it can slow down or fail to update. Delete big files, empty "
+                "the Recycle Bin or run Disk Cleanup."
+            )
+
+        if worst[1] < 0.2:
+            return f"It's getting tight on {worst[0]}:, so keep an eye on it, but it's not a problem yet."
+
+        return "No, your disk space looks healthy."
+
+    if topic == "memory":
+
+        if used is None:
+            return "I couldn't read the memory to say."
+
+        if used >= 0.9:
+            return "Yes. Memory is nearly full, so Windows will slow down. Close some apps."
+
+        if used >= 0.8:
+            return "It's getting full, but it's fine for now."
+
+        return "No, memory looks fine."
+
+    if topic == "cpu":
+
+        if cpu is not None and cpu >= 85:
+            return "Yes, the CPU is very busy, so things may feel slow. Check what is running."
+
+        return "No, the CPU load is normal."
+
+    if topic == "battery":
+
+        if not battery or not battery.get("has_battery"):
+            return "There's no battery on this PC, so nothing to worry about."
+
+        if battery.get("percent") is not None and battery["percent"] <= 20 and not battery.get("charging"):
+            return "Yes, the battery is low and it isn't charging. Plug in soon."
+
+        return "No, the battery is fine."
+
+    return "Nothing worrying there."
+
+
 def describe_summary_screen(cpu, memory, battery, disks, uptime=None):
     """The full readout shown on screen (not spoken)."""
 

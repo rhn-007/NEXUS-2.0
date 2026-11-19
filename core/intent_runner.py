@@ -12,9 +12,11 @@ Anything left over is normal conversation.
 import time
 
 from core.capabilities import answer as capability_answer
+from core.followups import MEDIA_HELP, MEETING_HELP, FollowUps
 from core.intent import BUILTIN_ACTIONS, Step
 from tools.meet import looks_like_code_attempt, parse_meet_code
 from tools.router import ToolResult
+from tools.system_info import describe_explanation, describe_summary
 from utils.logger import setup_logger
 
 
@@ -43,6 +45,9 @@ class IntentRunner:
         # Set after NEXUS asks for a meeting code, so the next message
         # is read as the code.
         self.pending = None
+
+        # What the last answer was about, so "anything else?" has meaning.
+        self.followups = FollowUps()
 
     # ======================================================
     # RESOLVE
@@ -87,6 +92,14 @@ class IntentRunner:
 
                     return ToolResult(True, past)
 
+            follow = self._follow_up(text)
+
+            if follow is not None:
+
+                path = "followup"
+
+                return follow
+
             steps = self.fast.fast_steps(text)
 
             if len(steps) > 1:
@@ -111,6 +124,8 @@ class IntentRunner:
                 path = "router"
 
                 self._remember(text, "command", text, result)
+
+                self.followups.note_text(text)
 
                 return result
 
@@ -141,6 +156,9 @@ class IntentRunner:
                     actions = [step.action for step in plan.steps]
 
                     return self._run_steps(plan.steps, text)
+
+            # Plain conversation: the last feature is no longer the topic.
+            self.followups.clear()
 
             return result
 
@@ -246,6 +264,8 @@ class IntentRunner:
 
                 spoken = getattr(result, "spoken", None)
 
+                self.followups.note_step(step)
+
             else:
 
                 message = self.run_builtin(step.action, step.value)
@@ -259,6 +279,117 @@ class IntentRunner:
         said = "\n".join(spoken_parts) or "Done."
 
         return ToolResult(True, shown, said if said != shown else None)
+
+    # ======================================================
+    # FOLLOW-UPS ON A FEATURE
+    # ======================================================
+
+    def _follow_up(self, text):
+        """Answer a short follow-up to the last feature, or return None."""
+
+        match = self.followups.match(text)
+
+        if not match:
+            return None
+
+        kind, value = match
+        state = self.followups.state
+
+        if kind == "topic":
+            return self._run_command(text, f"system info {value}")
+
+        if kind == "else":
+            return self._anything_else(text, state)
+
+        if kind == "explain":
+            return self._explain(state)
+
+        if kind == "media":
+            return self._run_command(text, f"media {value}")
+
+        if kind == "again":
+            return self._run_command(text, state.get("command") or "")
+
+        if kind == "meeting":
+
+            return self._run_steps(
+                [Step("start_meeting", "", "start meeting", first=True)],
+                text
+            )
+
+        return None
+
+    def _run_command(self, text, command):
+
+        if not command:
+            return None
+
+        result = self.router.execute(command)
+
+        self._remember(text, "followup", command, result)
+
+        if result.success:
+            self.followups.note_text(command)
+
+        return result if result.message else None
+
+    def _system_reading(self):
+        """(cpu, memory, battery, disks) from the PC, or None."""
+
+        try:
+
+            tool = self.router.registry.get("system")
+            reader = tool.reader
+
+            return (
+                reader.cpu_percent(), reader.memory(),
+                reader.battery(), reader.disks()
+            )
+
+        except Exception as error:
+
+            logger.warning("Could not read the PC for a follow-up: %s", error)
+
+            return None
+
+    def _anything_else(self, text, state):
+
+        feature = state["feature"]
+
+        if feature == "media":
+            return ToolResult(True, MEDIA_HELP)
+
+        if feature == "meeting":
+            return ToolResult(True, MEETING_HELP)
+
+        topic = self.followups.next_pc_topic()
+
+        if topic:
+            return self._run_command(text, f"system info {topic}")
+
+        message = "That's everything I can see on your PC."
+
+        reading = self._system_reading()
+
+        if reading:
+
+            summary = describe_summary(*reading)
+
+            if summary.startswith(("Heads up", "Mostly fine")):
+                message += " " + summary
+
+        return ToolResult(True, message)
+
+    def _explain(self, state):
+
+        reading = self._system_reading()
+
+        if not reading:
+            return None
+
+        return ToolResult(
+            True, describe_explanation(state["topic"], *reading)
+        )
 
     # ======================================================
     # ACTION HISTORY
