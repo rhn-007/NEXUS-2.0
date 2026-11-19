@@ -446,6 +446,12 @@ class RealToolsEndToEnd(unittest.TestCase):
                 text
             )
 
+    def test_named_unlisted_news_site_opens_its_direct_website(self):
+        self.assertEqual(
+            self.opened("open the hindu"),
+            ["https://www.thehindu.com"]
+        )
+
     def test_plain_site_and_google_search_still_work(self):
         self.assertEqual(self.opened("open youtube"), ["https://www.youtube.com"])
         self.assertEqual(
