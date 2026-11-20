@@ -77,6 +77,33 @@ class AdaptiveMemoryTests(unittest.TestCase):
         self.assertIn("sport: tennis", context)
         self.assertNotIn("sport: badminton", context)
 
+    def test_forget_removes_only_the_requested_personal_fact(self):
+        self.memory.remember("sport", "badminton")
+        self.memory.remember("interest", "badminton")
+        self.memory.remember("food", "pizza")
+
+        deleted = self.memory.forget(value="badminton")
+
+        self.assertEqual(deleted, 2)
+        self.assertNotIn("sport: badminton", self.memory.adaptive_context("badminton"))
+        self.assertIn("food: pizza", self.memory.adaptive_context("pizza"))
+
+    def test_forget_all_personal_facts_preserves_other_memory_types(self):
+        self.memory.remember("name", "Rohan")
+        self.memory.db.insert("user", "Earlier conversation", "conversation")
+        self.memory.db.insert_knowledge(
+            topic="robotics",
+            title="Robotics basics",
+            content="Robotics combines sensing and control."
+        )
+
+        deleted = self.memory.forget()
+
+        self.assertEqual(deleted, 1)
+        self.assertEqual(self.memory.db.get_facts(), [])
+        self.assertTrue(self.memory.db.get_conversations())
+        self.assertTrue(self.memory.db.search_knowledge("robotics"))
+
     def test_context_respects_character_budget(self):
         self.memory.remember("preference", "short answers")
         self.memory.remember("interest", " ".join(["badminton"] * 80))
