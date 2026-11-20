@@ -210,7 +210,8 @@ class MemoryDetector:
             r"(?:a |an |the |my )?project\s+(?:called|named)\s+"
             r"([a-z0-9][a-z0-9 _\-]*?)"
             r"(?=\s*(?:[,.;!]|$)|\s+(?:and|which|that|it|for)\b)"
-            r"|\bmy project is\s+(?:called\s+)?"
+            r"|\bmy\s+(?:[a-z0-9]+\s+){0,3}project\s+"
+            r"(?:is\s+(?:(?:called|named)\s+)?|(?:called|named)\s+)"
             r"([a-z0-9][a-z0-9 _\-]*?)"
             r"(?=\s*(?:[,.;!]|$)|\s+(?:and|which|that|it|for)\b)",
             text
@@ -218,7 +219,7 @@ class MemoryDetector:
 
         if project:
 
-            name = (project.group(1) or project.group(2)).strip()
+            name = (project.group(1) or project.group(2) or project.group(3)).strip()
 
             if name and name not in _NOT_A_NAME:
                 memories.append(
