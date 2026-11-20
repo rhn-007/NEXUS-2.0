@@ -63,6 +63,20 @@ class MemoryManager:
 
         self.detector = MemoryDetector()
 
+        # A compact personal-memory snapshot is prepared once at startup.
+        # SQLite remains authoritative; writes through this manager refresh it.
+        self._session_facts_context = None
+        self.load_session_memory()
+
+    def load_session_memory(self):
+        """Build or refresh the compact personal-memory snapshot for this session."""
+        self._session_facts_context = self._build_facts_context()
+        return self._session_facts_context
+
+    def invalidate_session_memory(self):
+        """Mark the cached snapshot stale after a memory change."""
+        self._session_facts_context = None
+
 
 
 
@@ -147,6 +161,9 @@ class MemoryManager:
             known.add(pair)
 
             stored = True
+
+        if stored:
+            self.load_session_memory()
 
         return stored
 
@@ -423,16 +440,13 @@ class MemoryManager:
 
     ):
 
-
-        return self.db.insert(
-
+        result = self.db.insert(
             key,
-
             value,
-
             "fact"
-
         )
+        self.load_session_memory()
+        return result
 
 
 
@@ -528,9 +542,21 @@ class MemoryManager:
 
     def facts_context(self, max_chars=600):
         """
-        A short note for the model with what he has told Nexus, or None.
-        """
+        Return the session snapshot of personal facts.
 
+        The snapshot is built at startup and refreshed after memory writes.
+        A non-default max_chars request is rendered separately so callers can
+        request a different budget without changing the shared snapshot.
+        """
+        if max_chars == 600:
+            if self._session_facts_context is None:
+                self.load_session_memory()
+            return self._session_facts_context
+
+        return self._build_facts_context(max_chars=max_chars)
+
+    def _build_facts_context(self, max_chars=600):
+        """Build the compact personal-memory context from authoritative SQLite data."""
         grouped = self._facts_by_key()
 
         if not grouped:
