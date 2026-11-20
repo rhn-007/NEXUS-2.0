@@ -179,7 +179,8 @@ class Answers(WithMemory):
                 "Remember that my AI project is called NEXUS."
             )
         )
-        self.assertIn(("project", "nexus"), self.memory.db.get_facts())
+        saved_facts = [tuple(row) for row in self.memory.db.get_facts()]
+        self.assertIn(("project", "nexus"), saved_facts)
         self.assertEqual(
             self.ask("what is the name of my AI project"),
             "Your AI project name is nexus."
