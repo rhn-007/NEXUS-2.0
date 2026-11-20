@@ -632,15 +632,15 @@ class MemoryManager:
         if multi_prefix and ("," in multi_prefix.group(1) or " and " in multi_prefix.group(1)):
             raw_items = [
                 item.strip()
-                for item in re.split(r"\\s*,\\s*|\\s+and\\s+", multi_prefix.group(1))
+                for item in re.split(r"\s*,\s*|\s+and\s+", multi_prefix.group(1))
                 if item.strip()
             ]
             if 2 <= len(raw_items) <= 6:
                 answers = []
                 for raw_item in raw_items:
                     item = _norm(raw_item)
-                    item = re.sub(r"^(?:my )?(?:favourite|favorite)\\s+", "", item)
-                    item = re.sub(r"^(?:the|a|an)\\s+", "", item)
+                    item = re.sub(r"^(?:my )?(?:favourite|favorite)\s+", "", item)
+                    item = re.sub(r"^(?:the|a|an)\s+", "", item)
                     item = item.removeprefix("ai ")
 
                     aliases = {
