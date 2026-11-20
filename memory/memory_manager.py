@@ -677,8 +677,10 @@ class MemoryManager:
 
         # Resolve project-name wording variants before generic key matching.
         project_question = re.fullmatch(
-            r"(?:what(?:'s| is)|do you (?:know|remember)) my "
-            r"(?:(?:ai )?project(?: name)?|(?:ai )?project name)",
+            r"what(?:'s| is) the name of my (?:ai )?project"
+            r"|what(?:'s| is) my (?:ai )?project name"
+            r"|what(?:'s| is) my ai project"
+            r"|do you (?:know|remember) my (?:ai )?project(?: name)?",
             question
         )
         if project_question:
