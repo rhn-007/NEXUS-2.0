@@ -69,7 +69,8 @@ class MemoryManager:
         self.load_session_memory()
 
     def load_session_memory(self):
-        """Build or refresh the compact personal-memory snapshot for this session."""
+        """Refresh the in-session fact index and its compact compatibility snapshot."""
+        self._session_facts = self._facts_by_key()
         self._session_facts_context = self._build_facts_context()
         return self._session_facts_context
 
@@ -670,3 +671,146 @@ class MemoryManager:
                 return f"You haven't told me your favourite {thing} yet."
 
         return None
+
+
+    # =====================================
+    # ADAPTIVE MEMORY RETRIEVAL
+    # =====================================
+
+    @staticmethod
+    def _context_tokens(text):
+        """Return useful lexical terms without common conversational filler."""
+        ignored = {
+            "about", "after", "again", "also", "and", "are", "because",
+            "been", "being", "can", "could", "did", "does", "doing",
+            "explain", "for", "from", "get", "give", "have", "help",
+            "how", "into", "its", "just", "like", "make", "more", "most",
+            "need", "please", "show", "some", "tell", "than", "that",
+            "the", "their", "them", "then", "there", "these", "they",
+            "this", "those", "through", "want", "what", "when", "where",
+            "which", "who", "why", "will", "with", "would", "you", "your"
+        }
+        return {
+            token for token in re.findall(r"[a-z0-9_]+", str(text or "").lower())
+            if len(token) > 2 and token not in ignored
+        }
+
+    def adaptive_context(
+        self,
+        query,
+        recent_messages=None,
+        transcript=None,
+        max_chars=1200
+    ):
+        """
+        Assemble a small request-specific memory prompt.
+
+        The session fact index is already in RAM. Core identity and response
+        preferences are retained, other facts are selected by lexical
+        relevance, and older conversation episodes are included only when
+        they match the current request. SQLite remains the source of truth.
+        """
+        if not hasattr(self, "_session_facts") or self._session_facts is None:
+            self.load_session_memory()
+
+        query_tokens = self._context_tokens(query)
+        grouped = self._session_facts or {}
+        selected = []
+
+        # Identity and communication preferences are useful across topics.
+        for key in ("name", "preference"):
+            values = grouped.get(key, [])
+            if values:
+                selected.append(
+                    f"{key.replace('_', ' ')}: "
+                    + ", ".join(self._show(key, value) for value in values[-4:])
+                )
+
+        scored_facts = []
+        for key, values in grouped.items():
+            if key in {"name", "preference"}:
+                continue
+            key_tokens = self._context_tokens(key.replace("_", " "))
+            for value in values[-5:]:
+                value_tokens = self._context_tokens(value)
+                overlap = query_tokens.intersection(key_tokens | value_tokens)
+                if not overlap:
+                    continue
+                score = len(overlap) / max(1, min(3, len(query_tokens)))
+                scored_facts.append((score, key, value))
+
+        scored_facts.sort(key=lambda item: (-item[0], item[1]))
+        seen_facts = set()
+        for _, key, value in scored_facts:
+            marker = (key, value.casefold())
+            if marker in seen_facts:
+                continue
+            seen_facts.add(marker)
+            selected.append(
+                f"{key.replace('_', ' ')}: {self._show(key, value)}"
+            )
+
+        sections = []
+        if selected:
+            sections.append(
+                "Relevant saved personal memory: " + "; ".join(selected) + "."
+            )
+
+        # The active conversation is already supplied separately to Ollama.
+        # Exclude those turns so episodic retrieval adds only older context.
+        active_user_messages = {
+            str(item.get("content", "")).strip().casefold()
+            for item in (recent_messages or [])
+            if item.get("role") == "user"
+        }
+        episodes = []
+        pending_user = None
+        for item in transcript or []:
+            role = item.get("role")
+            text = str(item.get("content", "")).strip()
+            if role == "user":
+                pending_user = text
+            elif role == "assistant" and pending_user:
+                user_text = pending_user
+                pending_user = None
+                if not user_text or user_text.casefold() in active_user_messages:
+                    continue
+                overlap = query_tokens.intersection(
+                    self._context_tokens(user_text)
+                )
+                if not overlap:
+                    continue
+                score = len(overlap) / max(1, min(3, len(query_tokens)))
+                episodes.append((score, user_text, text))
+
+        episodes.sort(key=lambda item: -item[0])
+        episode_lines = []
+        seen_episodes = set()
+        for _, user_text, assistant_text in episodes:
+            marker = user_text.casefold()
+            if marker in seen_episodes:
+                continue
+            seen_episodes.add(marker)
+            line = f"Earlier exchange — user: {user_text}"
+            if assistant_text:
+                line += f" | NEXUS: {assistant_text}"
+            episode_lines.append(line)
+            if len(episode_lines) == 2:
+                break
+
+        if episode_lines:
+            sections.append(
+                "Relevant past conversation memory: "
+                + " ".join(episode_lines)
+            )
+
+        if not sections:
+            return None
+
+        context = "\\n".join(sections)
+        if len(context) <= max_chars:
+            return context
+
+        # Preserve core personal facts first, then truncate lower-priority
+        # episodic detail rather than dropping the whole memory context.
+        return context[:max_chars - 1].rstrip() + "…"
