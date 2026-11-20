@@ -85,7 +85,10 @@ class AdaptiveMemoryTests(unittest.TestCase):
         deleted = self.memory.forget(value="badminton")
 
         self.assertEqual(deleted, 2)
-        self.assertNotIn("sport: badminton", self.memory.adaptive_context("badminton"))
+        self.assertNotIn(
+            "sport: badminton",
+            self.memory.adaptive_context("badminton") or ""
+        )
         self.assertIn("food: pizza", self.memory.adaptive_context("pizza"))
 
     def test_forget_all_personal_facts_preserves_other_memory_types(self):
