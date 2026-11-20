@@ -276,6 +276,8 @@ class AssistantWiring(unittest.TestCase):
         a.input_manager.last_input_was_voice = False
         a.memory.answer_fact_question.return_value = None
         a.memory.facts_context.return_value = facts_note
+        a.memory.adaptive_context.return_value = facts_note
+        a.conversation.get_recent_transcript.return_value = []
         a.response_style = MagicMock()
         a.response_style.refine.side_effect = lambda t: t
         a.get_relevant_knowledge = lambda text: ""
@@ -300,7 +302,7 @@ class AssistantWiring(unittest.TestCase):
 
     def test_a_failure_loading_facts_does_not_break_the_reply(self):
         a = self.assistant()
-        a.memory.facts_context.side_effect = RuntimeError("db locked")
+        a.memory.adaptive_context.side_effect = RuntimeError("db locked")
         with patch.dict("os.environ", {"NEXUS_STREAM": "0"}):
             result = a._process_input("explain recursion")
         self.assertEqual(result, "Fine.")
