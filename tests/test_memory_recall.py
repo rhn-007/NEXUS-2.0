@@ -172,6 +172,19 @@ class Answers(WithMemory):
                          "Your project is nexus.")
         self.assertEqual(self.ask("what is my project"), "Your project is nexus.")
 
+    def test_ai_project_statement_is_persisted_and_recalled(self):
+        self.memory.forget(key="project")
+        self.assertTrue(
+            self.memory.process_memory(
+                "Remember that my AI project is called NEXUS."
+            )
+        )
+        self.assertIn(("project", "nexus"), self.memory.db.get_facts())
+        self.assertEqual(
+            self.ask("what is the name of my AI project"),
+            "Your AI project name is nexus."
+        )
+
     def test_ai_project_name_question_is_answered_from_saved_memory(self):
         self.assertEqual(
             self.ask("what is the name of my AI project"),
