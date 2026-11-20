@@ -620,6 +620,30 @@ class MemoryManager:
 
         question = _FILLERS.sub("", question)
 
+        # Normalize common natural-language paraphrases into the same
+        # deterministic fact questions handled below. Keep these patterns
+        # narrow so unrelated questions continue to the normal assistant.
+        paraphrases = (
+            (
+                r"^(?:which|what) sport do i like(?: the)? most$",
+                "what is my favourite sport",
+            ),
+            (
+                r"^(?:(?:do you (?:remember|know) )?which|what) "
+                r"programming language do i prefer$",
+                "what is my favourite programming language",
+            ),
+            (
+                r"^(?:can you tell me )?the name of the ai project "
+                r"i(?:'m| am) developing$",
+                "what is the name of my ai project",
+            ),
+        )
+        for pattern, canonical in paraphrases:
+            if re.fullmatch(pattern, question):
+                question = canonical
+                break
+
         if not question or len(question) > 90:
             return None
 
