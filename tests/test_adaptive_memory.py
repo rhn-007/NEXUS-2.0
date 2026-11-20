@@ -77,6 +77,17 @@ class AdaptiveMemoryTests(unittest.TestCase):
         self.assertIn("sport: tennis", context)
         self.assertNotIn("sport: badminton", context)
 
+    def test_invalidation_reloads_external_database_changes(self):
+        self.memory.remember("sport", "badminton")
+        self.assertIn("sport: badminton", self.memory.adaptive_context("badminton"))
+
+        self.memory.db.insert("sport", "tennis", "fact")
+        self.memory.invalidate_session_memory()
+
+        context = self.memory.adaptive_context("tennis")
+        self.assertIn("sport: tennis", context)
+        self.assertNotIn("sport: badminton", context)
+
     def test_forget_removes_only_the_requested_personal_fact(self):
         self.memory.remember("sport", "badminton")
         self.memory.remember("interest", "badminton")
