@@ -31,6 +31,14 @@ class Detector(unittest.TestCase):
         self.assertEqual(found("i am working on a project called my first app and it is hard"),
                          [("project", "my first app")])
 
+    def test_ai_project_name_phrasings_are_saved(self):
+        for text in [
+            "remember that my AI project is called NEXUS",
+            "my AI project is NEXUS",
+            "the name of my AI project is NEXUS",
+        ]:
+            self.assertIn(("project", "nexus"), found(text), text)
+
     def test_no_made_up_project_when_there_is_no_name(self):
         self.assertEqual(found("i'm working on a project"), [])
         self.assertEqual(found("i am working on my project tonight"), [])
@@ -163,6 +171,25 @@ class Answers(WithMemory):
         self.assertEqual(self.ask("what project am i currently working on"),
                          "Your project is nexus.")
         self.assertEqual(self.ask("what is my project"), "Your project is nexus.")
+
+    def test_ai_project_name_question_is_answered_from_saved_memory(self):
+        self.assertEqual(
+            self.ask("what is the name of my AI project"),
+            "Your AI project name is nexus."
+        )
+
+    def test_combined_personal_fact_question_is_answered_without_guessing(self):
+        self.assertEqual(
+            self.ask("what are my favourite sport, favourite programming language, and AI project name"),
+            "your favourite sport is badminton; your favourite programming language is python; and your AI project name is nexus."
+        )
+
+    def test_combined_question_reports_missing_facts_instead_of_guessing(self):
+        self.memory.forget(key="project")
+        self.assertEqual(
+            self.ask("what are my favourite sport, favourite programming language, and AI project name"),
+            "your favourite sport is badminton; your favourite programming language is python; and you haven't told me your AI project name yet."
+        )
 
     def test_preferences_list_every_one(self):
         for text in ["what do i prefer", "what are my preferences",
