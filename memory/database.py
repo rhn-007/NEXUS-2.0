@@ -319,6 +319,36 @@ class MemoryDatabase:
 
         return [dict(row) for row in cursor.fetchall()]
 
+    # ---------------- MEMORY MAINTENANCE ----------------
+
+    def delete_memories(self, key=None, value=None, memory_type="fact"):
+        """
+        Delete matching rows without touching semantic knowledge or other
+        memory types. With no key/value, delete all rows of memory_type.
+        """
+        clauses = ["type = ?"]
+        params = [memory_type]
+
+        if key is not None:
+            clauses.append("LOWER(key) = LOWER(?)")
+            params.append(str(key).strip())
+
+        if value is not None:
+            clauses.append("LOWER(value) = LOWER(?)")
+            params.append(str(value).strip())
+
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute(
+                "DELETE FROM memories WHERE " + " AND ".join(clauses),
+                tuple(params)
+            )
+            self.connection.commit()
+            return cursor.rowcount
+        except Exception:
+            self.connection.rollback()
+            raise
+
     # ---------------- DATABASE MANAGEMENT ----------------
 
     def close(self):
