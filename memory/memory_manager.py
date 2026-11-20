@@ -75,8 +75,9 @@ class MemoryManager:
         return self._session_facts_context
 
     def invalidate_session_memory(self):
-        """Mark the cached snapshot stale after a memory change."""
+        """Mark both cached personal-memory views stale after an external write."""
         self._session_facts_context = None
+        self._session_facts = None
 
 
 
@@ -733,8 +734,9 @@ class MemoryManager:
         grouped = self._session_facts or {}
         selected = []
 
-        # Identity and communication preferences are useful across topics.
-        for key in ("name", "preference"):
+        # Identity, the active project, and communication preferences are
+        # useful across topics and form the compact always-available profile.
+        for key in ("name", "project", "preference"):
             values = grouped.get(key, [])
             if values:
                 selected.append(
@@ -744,7 +746,7 @@ class MemoryManager:
 
         scored_facts = []
         for key, values in grouped.items():
-            if key in {"name", "preference"}:
+            if key in {"name", "project", "preference"}:
                 continue
             key_tokens = self._context_tokens(key.replace("_", " "))
             for value in values[-5:]:
