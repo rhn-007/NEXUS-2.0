@@ -635,6 +635,13 @@ class MemoryManager:
                 for item in re.split(r"\s*,\s*|\s+and\s+", multi_prefix.group(1))
                 if item.strip()
             ]
+            # When the comma is followed by ", and", the comma split may
+            # leave the conjunction attached to the next item.
+            raw_items = [
+                item[4:].strip() if item.startswith("and ") else item
+                for item in raw_items
+                if (item[4:].strip() if item.startswith("and ") else item)
+            ]
             if 2 <= len(raw_items) <= 6:
                 answers = []
                 for raw_item in raw_items:
@@ -661,7 +668,7 @@ class MemoryManager:
                             "sport": "favourite sport",
                         }.get(key, item)
                         answers.append(
-                            f"your {label} is {self._join(self._show(key, value) for value in values)}"
+                            f"your {label} is {_join(self._show(key, value) for value in values)}"
                         )
                     else:
                         label = {
@@ -686,7 +693,7 @@ class MemoryManager:
         if project_question:
             projects = grouped.get("project", [])
             if projects:
-                return "Your AI project name is " + self._join(projects) + "."
+                return "Your AI project name is " + _join(projects) + "."
             return "You haven't told me your AI project name yet."
 
         if _PREFERENCE_QUESTIONS.match(question):
