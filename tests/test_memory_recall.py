@@ -205,6 +205,19 @@ class Answers(WithMemory):
                 question
             )
 
+    def test_natural_language_paraphrases_recall_saved_facts(self):
+        cases = {
+            "Which sport do I like most?":
+                "Your favourite sport is badminton.",
+            "Do you remember which programming language I prefer?":
+                "Your favourite programming language is python.",
+            "Can you tell me the name of the AI project I'm developing?":
+                "Your AI project name is nexus.",
+        }
+        for question, expected in cases.items():
+            with self.subTest(question=question):
+                self.assertEqual(self.ask(question), expected)
+
     def test_combined_personal_fact_question_is_answered_without_guessing(self):
         self.assertEqual(
             self.ask("what are my favourite sport, favourite programming language, and AI project name"),
