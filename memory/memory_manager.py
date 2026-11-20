@@ -452,6 +452,22 @@ class MemoryManager:
 
 
 
+    def forget(self, key=None, value=None):
+        """
+        Forget personal facts matching a key and/or exact value.
+
+        Calling without filters clears personal facts only. Conversation
+        transcripts, researched knowledge, and action history are preserved.
+        """
+        deleted = self.db.delete_memories(
+            key=key,
+            value=value,
+            memory_type="fact"
+        )
+        if deleted:
+            self.load_session_memory()
+        return deleted
+
     def recall(
 
         self,
