@@ -61,7 +61,7 @@ class AdaptiveMemoryTests(unittest.TestCase):
             transcript=transcript
         )
 
-        self.assertNotIn("Earlier exchange", context)
+        self.assertIsNone(context)
 
     def test_adaptive_context_uses_refreshed_session_snapshot(self):
         self.memory.process_memory("my favorite sport is badminton")
