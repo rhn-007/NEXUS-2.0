@@ -5,6 +5,7 @@ Main brain controller.
 """
 
 import time
+import re
 
 from dotenv import load_dotenv
 
@@ -842,7 +843,51 @@ class NexusAssistant:
 
     def check_memory(self, user_input):
 
-        text = user_input.lower()
+        text = " ".join(
+            re.sub(r"[?.!,]", " ", str(user_input or "").lower()).split()
+        )
+
+        # Forgetting is limited to personal facts. Conversation transcripts,
+        # researched knowledge, and action history remain intact.
+        forget_all_phrases = {
+            "forget everything you know about me",
+            "forget all my personal memories",
+            "forget all personal facts",
+            "clear my personal memories"
+        }
+        if text in forget_all_phrases:
+            deleted = self.memory.forget()
+            return (
+                "I've cleared your stored personal facts."
+                if deleted
+                else "I don't have any stored personal facts to clear."
+            )
+
+        value_match = re.fullmatch(
+            r"forget (?:that )?i (?:like|love|enjoy|prefer) (.+)",
+            text
+        )
+        if value_match:
+            value = value_match.group(1).strip()
+            deleted = self.memory.forget(value=value)
+            return (
+                f"I've forgotten that personal detail."
+                if deleted
+                else "I couldn't find that exact personal detail in memory."
+            )
+
+        key_match = re.fullmatch(
+            r"forget my (?:(?:favourite|favorite) )?([a-z][a-z ]*)",
+            text
+        )
+        if key_match:
+            key = key_match.group(1).strip().replace(" ", "_")
+            deleted = self.memory.forget(key=key)
+            return (
+                f"I've forgotten your stored {key.replace('_', ' ')} detail."
+                if deleted
+                else f"I couldn't find a stored {key.replace('_', ' ')} detail."
+            )
 
         profile_keywords = [
             "what do you know about me",
