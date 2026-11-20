@@ -615,7 +615,7 @@ class MemoryManager:
         """
 
         question = " ".join(
-            re.sub(r"[?.!,]", " ", str(text or "").lower()).split()
+            re.sub(r"[?.!]", " ", str(text or "").lower()).split()
         )
 
         question = _FILLERS.sub("", question)
