@@ -178,6 +178,18 @@ class Answers(WithMemory):
             "Your AI project name is nexus."
         )
 
+    def test_project_name_question_variants_are_supported(self):
+        for question in [
+            "what is the name of my AI project",
+            "what is my AI project name",
+            "what is my AI project",
+        ]:
+            self.assertEqual(
+                self.ask(question),
+                "Your AI project name is nexus.",
+                question
+            )
+
     def test_combined_personal_fact_question_is_answered_without_guessing(self):
         self.assertEqual(
             self.ask("what are my favourite sport, favourite programming language, and AI project name"),
