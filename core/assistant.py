@@ -505,13 +505,18 @@ class NexusAssistant:
             # episodes plus the cached personal facts that matter to this request.
             try:
                 transcript = self.conversation.get_recent_transcript(limit=60)
+            except Exception as error:
+                logger.warning("Could not load episodic memory: %s", error)
+                transcript = []
+
+            try:
                 facts_context = self.memory.adaptive_context(
                     user_input,
                     recent_messages=context,
                     transcript=transcript
                 )
             except Exception as error:
-                logger.warning("Could not load adaptive memory context: %s", error)
+                logger.warning("Could not load personal memory context: %s", error)
                 facts_context = None
 
             # Retrieve relevant stored knowledge
