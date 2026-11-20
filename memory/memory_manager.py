@@ -629,12 +629,12 @@ class MemoryManager:
                 "what is my favourite sport",
             ),
             (
-                r"^(?:(?:do you (?:remember|know) )?which|what) "
-                r"programming language do i prefer$",
+                r"^(?:do you (?:remember|know) )?which programming "
+                r"language i prefer$|^what programming language do i prefer$",
                 "what is my favourite programming language",
             ),
             (
-                r"^(?:can you tell me )?the name of the ai project "
+                r"^(?:tell me )?the name of the ai project "
                 r"i(?:'m| am) developing$",
                 "what is the name of my ai project",
             ),
