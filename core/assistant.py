@@ -499,11 +499,18 @@ class NexusAssistant:
                     }
                 )
 
-            # What he has told NEXUS about himself (short, only if any).
+            # Build a compact, request-specific memory context. The active
+            # conversation is already in context; retrieve only matching older
+            # episodes plus the cached personal facts that matter to this request.
             try:
-                facts_context = self.memory.facts_context()
+                transcript = self.conversation.get_recent_transcript(limit=60)
+                facts_context = self.memory.adaptive_context(
+                    user_input,
+                    recent_messages=context,
+                    transcript=transcript
+                )
             except Exception as error:
-                logger.warning(f"Could not load stored facts: {error}")
+                logger.warning("Could not load adaptive memory context: %s", error)
                 facts_context = None
 
             # Retrieve relevant stored knowledge
