@@ -213,6 +213,10 @@ class MemoryDetector:
             r"|\bmy\s+(?:[a-z0-9]+\s+){0,3}project\s+"
             r"(?:is\s+(?:(?:called|named)\s+)?|(?:called|named)\s+)"
             r"([a-z0-9][a-z0-9 _\-]*?)"
+            r"(?=\s*(?:[,.;!]|$)|\s+(?:and|which|that|it|for)\b)"
+            r"|\bthe name of my\s+(?:[a-z0-9]+\s+){0,3}project\s+is\s+"
+            r"(?:called\s+|named\s+)?"
+            r"([a-z0-9][a-z0-9 _\-]*?)"
             r"(?=\s*(?:[,.;!]|$)|\s+(?:and|which|that|it|for)\b)",
             text
         )
