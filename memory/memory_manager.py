@@ -10,7 +10,7 @@ from memory.detector import MemoryDetector, _looks_like_name
 MULTI_VALUE_KEYS = {"preference", "interest", "coding"}
 
 _FILLERS = re.compile(
-    r"^(?:(?:hey|ok|okay|so|and|nexus|please|can you|could you|can u)[,\\s]+)+"
+    r"^(?:(?:hey|ok|okay|so|and|nexus|please|can you|could you|can u)[,\s]+)+"
 )
 
 _FACT_QUESTIONS = (
