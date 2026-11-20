@@ -314,6 +314,26 @@ class AssistantWiring(unittest.TestCase):
         a.memory.answer_fact_question.return_value = None
         self.assertIsNone(a.check_memory("explain recursion"))
 
+    def test_explicit_forget_commands_remove_personal_facts(self):
+        a = self.assistant()
+        a.memory.forget.return_value = 1
+
+        self.assertEqual(
+            a.check_memory("forget my favourite sport"),
+            "I've forgotten your stored sport detail."
+        )
+        a.memory.forget.assert_called_once_with(key="sport")
+
+    def test_forget_all_command_clears_only_personal_facts(self):
+        a = self.assistant()
+        a.memory.forget.return_value = 3
+
+        self.assertEqual(
+            a.check_memory("forget everything you know about me"),
+            "I've cleared your stored personal facts."
+        )
+        a.memory.forget.assert_called_once_with()
+
     def test_the_whole_profile_question_still_uses_the_profile(self):
         a = self.assistant()
         a.memory.get_memory_context.return_value = [
