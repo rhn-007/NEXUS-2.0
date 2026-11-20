@@ -625,6 +625,68 @@ class MemoryManager:
 
         grouped = self._facts_by_key()
 
+        # Handle explicit multi-fact questions deterministically. A request
+        # listing several personal details must never be left to the language
+        # model, where unsupported guesses can be presented as memories.
+        multi_prefix = re.match(r"^(?:what are|what is|tell me) my (.+)$", question)
+        if multi_prefix and ("," in multi_prefix.group(1) or " and " in multi_prefix.group(1)):
+            raw_items = [
+                item.strip()
+                for item in re.split(r"\\s*,\\s*|\\s+and\\s+", multi_prefix.group(1))
+                if item.strip()
+            ]
+            if 2 <= len(raw_items) <= 6:
+                answers = []
+                for raw_item in raw_items:
+                    item = _norm(raw_item)
+                    item = re.sub(r"^(?:my )?(?:favourite|favorite)\\s+", "", item)
+                    item = re.sub(r"^(?:the|a|an)\\s+", "", item)
+                    item = item.removeprefix("ai ")
+
+                    aliases = {
+                        "project name": "project",
+                        "ai project name": "project",
+                        "project": "project",
+                        "sport": "sport",
+                        "programming language": "programming_language",
+                        "coding language": "programming_language",
+                        "language": "programming_language",
+                    }
+                    key = aliases.get(item, item.replace(" ", "_"))
+                    values = grouped.get(key, [])
+                    if values:
+                        label = {
+                            "project": "AI project name",
+                            "programming_language": "favourite programming language",
+                            "sport": "favourite sport",
+                        }.get(key, item)
+                        answers.append(
+                            f"your {label} is {self._join(self._show(key, value) for value in values)}"
+                        )
+                    else:
+                        label = {
+                            "project": "AI project name",
+                            "programming_language": "favourite programming language",
+                            "sport": "favourite sport",
+                        }.get(key, item)
+                        answers.append(f"you haven't told me your {label} yet")
+                if answers:
+                    if len(answers) == 1:
+                        return answers[0][0].upper() + answers[0][1:] + "."
+                    return "; ".join(answers[:-1]) + "; and " + answers[-1] + "."
+
+        # Resolve project-name wording variants before generic key matching.
+        project_question = re.fullmatch(
+            r"(?:what(?:'s| is)|do you (?:know|remember)) my "
+            r"(?:(?:ai )?project(?: name)?|(?:ai )?project name)",
+            question
+        )
+        if project_question:
+            projects = grouped.get("project", [])
+            if projects:
+                return "Your AI project name is " + self._join(projects) + "."
+            return "You haven't told me your AI project name yet."
+
         if _PREFERENCE_QUESTIONS.match(question):
 
             values = grouped.get("preference")
