@@ -97,7 +97,8 @@ class WithMemory(unittest.TestCase):
         self.dir = tempfile.TemporaryDirectory()
         os.chdir(self.dir.name)
         self.memory = MemoryManager()
-        for text in ["my name is rohan", "my favourite programming language is python",
+        for text in ["my name is rohan", "my favourite sport is badminton",
+                     "my favourite programming language is python",
                      "i'm working on a project called Nexus", "i prefer concise explanations",
                      "i prefer short answers", "my favorite food is pizza",
                      "i enjoy drawing and sculpting with clay", "i enjoy anime"]:
