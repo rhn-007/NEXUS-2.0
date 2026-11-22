@@ -5,10 +5,11 @@ Stores operational metadata only. It deliberately does not save raw user
 messages or assistant responses.
 """
 import json
+import sqlite3
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from utils.sqlite import connect_database
-from pathlib import Path
 
 
 class PerformanceObserver:
