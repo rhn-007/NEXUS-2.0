@@ -6,6 +6,8 @@ messages or assistant responses.
 """
 import json
 import sqlite3
+
+from utils.sqlite import connect_database
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -13,11 +15,7 @@ from pathlib import Path
 class PerformanceObserver:
     def __init__(self, database_path="nexus_memory.db"):
         self.database_path = str(Path(database_path))
-        self.connection = sqlite3.connect(
-            self.database_path,
-            timeout=30,
-            check_same_thread=False
-        )
+        self.connection = connect_database(self.database_path)
         self.connection.row_factory = sqlite3.Row
         self.connection.execute("PRAGMA journal_mode=WAL")
         self._create_schema()
