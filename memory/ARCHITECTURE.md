@@ -30,11 +30,12 @@ does not write duplicate transcript rows.
 2. Load personal facts into a compact in-process index at startup.
 3. Keep identity, active project, and communication preferences available.
 4. Rank remaining personal facts by lexical overlap with the current request.
-5. Search older conversation turns and include at most two relevant exchanges,
-   excluding turns already present in the active conversation window.
-6. Retrieve matching semantic/research knowledge through the existing knowledge
+5. Search the recent persistent transcript and include at most two relevant
+   exchanges, excluding turns already present in the active conversation window.
+6. Include the bounded rolling digest for older archived exchanges.
+7. Retrieve matching semantic/research knowledge through the existing knowledge
    and research retrieval paths.
-7. Add the selected context as system reference material for Ollama.
+8. Add the selected context as system reference material for Ollama.
 
 The context builder has a character budget. If a memory source is unavailable,
 NEXUS continues with the remaining context rather than failing the response.
