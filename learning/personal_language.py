@@ -6,10 +6,9 @@ All profile data is stored locally in nexus_memory.db.
 """
 
 import re
-import sqlite3
+from datetime import datetime, timezone
 
 from utils.sqlite import connect_database
-from datetime import datetime, timezone
 
 
 class PersonalLanguageLearner:
