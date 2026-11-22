@@ -118,6 +118,14 @@ class AdaptiveMemoryTests(unittest.TestCase):
         self.assertTrue(self.memory.db.get_conversations())
         self.assertTrue(self.memory.db.search_knowledge("robotics"))
 
+    def test_saved_conversation_summary_is_included_in_memory_context(self):
+        context = self.memory.adaptive_context(
+            "What did we decide?",
+            summary="We discussed the NEXUS memory redesign and its next steps."
+        )
+        self.assertIn("Previous conversation summary", context)
+        self.assertIn("NEXUS memory redesign", context)
+
     def test_context_respects_character_budget(self):
         self.memory.remember("preference", "short answers")
         self.memory.remember("interest", " ".join(["badminton"] * 80))
