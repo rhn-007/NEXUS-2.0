@@ -70,7 +70,7 @@ class AdaptiveMemoryTests(unittest.TestCase):
             self.memory.adaptive_context("What is my favourite sport?")
         )
 
-        self.memory.db.insert("sport", "tennis", "fact")
+        self.memory.db.insert("sport", "tennis")
         self.memory.load_session_memory()
 
         context = self.memory.adaptive_context("What is my favourite sport?")
@@ -131,7 +131,7 @@ class AdaptiveMemoryTests(unittest.TestCase):
         self.memory.remember("sport", "tennis")
         context = self.memory.get_context()
         self.assertIn(("sport", "tennis", "fact"), context["facts"])
-        self.assertNotIn(("sport", "badminton", "fact"), context["facts"])
+        self.assertNotIn(("sport", "badminton"), context["facts"])
 
     def test_long_summary_keeps_its_most_recent_information(self):
         summary = ("Old archived detail. " * 100) + "LATEST IMPORTANT DECISION"
