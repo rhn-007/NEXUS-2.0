@@ -169,8 +169,6 @@ class ConversationManager:
         """, (self.conversation_id,)).fetchone()
         if not latest:
             return False
-        latest_id = int(latest["id"])
-
         # Leave the active context window out of the archive digest.
         cutoff = self.connection.execute("""
             SELECT id FROM conversation_messages
@@ -210,9 +208,12 @@ class ConversationManager:
         if not excerpts:
             return False
 
-        combined = "\n".join(part for part in (previous_summary, *excerpts) if part)
-        # Keep the rolling digest bounded; recent archived exchanges win.
-        combined = combined[-2400:]
+        combined = "\\n".join(part for part in (previous_summary, *excerpts) if part)
+        # Keep complete exchange lines and retain the most recent archive.
+        summary_lines = combined.splitlines()
+        while summary_lines and len("\\n".join(summary_lines)) > 2400:
+            summary_lines.pop(0)
+        combined = "\\n".join(summary_lines)
         self.save_summary(combined, last_message_id=max(int(row["id"]) for row in rows))
         return True
 
