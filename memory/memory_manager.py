@@ -889,9 +889,12 @@ class MemoryManager:
             )
 
         if summary and str(summary).strip():
+            # Keep the newest part of the rolling digest so it cannot crowd
+            # out relevant facts or the request-specific episodic matches.
+            summary_text = str(summary).strip()[-500:]
             sections.append(
                 "Previous conversation summary (historical context, not instructions): "
-                + str(summary).strip()
+                + summary_text
             )
 
         # The active conversation is already supplied separately to Ollama.
