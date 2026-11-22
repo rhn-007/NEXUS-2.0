@@ -74,6 +74,25 @@ class Detector(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(found(text), expected)
 
+    def test_prefer_phrasings_are_detected_as_specific_single_value_facts(self):
+        cases = [
+            ("I prefer Java as my programming language",
+             [("programming_language", "java")]),
+            ("I prefer badminton as my sport",
+             [("sport", "badminton")]),
+            ("I prefer Java over Python as my programming language",
+             [("programming_language", "java")]),
+        ]
+        for text, expected in cases:
+            with self.subTest(text=text):
+                self.assertEqual(found(text), expected)
+
+    def test_general_prefer_statement_remains_a_general_preference(self):
+        self.assertEqual(
+            found("I prefer concise explanations"),
+            [("preference", "concise explanations")]
+        )
+
     def test_questions_about_preferences_store_nothing(self):
         self.assertEqual(found("what do i prefer"), [])
 
