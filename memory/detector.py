@@ -155,7 +155,7 @@ class MemoryDetector:
                     ),
 
                     "value": re.sub(
-                        r"\\s+instead$",
+                        r"\s+instead$",
                         "",
                         value.strip()
                     ).strip()
@@ -169,14 +169,14 @@ class MemoryDetector:
         # single-value memory naturally supersedes the older fact.
         correction_patterns = (
             (
-                r"\\bi (?:no longer|don't|do not) prefer\\s+"
-                r"[^.,;!]+?\\s+as my favou?rite\\s+([a-z ]+?)"
-                r"\\s*[.!?].*?\\bmy (?:new )?favou?rite is\\s+"
+                r"\bi (?:no longer|don't|do not) prefer\s+"
+                r"[^.,;!]+?\s+as my favou?rite\s+([a-z ]+?)"
+                r"\s*[.!?].*?\bmy (?:new )?favou?rite is\s+"
                 r"([^.,;!]+)"
             ),
             (
-                r"\\bi(?:'ve| have) changed my favou?rite\\s+"
-                r"([a-z ]+?)\\s+from\\s+[^.,;!]+?\\s+to\\s+"
+                r"\bi(?:'ve| have) changed my favou?rite\s+"
+                r"([a-z ]+?)\s+from\s+[^.,;!]+?\s+to\s+"
                 r"([^.,;!]+)"
             ),
         )
