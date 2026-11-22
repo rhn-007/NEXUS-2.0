@@ -7,6 +7,8 @@ available in SQLite. The system prompt is owned by OllamaClient so it is
 not duplicated in the context list.
 """
 import sqlite3
+
+from utils.sqlite import connect_database
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -22,9 +24,7 @@ class ConversationManager:
         self.conversation_id = conversation_id
         self.context_limit = max(4, int(context_limit))
         self.history = []
-        self.connection = sqlite3.connect(
-            self.database_path, timeout=30, check_same_thread=False
-        )
+        self.connection = connect_database(self.database_path)
         self.connection.row_factory = sqlite3.Row
         self.connection.execute("PRAGMA journal_mode=WAL")
         self._create_schema()
