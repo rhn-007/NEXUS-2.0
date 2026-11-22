@@ -8,10 +8,9 @@ the screen, so it cannot prove a window really appeared.
 """
 
 import re
-import sqlite3
+from datetime import datetime
 
 from utils.sqlite import connect_database
-from datetime import datetime
 
 from utils.logger import setup_logger
 
