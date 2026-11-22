@@ -73,13 +73,17 @@ class ConversationManager:
         if not message:
             return
         content = str(message)
-        self.history.append({"role": role, "content": content})
+
+        # Persist first. If SQLite rejects the write, in-memory context must
+        # remain unchanged rather than containing an unsaved message.
         with self.connection:
             self.connection.execute("""
                 INSERT INTO conversation_messages
                 (conversation_id,role,content,created_at)
                 VALUES (?,?,?,?)
             """, (self.conversation_id, role, content, self._now()))
+
+        self.history.append({"role": role, "content": content})
         # Bound RAM use while preserving the complete transcript in SQLite.
         self.history = self.history[-self.context_limit:]
 
@@ -118,7 +122,7 @@ class ConversationManager:
         return row["summary"] if row else None
 
     def clear(self):
-        self.history.clear()
+        # Clear RAM only after both persistent deletes have committed.
         with self.connection:
             self.connection.execute("""
                 DELETE FROM conversation_messages WHERE conversation_id=?
@@ -126,6 +130,7 @@ class ConversationManager:
             self.connection.execute("""
                 DELETE FROM conversation_summaries WHERE conversation_id=?
             """, (self.conversation_id,))
+        self.history.clear()
 
     def close(self):
         self.connection.close()
