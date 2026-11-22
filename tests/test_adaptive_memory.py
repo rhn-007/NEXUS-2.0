@@ -11,8 +11,14 @@ class AdaptiveMemoryTests(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         os.chdir(self.temp_dir.name)
         self.memory = MemoryManager()
+        self.extra_conversations = []
 
     def tearDown(self):
+        # Close every additional SQLite connection before deleting the
+        # temporary directory. unittest cleanups run after tearDown, which
+        # is too late for Windows to release open database files.
+        for conversation in self.extra_conversations:
+            conversation.close()
         self.memory.db.close()
         os.chdir(self.old_cwd)
         self.temp_dir.cleanup()
@@ -121,7 +127,7 @@ class AdaptiveMemoryTests(unittest.TestCase):
     def test_forgetting_personal_facts_preserves_episodic_memory(self):
         from core.conversation import ConversationManager
         conversation = ConversationManager()
-        self.addCleanup(conversation.close)
+        self.extra_conversations.append(conversation)
         conversation.add_user_message("We discussed a robotics project.")
         conversation.add_assistant_message("We discussed sensors.")
         conversation.save_summary("Archived robotics discussion.")
