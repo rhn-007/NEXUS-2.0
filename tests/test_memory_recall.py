@@ -443,6 +443,20 @@ class AssistantWiring(unittest.TestCase):
         context = a.llm.generate_response.call_args.args[1]
         self.assertEqual(context[0], {"role": "system",
                                       "content": "What Rohan has told you: name: Rohan."})
+        a.memory.save_conversation.assert_not_called()
+        self.assertEqual(
+            a.memory.adaptive_context.call_args.kwargs["summary"],
+            a.conversation.get_summary.return_value
+        )
+
+    def test_successful_tool_reply_is_not_written_to_legacy_conversation_store(self):
+        a = self.assistant()
+        a.intent.resolve.return_value = MagicMock(success=True, message="Tool completed.")
+        with patch.dict("os.environ", {"NEXUS_STREAM": "0"}):
+            result = a._process_input("open calculator")
+        self.assertEqual(result, "Tool completed.")
+        a.memory.save_conversation.assert_not_called()
+        a.conversation.add_assistant_message.assert_called_with("Tool completed.")
 
     def test_no_facts_means_no_extra_message(self):
         a = self.assistant(facts_note=None)
