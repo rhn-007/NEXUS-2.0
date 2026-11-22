@@ -649,6 +649,45 @@ class MemoryManager:
 
         grouped = self._facts_by_key()
 
+        # Resolve common question forms through a small, explicit alias map.
+        # This avoids adding one regex for every individual paraphrase while
+        # keeping ambiguous or unknown questions out of deterministic recall.
+        question_key_aliases = {
+            "sport": "sport",
+            "programming language": "programming_language",
+            "coding language": "programming_language",
+            "language": "programming_language",
+            "project": "project",
+            "ai project": "project",
+            "project name": "project",
+            "ai project name": "project",
+        }
+        question_patterns = (
+            r"^(?:which|what) (?P<thing>[a-z ]+?) do i "
+            r"(?:like|prefer|use|code in)(?: the most)?$",
+            r"^what (?P<thing>[a-z ]+?) am i "
+            r"(?:into|interested in)$",
+        )
+        for pattern in question_patterns:
+            match = re.fullmatch(pattern, question)
+            if not match:
+                continue
+
+            thing = _norm(match.group("thing"))
+            key = question_key_aliases.get(thing, thing.replace(" ", "_"))
+            values = grouped.get(key, [])
+            if not values:
+                continue
+
+            label = {
+                "sport": "favourite sport",
+                "programming_language": "favourite programming language",
+                "project": "AI project name",
+            }.get(key, thing)
+            if key == "project":
+                return "Your AI project name is " + _join(values) + "."
+            return f"Your {label} is " + _join(values) + "."
+
         # Handle explicit multi-fact questions deterministically. A request
         # listing several personal details must never be left to the language
         # model, where unsupported guesses can be presented as memories.
@@ -711,6 +750,7 @@ class MemoryManager:
             r"what(?:'s| is) the name of my (?:ai )?project"
             r"|what(?:'s| is) my (?:ai )?project name"
             r"|what(?:'s| is) my ai project"
+            r"|what(?:'s| is) my current project called"
             r"|do you (?:know|remember) my (?:ai )?project(?: name)?",
             question
         )
