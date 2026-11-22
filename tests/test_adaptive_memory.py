@@ -153,7 +153,7 @@ class AdaptiveMemoryTests(unittest.TestCase):
     def test_compatibility_context_includes_persisted_conversation_summary(self):
         from core.conversation import ConversationManager
         conversation = ConversationManager()
-        self.addCleanup(conversation.close)
+        self.extra_conversations.append(conversation)
         conversation.save_summary("Archived memory integration test.")
         self.assertEqual(
             self.memory.get_context()["conversation_summary"],
