@@ -356,6 +356,33 @@ class PromptNote(WithMemory):
         self.assertIsNone(self.memory.answer_fact_question("what is my name"))
         self.assertIsNone(self.memory.facts_context())
 
+    def test_profile_uses_only_latest_single_value_fact(self):
+        self.memory.process_memory("my favourite sport is tennis")
+        profile = self.memory.handle_memory_query("what do you know about me")
+        self.assertIn("sport is tennis", profile)
+        self.assertNotIn("sport is badminton", profile)
+
+    def test_conversation_recall_includes_rolling_summary(self):
+        connection = self.memory.db.connection
+        connection.execute("""
+            CREATE TABLE conversation_summaries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id TEXT NOT NULL UNIQUE,
+                summary TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                last_message_id INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+        with connection:
+            connection.execute(
+                "INSERT INTO conversation_summaries "
+                "(conversation_id, summary, updated_at) VALUES (?, ?, ?)",
+                ("default", "Earlier we planned a robotics project.", "now")
+            )
+        recalled = self.memory.handle_memory_query("summarize our conversation")
+        self.assertIn("Earlier conversation summary", recalled)
+        self.assertIn("robotics project", recalled)
+
     def test_conversation_recall_reads_the_authoritative_transcript(self):
         connection = self.memory.db.connection
         connection.execute("""
