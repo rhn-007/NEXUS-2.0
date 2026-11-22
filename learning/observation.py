@@ -5,10 +5,9 @@ Stores operational metadata only. It deliberately does not save raw user
 messages or assistant responses.
 """
 import json
-import sqlite3
+from datetime import datetime, timedelta, timezone
 
 from utils.sqlite import connect_database
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -17,7 +16,6 @@ class PerformanceObserver:
         self.database_path = str(Path(database_path))
         self.connection = connect_database(self.database_path)
         self.connection.row_factory = sqlite3.Row
-        self.connection.execute("PRAGMA journal_mode=WAL")
         self._create_schema()
 
     def _create_schema(self):
