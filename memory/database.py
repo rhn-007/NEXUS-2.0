@@ -83,7 +83,6 @@ class MemoryDatabase:
             ))
             self.connection.commit()
         except Exception:
-            # A failed write must not keep the database locked.
             self.connection.rollback()
             raise
 
@@ -171,8 +170,13 @@ class MemoryDatabase:
             return cursor.lastrowid
 
         except sqlite3.IntegrityError:
+            # Duplicate knowledge is an expected no-op. Roll back before
+            # returning so the shared connection is ready for the next write.
             self.connection.rollback()
             return None
+        except Exception:
+            self.connection.rollback()
+            raise
 
     def search_knowledge(self, keyword, limit=20):
         cursor = self.connection.cursor()
@@ -249,7 +253,6 @@ class MemoryDatabase:
                     knowledge_id
                 ))
 
-
             self.connection.commit()
         except Exception:
             self.connection.rollback()
@@ -297,7 +300,6 @@ class MemoryDatabase:
                 status,
                 datetime.now().isoformat()
             ))
-
 
             self.connection.commit()
         except Exception:
