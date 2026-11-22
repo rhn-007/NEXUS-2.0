@@ -392,7 +392,10 @@ class MemoryManager:
     ):
 
 
-        facts = self.get_memory_context()
+        facts = [
+            (key, value)
+            for key, value, _memory_type in self.get_memory_context()
+        ]
 
 
         conversations = self._recent_conversation_messages(limit=6)
