@@ -8,9 +8,9 @@ learning_history tables.
 import hashlib
 import json
 import sqlite3
+from datetime import datetime, timezone
 
 from utils.sqlite import connect_database
-from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -24,7 +24,6 @@ class ResearchStore:
         self.connection = connect_database(self.database_path)
         self.connection.row_factory = sqlite3.Row
         self.connection.execute("PRAGMA foreign_keys = ON")
-        self.connection.execute("PRAGMA journal_mode = WAL")
         self._create_schema()
 
     def _create_schema(self):
