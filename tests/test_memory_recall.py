@@ -164,6 +164,19 @@ class WithMemory(unittest.TestCase):
         facts = [tuple(row) for row in self.memory.db.get_facts()]
         self.assertIn(("programming_language", "java"), facts)
 
+    def test_prefer_statement_updates_a_specific_saved_fact(self):
+        self.assertTrue(
+            self.memory.process_memory(
+                "I prefer Java over Python as my programming language."
+            )
+        )
+        self.assertEqual(
+            self.ask("what is my favourite programming language"),
+            "Your favourite programming language is java."
+        )
+        facts = [tuple(row) for row in self.memory.db.get_facts()]
+        self.assertIn(("programming_language", "java"), facts)
+
     def test_short_answer_to_favourite_question_is_saved_and_recalled(self):
         connection = self.memory.db.connection
         connection.execute("""
