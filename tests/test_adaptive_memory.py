@@ -130,7 +130,7 @@ class AdaptiveMemoryTests(unittest.TestCase):
         self.memory.remember("sport", "badminton")
         self.memory.remember("sport", "tennis")
         context = self.memory.get_context()
-        self.assertIn(("sport", "tennis", "fact"), context["facts"])
+        self.assertIn(("sport", "tennis"), context["facts"])
         self.assertNotIn(("sport", "badminton"), context["facts"])
 
     def test_long_summary_keeps_its_most_recent_information(self):
