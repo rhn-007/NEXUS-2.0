@@ -194,6 +194,7 @@ class ConversationManager:
 
         excerpts = []
         pending_user = None
+        last_complete_message_id = last_summarized_id
         for row in rows:
             if row["role"] == "user":
                 pending_user = row["content"]
@@ -203,6 +204,7 @@ class ConversationManager:
                         "User: " + self._summary_excerpt(pending_user)
                         + " | NEXUS: " + self._summary_excerpt(row["content"])
                     )
+                    last_complete_message_id = int(row["id"])
                 pending_user = None
 
         if not excerpts:
@@ -214,7 +216,7 @@ class ConversationManager:
         while summary_lines and len("\n".join(summary_lines)) > 2400:
             summary_lines.pop(0)
         combined = "\n".join(summary_lines)
-        self.save_summary(combined, last_message_id=max(int(row["id"]) for row in rows))
+        self.save_summary(combined, last_message_id=last_complete_message_id)
         return True
 
     def get_summary(self):
