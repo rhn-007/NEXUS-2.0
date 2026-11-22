@@ -1,14 +1,12 @@
-import sqlite3
 import hashlib
+
+from utils.sqlite import connect_database
 from datetime import datetime
 
 
 class MemoryDatabase:
     def __init__(self, path="nexus_memory.db"):
-        self.connection = sqlite3.connect(
-            path,
-            check_same_thread=False
-        )
+        self.connection = connect_database(path)
         self.connection.row_factory = sqlite3.Row
         self.create_tables()
 
