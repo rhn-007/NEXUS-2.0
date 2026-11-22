@@ -82,10 +82,26 @@ class Detector(unittest.TestCase):
              [("sport", "badminton")]),
             ("I prefer Java over Python as my programming language",
              [("programming_language", "java")]),
+            ("I actually prefer Python as my programming language over C++.",
+             [("programming_language", "python")]),
         ]
         for text, expected in cases:
             with self.subTest(text=text):
                 self.assertEqual(found(text), expected)
+
+    def test_natural_prefer_correction_replaces_the_previous_value(self):
+        self.assertTrue(
+            self.memory.process_memory(
+                "I actually prefer Python as my programming language over C++."
+            )
+        )
+        self.assertEqual(
+            self.ask("what is my favourite programming language"),
+            "Your favourite programming language is python."
+        )
+        facts = [tuple(row) for row in self.memory.db.get_facts()]
+        self.assertIn(("programming_language", "python"), facts)
+        self.assertNotIn(("programming_language", "c++"), facts)
 
     def test_general_prefer_statement_remains_a_general_preference(self):
         self.assertEqual(
