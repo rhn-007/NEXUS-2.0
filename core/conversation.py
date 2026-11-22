@@ -208,12 +208,12 @@ class ConversationManager:
         if not excerpts:
             return False
 
-        combined = "\\n".join(part for part in (previous_summary, *excerpts) if part)
+        combined = "\n".join(part for part in (previous_summary, *excerpts) if part)
         # Keep complete exchange lines and retain the most recent archive.
         summary_lines = combined.splitlines()
-        while summary_lines and len("\\n".join(summary_lines)) > 2400:
+        while summary_lines and len("\n".join(summary_lines)) > 2400:
             summary_lines.pop(0)
-        combined = "\\n".join(summary_lines)
+        combined = "\n".join(summary_lines)
         self.save_summary(combined, last_message_id=max(int(row["id"]) for row in rows))
         return True
 
