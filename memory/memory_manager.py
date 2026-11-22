@@ -249,14 +249,9 @@ class MemoryManager:
 
 
 
-            for key, value in facts:
-
-
-                response += (
-
-                    f"• Your {key} is {value}.\n"
-
-                )
+            for key, values in facts.items():
+                shown = _join(self._show(key, value) for value in values)
+                response += f"• Your {key.replace('_', ' ')} is {shown}.\\n"
 
 
             return response.strip()
@@ -307,17 +302,20 @@ class MemoryManager:
 
 
             chats = self._recent_conversation_messages(limit=10)
+            summary = self._recent_conversation_summary()
 
-            if not chats:
+            if not chats and not summary:
                 return "I don't have any previous conversations stored yet."
 
             response = (
                 "From our previous conversations, "
-                "I remember that:\n\n"
+                "I remember that:\\n\\n"
             )
+            if summary:
+                response += "Earlier conversation summary: " + summary + "\\n\\n"
 
             for role, content in chats:
-                response += f"{role}: {content}\n\n"
+                response += f"{role}: {content}\\n\\n"
 
 
             return response.strip()
@@ -330,6 +328,17 @@ class MemoryManager:
 
 
 
+
+    def _recent_conversation_summary(self):
+        """Return the rolling digest for the default assistant conversation."""
+        try:
+            row = self.db.connection.execute(
+                "SELECT summary FROM conversation_summaries "
+                "WHERE conversation_id = 'default'"
+            ).fetchone()
+        except sqlite3.Error:
+            return None
+        return str(row["summary"]).strip() if row and row["summary"] else None
 
     def _recent_conversation_messages(self, limit=10):
         """Read episodic messages from the authoritative conversation table."""
@@ -390,11 +399,9 @@ class MemoryManager:
 
 
         context = {
-
             "facts": facts,
-
-            "recent_conversations": conversations
-
+            "recent_conversations": conversations,
+            "conversation_summary": self._recent_conversation_summary()
         }
 
 
@@ -463,9 +470,7 @@ class MemoryManager:
 
 
         if results:
-
-
-            return results[0][1]
+            return results[-1][1]
 
 
         return None
