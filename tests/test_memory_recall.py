@@ -54,6 +54,26 @@ class Detector(unittest.TestCase):
             [("sport", "badminton")]
         )
 
+    def test_natural_favourite_corrections_are_detected_as_single_value_facts(self):
+        cases = [
+            (
+                "I no longer prefer Python as my favourite programming language. "
+                "My new favourite is Java.",
+                [("programming_language", "java")],
+            ),
+            (
+                "I've changed my favourite programming language from Python to Java.",
+                [("programming_language", "java")],
+            ),
+            (
+                "Actually, my favourite programming language is Java instead.",
+                [("programming_language", "java")],
+            ),
+        ]
+        for text, expected in cases:
+            with self.subTest(text=text):
+                self.assertEqual(found(text), expected)
+
     def test_questions_about_preferences_store_nothing(self):
         self.assertEqual(found("what do i prefer"), [])
 
@@ -111,6 +131,19 @@ class WithMemory(unittest.TestCase):
 
     def ask(self, text):
         return self.memory.answer_fact_question(text)
+
+    def test_natural_favourite_correction_replaces_the_previous_value(self):
+        correction = (
+            "I no longer prefer Python as my favourite programming language. "
+            "My new favourite is Java."
+        )
+        self.assertTrue(self.memory.process_memory(correction))
+        self.assertEqual(
+            self.ask("what is my favourite programming language"),
+            "Your favourite programming language is java."
+        )
+        facts = [tuple(row) for row in self.memory.db.get_facts()]
+        self.assertIn(("programming_language", "java"), facts)
 
     def test_short_answer_to_favourite_question_is_saved_and_recalled(self):
         connection = self.memory.db.connection
