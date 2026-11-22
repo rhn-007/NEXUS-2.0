@@ -7,6 +7,8 @@ All profile data is stored locally in nexus_memory.db.
 
 import re
 import sqlite3
+
+from utils.sqlite import connect_database
 from datetime import datetime, timezone
 
 
@@ -25,11 +27,7 @@ class PersonalLanguageLearner:
     }
 
     def __init__(self, database_path="nexus_memory.db"):
-        self.connection = sqlite3.connect(
-            database_path,
-            timeout=30,
-            check_same_thread=False
-        )
+        self.connection = connect_database(database_path)
         self.connection.row_factory = sqlite3.Row
         self._create_schema()
 
