@@ -90,6 +90,7 @@ class Detector(unittest.TestCase):
                 self.assertEqual(found(text), expected)
 
     def test_natural_prefer_correction_replaces_the_previous_value(self):
+        self.memory.process_memory("my favourite programming language is c++")
         self.assertTrue(
             self.memory.process_memory(
                 "I actually prefer Python as my programming language over C++."
