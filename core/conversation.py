@@ -6,10 +6,9 @@ Only a bounded recent window is sent to Ollama; the full transcript remains
 available in SQLite. The system prompt is owned by OllamaClient so it is
 not duplicated in the context list.
 """
-import sqlite3
+from datetime import datetime, timezone
 
 from utils.sqlite import connect_database
-from datetime import datetime, timezone
 from pathlib import Path
 
 from utils.logger import setup_logger
@@ -26,7 +25,6 @@ class ConversationManager:
         self.history = []
         self.connection = connect_database(self.database_path)
         self.connection.row_factory = sqlite3.Row
-        self.connection.execute("PRAGMA journal_mode=WAL")
         self._create_schema()
         self._restore_recent_history()
         logger.info("Persistent conversation manager ready")
