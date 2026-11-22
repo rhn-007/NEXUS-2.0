@@ -47,7 +47,13 @@ NEXUS continues with the remaining context rather than failing the response.
   facts can retain multiple values.
 - Explicit forgetting removes personal facts only. It does not silently erase
   conversation transcripts, researched knowledge, or action history.
-- No database migration or destructive rewrite is required for this layer.
+- Once enough messages leave the active context window, older completed turns
+  are compacted into a bounded rolling extractive digest in
+  `conversation_summaries`. This is deterministic and does not make an extra
+  Ollama request; the original transcript remains intact.
+- The summary table is upgraded in place with an archive cursor when needed;
+  existing summaries are preserved.
+- No destructive rewrite of existing memory records is required.
 
 ## Important limitation
 
