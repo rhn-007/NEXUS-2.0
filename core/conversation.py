@@ -132,7 +132,11 @@ class ConversationManager:
                 ON CONFLICT(conversation_id) DO UPDATE SET
                     summary=excluded.summary,
                     updated_at=excluded.updated_at,
-                    last_message_id=excluded.last_message_id
+                    last_message_id=CASE
+                        WHEN excluded.last_message_id=0
+                        THEN conversation_summaries.last_message_id
+                        ELSE excluded.last_message_id
+                    END
             """, (
                 self.conversation_id,
                 str(summary or "").strip(),
