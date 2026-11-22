@@ -423,7 +423,7 @@ class ChatPathWithStreaming(unittest.TestCase):
         self.assertEqual(result, "The sky is really blue. Grass is green today.")
         self.assertTrue(a.response_displayed)
         a.conversation.add_assistant_message.assert_called_once_with(result)
-        a.memory.save_conversation.assert_called_once_with("tell me about colours", result)
+        a.memory.save_conversation.assert_not_called()
 
     def test_the_spoken_remainder_is_cleaned_like_the_screen_text(self):
         text = "The sky is really blue. Certainly! Grass is green today."
