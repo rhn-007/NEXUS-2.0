@@ -268,9 +268,9 @@ class MemoryDetector:
         # "I prefer Java as my programming language" is a single-value fact,
         # not a general communication preference.
         structured_preferences = list(re.finditer(
-            r"\bi prefer\s+([^.,;!]+?)"
+            r"\bi(?:\s+actually)? prefer\s+([^.,;!]+?)"
             r"(?:\s+over\s+[^.,;!]+?)?\s+as my\s+"
-            r"([a-z ]+?)(?=[.!?]|$)",
+            r"([a-z ]+?)(?:\s+over\s+[^.,;!]+)?(?=[.!?]|$)",
             text
         ))
 
