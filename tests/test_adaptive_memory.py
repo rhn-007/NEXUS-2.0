@@ -126,6 +126,16 @@ class AdaptiveMemoryTests(unittest.TestCase):
         self.assertIn("Previous conversation summary", context)
         self.assertIn("NEXUS memory redesign", context)
 
+    def test_long_summary_keeps_its_most_recent_information(self):
+        summary = ("Old archived detail. " * 100) + "LATEST IMPORTANT DECISION"
+        context = self.memory.adaptive_context(
+            "unrelated question",
+            summary=summary,
+            max_chars=700
+        )
+        self.assertIn("LATEST IMPORTANT DECISION", context)
+        self.assertLessEqual(len(context), 700)
+
     def test_context_respects_character_budget(self):
         self.memory.remember("preference", "short answers")
         self.memory.remember("interest", " ".join(["badminton"] * 80))
