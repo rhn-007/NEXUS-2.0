@@ -224,7 +224,7 @@ class MemoryManager:
         ):
 
 
-            facts = self.db.get_facts()
+            facts = self._facts_by_key()
 
 
 
@@ -251,7 +251,7 @@ class MemoryManager:
 
             for key, values in facts.items():
                 shown = _join(self._show(key, value) for value in values)
-                response += f"• Your {key.replace('_', ' ')} is {shown}.\\n"
+                response += f"• Your {key.replace('_', ' ')} is {shown}.\n"
 
 
             return response.strip()
@@ -309,13 +309,13 @@ class MemoryManager:
 
             response = (
                 "From our previous conversations, "
-                "I remember that:\\n\\n"
+                "I remember that:\n\n"
             )
             if summary:
-                response += "Earlier conversation summary: " + summary + "\\n\\n"
+                response += "Earlier conversation summary: " + summary + "\n\n"
 
             for role, content in chats:
-                response += f"{role}: {content}\\n\\n"
+                response += f"{role}: {content}\n\n"
 
 
             return response.strip()
@@ -946,7 +946,7 @@ class MemoryManager:
         if not sections:
             return None
 
-        context = "\\n".join(sections)
+        context = "\n".join(sections)
         if len(context) <= max_chars:
             return context
 
