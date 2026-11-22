@@ -510,10 +510,20 @@ class NexusAssistant:
                 transcript = []
 
             try:
+                try:
+                    conversation_summary = self.conversation.get_summary()
+                except Exception as summary_error:
+                    logger.warning(
+                        "Could not load conversation summary: %s",
+                        summary_error
+                    )
+                    conversation_summary = None
+
                 facts_context = self.memory.adaptive_context(
                     user_input,
                     recent_messages=context,
-                    transcript=transcript
+                    transcript=transcript,
+                    summary=conversation_summary
                 )
             except Exception as error:
                 logger.warning("Could not load personal memory context: %s", error)
