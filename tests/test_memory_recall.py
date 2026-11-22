@@ -349,6 +349,33 @@ class PromptNote(WithMemory):
         self.assertIsNone(self.memory.answer_fact_question("what is my name"))
         self.assertIsNone(self.memory.facts_context())
 
+    def test_conversation_recall_reads_the_authoritative_transcript(self):
+        connection = self.memory.db.connection
+        connection.execute("""
+            CREATE TABLE conversation_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+        with connection:
+            connection.execute(
+                "INSERT INTO conversation_messages "
+                "(conversation_id, role, content, created_at) "
+                "VALUES ('default', 'user', 'Discussed robotics', 'now')"
+            )
+            connection.execute(
+                "INSERT INTO conversation_messages "
+                "(conversation_id, role, content, created_at) "
+                "VALUES ('default', 'assistant', 'We discussed sensors', 'now')"
+            )
+
+        recalled = self.memory.handle_memory_query("what did we talk about")
+        self.assertIn("user: Discussed robotics", recalled)
+        self.assertIn("assistant: We discussed sensors", recalled)
+
 
 class AssistantWiring(unittest.TestCase):
     def assistant(self, facts_note="What Rohan has told you: name: Rohan."):
