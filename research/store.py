@@ -8,6 +8,8 @@ learning_history tables.
 import hashlib
 import json
 import sqlite3
+
+from utils.sqlite import connect_database
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -19,9 +21,7 @@ def utc_now():
 class ResearchStore:
     def __init__(self, database_path="nexus_memory.db"):
         self.database_path = str(Path(database_path))
-        self.connection = sqlite3.connect(
-            self.database_path, timeout=30, check_same_thread=False
-        )
+        self.connection = connect_database(self.database_path)
         self.connection.row_factory = sqlite3.Row
         self.connection.execute("PRAGMA foreign_keys = ON")
         self.connection.execute("PRAGMA journal_mode = WAL")
