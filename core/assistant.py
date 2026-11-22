@@ -471,11 +471,6 @@ class NexusAssistant:
                     tool_result.message
                 )
 
-                self.memory.save_conversation(
-                    user_input,
-                    tool_result.message
-                )
-
                 self.speaker.speak(
                     getattr(tool_result, "spoken", None)
                     or tool_result.message
@@ -605,11 +600,6 @@ class NexusAssistant:
 
                 # Error messages are not part of the conversation.
                 self.conversation.add_assistant_message(
-                    response
-                )
-
-                self.memory.save_conversation(
-                    user_input,
                     response
                 )
 
