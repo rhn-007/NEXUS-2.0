@@ -118,6 +118,24 @@ class AdaptiveMemoryTests(unittest.TestCase):
         self.assertTrue(self.memory.db.get_conversations())
         self.assertTrue(self.memory.db.search_knowledge("robotics"))
 
+    def test_forgetting_personal_facts_preserves_episodic_memory(self):
+        from core.conversation import ConversationManager
+        conversation = ConversationManager()
+        self.addCleanup(conversation.close)
+        conversation.add_user_message("We discussed a robotics project.")
+        conversation.add_assistant_message("We discussed sensors.")
+        conversation.save_summary("Archived robotics discussion.")
+        self.memory.remember("name", "Rohan")
+
+        self.memory.forget()
+
+        self.assertEqual(self.memory.db.get_facts(), [])
+        self.assertEqual(
+            [item["content"] for item in conversation.get_recent_transcript()],
+            ["We discussed a robotics project.", "We discussed sensors."]
+        )
+        self.assertEqual(conversation.get_summary(), "Archived robotics discussion.")
+
     def test_saved_conversation_summary_is_included_in_memory_context(self):
         context = self.memory.adaptive_context(
             "What did we decide?",
