@@ -136,31 +136,29 @@ class MemoryManager:
     
     
     
-        # Do not store the same fact twice.
-        known = {
-            (str(key).lower(), str(value).lower())
-            for key, value in self.db.get_facts()
-        }
-
+        # Multi-value facts are deduplicated across their history. For
+        # single-value facts, compare against the current value only: a user
+        # must be able to change a fact back to something they said earlier.
+        known = self._facts_by_key()
         stored = False
 
         for memory in memories:
+            key = str(memory["key"]).strip().lower()
+            value = str(memory["value"]).strip()
+            current_values = known.get(key, [])
 
-            pair = (
-                str(memory["key"]).lower(),
-                str(memory["value"]).lower()
-            )
-
-            if pair in known:
+            if key in MULTI_VALUE_KEYS:
+                if any(_norm(existing) == _norm(value) for existing in current_values):
+                    continue
+            elif current_values and _norm(current_values[-1]) == _norm(value):
                 continue
 
-            self.db.insert(
-                memory["key"],
-                memory["value"],
-                "fact"
-            )
+            self.db.insert(key, value, "fact")
 
-            known.add(pair)
+            if key in MULTI_VALUE_KEYS:
+                known.setdefault(key, []).append(value)
+            else:
+                known[key] = [value]
 
             stored = True
 
