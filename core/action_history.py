@@ -9,6 +9,8 @@ the screen, so it cannot prove a window really appeared.
 
 import re
 import sqlite3
+
+from utils.sqlite import connect_database
 from datetime import datetime
 
 from utils.logger import setup_logger
@@ -71,11 +73,7 @@ class ActionHistory:
 
         self.keep = keep
 
-        self.connection = sqlite3.connect(
-            database_path,
-            check_same_thread=False,
-            timeout=5
-        )
+        self.connection = connect_database(database_path)
 
         self.connection.row_factory = sqlite3.Row
 
