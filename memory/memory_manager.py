@@ -308,38 +308,18 @@ class MemoryManager:
         ):
 
 
-            chats = self.db.get_conversations()
-
-
+            chats = self._recent_conversation_messages(limit=10)
 
             if not chats:
-
-
-                return (
-
-                    "I don't have any previous conversations stored yet."
-
-                )
-
-
+                return "I don't have any previous conversations stored yet."
 
             response = (
-
                 "From our previous conversations, "
-
                 "I remember that:\n\n"
-
             )
 
-
-            for key, value in reversed(chats):
-
-
-                response += (
-
-                    f"{key}: {value}\n\n"
-
-                )
+            for role, content in chats:
+                response += f"{role}: {content}\n\n"
 
 
             return response.strip()
@@ -351,6 +331,29 @@ class MemoryManager:
 
 
 
+
+
+    def _recent_conversation_messages(self, limit=10):
+        """Read episodic messages from the authoritative conversation table."""
+        try:
+            rows = self.db.connection.execute(
+                """
+                SELECT role, content
+                FROM conversation_messages
+                WHERE conversation_id = 'default'
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (max(1, int(limit)),)
+            ).fetchall()
+        except sqlite3.Error:
+            # ConversationManager may not have created the table yet.
+            return []
+
+        return [
+            (str(row["role"]), str(row["content"]))
+            for row in reversed(rows)
+        ]
 
 
     # =====================================
@@ -385,9 +388,7 @@ class MemoryManager:
         facts = self.db.get_facts()
 
 
-        conversations = self.db.get_conversations(
-            6
-        )
+        conversations = self._recent_conversation_messages(limit=6)
 
 
         context = {
