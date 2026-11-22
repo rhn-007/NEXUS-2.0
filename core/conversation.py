@@ -53,6 +53,16 @@ class ConversationManager:
                     updated_at TEXT NOT NULL
                 )
             """)
+            columns = {
+                row["name"] for row in self.connection.execute(
+                    "PRAGMA table_info(conversation_summaries)"
+                ).fetchall()
+            }
+            if "last_message_id" not in columns:
+                self.connection.execute(
+                    "ALTER TABLE conversation_summaries "
+                    "ADD COLUMN last_message_id INTEGER NOT NULL DEFAULT 0"
+                )
 
     @staticmethod
     def _now():
@@ -87,6 +97,15 @@ class ConversationManager:
         # Bound RAM use while preserving the complete transcript in SQLite.
         self.history = self.history[-self.context_limit:]
 
+        # Compact older turns into a rolling, extractive digest. This avoids
+        # another Ollama call (and its latency) while keeping long sessions
+        # retrievable after their messages leave the recent context window.
+        if role == "assistant":
+            try:
+                self._refresh_summary_if_needed()
+            except sqlite3.Error as error:
+                logger.warning("Could not refresh conversation summary: %s", error)
+
     def add_user_message(self, message):
         self._add_message("user", message)
 
@@ -104,15 +123,94 @@ class ConversationManager:
         """, (self.conversation_id, max(1, int(limit)))).fetchall()
         return [dict(row) for row in reversed(rows)]
 
-    def save_summary(self, summary):
+    def save_summary(self, summary, last_message_id=None):
         with self.connection:
             self.connection.execute("""
                 INSERT INTO conversation_summaries
-                (conversation_id,summary,updated_at)
-                VALUES (?,?,?)
+                (conversation_id,summary,updated_at,last_message_id)
+                VALUES (?,?,?,?)
                 ON CONFLICT(conversation_id) DO UPDATE SET
-                    summary=excluded.summary, updated_at=excluded.updated_at
-            """, (self.conversation_id, summary, self._now()))
+                    summary=excluded.summary,
+                    updated_at=excluded.updated_at,
+                    last_message_id=excluded.last_message_id
+            """, (
+                self.conversation_id,
+                str(summary or "").strip(),
+                self._now(),
+                max(0, int(last_message_id or 0))
+            ))
+
+    @staticmethod
+    def _summary_excerpt(text, limit=180):
+        """Create a readable, bounded excerpt without changing stored messages."""
+        value = " ".join(str(text or "").split())
+        if len(value) <= limit:
+            return value
+        shortened = value[:limit].rsplit(" ", 1)[0].rstrip()
+        return shortened + "…"
+
+    def _refresh_summary_if_needed(self, interval=12):
+        state = self.connection.execute("""
+            SELECT summary, last_message_id
+            FROM conversation_summaries
+            WHERE conversation_id=?
+        """, (self.conversation_id,)).fetchone()
+        previous_summary = state["summary"] if state else ""
+        last_summarized_id = int(state["last_message_id"] or 0) if state else 0
+
+        latest = self.connection.execute("""
+            SELECT id FROM conversation_messages
+            WHERE conversation_id=?
+            ORDER BY id DESC LIMIT 1
+        """, (self.conversation_id,)).fetchone()
+        if not latest:
+            return False
+        latest_id = int(latest["id"])
+
+        # Leave the active context window out of the archive digest.
+        cutoff = self.connection.execute("""
+            SELECT id FROM conversation_messages
+            WHERE conversation_id=?
+            ORDER BY id DESC LIMIT 1 OFFSET ?
+        """, (self.conversation_id, self.context_limit - 1)).fetchone()
+        if not cutoff:
+            return False
+        cutoff_id = int(cutoff["id"])
+
+        pending_count = self.connection.execute("""
+            SELECT COUNT(*) FROM conversation_messages
+            WHERE conversation_id=? AND id>? AND id<?
+        """, (self.conversation_id, last_summarized_id, cutoff_id)).fetchone()[0]
+        if pending_count < interval:
+            return False
+
+        rows = self.connection.execute("""
+            SELECT id, role, content FROM conversation_messages
+            WHERE conversation_id=? AND id>? AND id<?
+            ORDER BY id ASC
+        """, (self.conversation_id, last_summarized_id, cutoff_id)).fetchall()
+
+        excerpts = []
+        pending_user = None
+        for row in rows:
+            if row["role"] == "user":
+                pending_user = row["content"]
+            elif row["role"] == "assistant":
+                if pending_user:
+                    excerpts.append(
+                        "User: " + self._summary_excerpt(pending_user)
+                        + " | NEXUS: " + self._summary_excerpt(row["content"])
+                    )
+                pending_user = None
+
+        if not excerpts:
+            return False
+
+        combined = "\n".join(part for part in (previous_summary, *excerpts) if part)
+        # Keep the rolling digest bounded; recent archived exchanges win.
+        combined = combined[-2400:]
+        self.save_summary(combined, last_message_id=max(int(row["id"]) for row in rows))
+        return True
 
     def get_summary(self):
         row = self.connection.execute("""
