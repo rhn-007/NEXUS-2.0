@@ -126,6 +126,13 @@ class AdaptiveMemoryTests(unittest.TestCase):
         self.assertIn("Previous conversation summary", context)
         self.assertIn("NEXUS memory redesign", context)
 
+    def test_compatibility_context_uses_latest_single_value_fact(self):
+        self.memory.remember("sport", "badminton")
+        self.memory.remember("sport", "tennis")
+        context = self.memory.get_context()
+        self.assertIn(("sport", "tennis", "fact"), context["facts"])
+        self.assertNotIn(("sport", "badminton", "fact"), context["facts"])
+
     def test_long_summary_keeps_its_most_recent_information(self):
         summary = ("Old archived detail. " * 100) + "LATEST IMPORTANT DECISION"
         context = self.memory.adaptive_context(
