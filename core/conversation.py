@@ -6,10 +6,11 @@ Only a bounded recent window is sent to Ollama; the full transcript remains
 available in SQLite. The system prompt is owned by OllamaClient so it is
 not duplicated in the context list.
 """
+import sqlite3
 from datetime import datetime, timezone
+from pathlib import Path
 
 from utils.sqlite import connect_database
-from pathlib import Path
 
 from utils.logger import setup_logger
 
