@@ -126,6 +126,16 @@ class AdaptiveMemoryTests(unittest.TestCase):
         self.assertIn("Previous conversation summary", context)
         self.assertIn("NEXUS memory redesign", context)
 
+    def test_compatibility_context_includes_persisted_conversation_summary(self):
+        from core.conversation import ConversationManager
+        conversation = ConversationManager()
+        self.addCleanup(conversation.close)
+        conversation.save_summary("Archived memory integration test.")
+        self.assertEqual(
+            self.memory.get_context()["conversation_summary"],
+            "Archived memory integration test."
+        )
+
     def test_compatibility_context_uses_latest_single_value_fact(self):
         self.memory.remember("sport", "badminton")
         self.memory.remember("sport", "tennis")
