@@ -357,37 +357,15 @@ class MemoryManager:
     # SAVE CONVERSATION
     # =====================================
 
-    def save_conversation(
+    def save_conversation(self, user, assistant):
+        """Compatibility shim; ConversationManager is the sole transcript owner.
 
-        self,
-
-        user,
-
-        assistant
-
-    ):
-
-
-        self.db.insert(
-
-            "user",
-
-            user,
-
-            "conversation"
-
-        )
-
-
-        self.db.insert(
-
-            "assistant",
-
-            assistant,
-
-            "conversation"
-
-        )
+        The assistant already persists both messages through ConversationManager
+        before this legacy method is called. Writing them to the old memories
+        table would create a second, divergent copy of every conversation.
+        Existing legacy rows remain untouched and readable for compatibility.
+        """
+        return False
 
 
 
@@ -589,8 +567,8 @@ class MemoryManager:
             parts.append(f"{key.replace('_', ' ')}: {shown}")
 
         note = (
-            "What Rohan has told you about himself. Use it when it helps. "
-            "Follow his preferences. Do not recite it unless he asks: "
+            "What the user has told you about themselves. Use it when relevant. "
+            "Follow their stated preferences. Do not recite it unless asked: "
         )
 
         for part in parts:
@@ -812,12 +790,6 @@ class MemoryManager:
                     label = ("favourite " if favourite else "") + thing
 
                     return f"Your {label} is {shown}."
-
-            # A missing personal fact must not be sent to the language model
-            # to guess. The assistant's configured identity also establishes
-            # the user's name as Rohan if an older invalid row was ignored.
-            if thing == "name":
-                return "Your name is Rohan."
 
             if favourite:
                 return f"You haven't told me your favourite {thing} yet."
