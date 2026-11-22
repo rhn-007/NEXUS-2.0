@@ -218,6 +218,24 @@ class Answers(WithMemory):
             with self.subTest(question=question):
                 self.assertEqual(self.ask(question), expected)
 
+    def test_additional_natural_question_forms_recall_saved_facts(self):
+        cases = {
+            "Which programming language do I use?":
+                "Your favourite programming language is python.",
+            "Which language do I code in?":
+                "Your favourite programming language is python.",
+            "What sport am I into?":
+                "Your favourite sport is badminton.",
+            "What's my current project called?":
+                "Your AI project name is nexus.",
+        }
+        for question, expected in cases.items():
+            with self.subTest(question=question):
+                self.assertEqual(self.ask(question), expected)
+
+    def test_unknown_question_alias_does_not_guess_a_fact(self):
+        self.assertIsNone(self.ask("Which instrument do I play?"))
+
     def test_combined_personal_fact_question_is_answered_without_guessing(self):
         self.assertEqual(
             self.ask("what are my favourite sport, favourite programming language, and AI project name"),
