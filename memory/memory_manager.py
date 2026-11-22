@@ -392,7 +392,7 @@ class MemoryManager:
     ):
 
 
-        facts = self.db.get_facts()
+        facts = self.get_memory_context()
 
 
         conversations = self._recent_conversation_messages(limit=6)
