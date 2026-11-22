@@ -105,6 +105,7 @@ class MemoryDatabase:
             SELECT key, value
             FROM memories
             WHERE type='fact'
+            ORDER BY id ASC
         """)
         return cursor.fetchall()
 
