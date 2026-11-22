@@ -264,30 +264,55 @@ class MemoryDetector:
                 )
 
         # ==========================
-        # PREFERENCES
-        # ==========================
+        # STRUCTURED PREFERENCES
+        # "I prefer Java as my programming language" is a single-value fact,
+        # not a general communication preference.
+        structured_preferences = list(re.finditer(
+            r"\bi prefer\s+([^.,;!]+?)"
+            r"(?:\s+over\s+[^.,;!]+?)?\s+as my\s+"
+            r"([a-z ]+?)(?=[.!?]|$)",
+            text
+        ))
+
+        for match in structured_preferences:
+            value = match.group(1).strip()
+            key = match.group(2).strip().replace(" ", "_")
+            if value and key:
+                memories = [
+                    memory for memory in memories
+                    if memory["key"] != key
+                ]
+                memories.append({"key": key, "value": value})
+
+        # GENERAL PREFERENCES
+        # Remove structured preference clauses before extracting general ones.
+        preference_text = text
+        for match in reversed(structured_preferences):
+            preference_text = (
+                preference_text[:match.start()]
+                + " "
+                + preference_text[match.end():]
+            )
 
         preferences = re.findall(
             r"\bi prefer\s+([^.,;!]+)",
-            text
+            preference_text
         )
 
         preferences += re.findall(
             r"\bi want\s+((?:shorter|short|brief|concise|detailed|longer|"
             r"simple|simpler)\s+(?:answers|explanations|replies|responses))",
-            text
+            preference_text
         )
 
         preferences += re.findall(
             r"\bkeep\s+(?:your |the )?((?:answers|explanations|replies|"
             r"responses)\s+(?:short|brief|concise|simple))",
-            text
+            preference_text
         )
 
         for item in preferences:
-
             item = item.strip()[:80]
-
             if item:
                 memories.append(
                     {"key": "preference", "value": item}
