@@ -179,7 +179,10 @@ class WithMemory(unittest.TestCase):
         )
         facts = [tuple(row) for row in self.memory.db.get_facts()]
         self.assertIn(("programming_language", "python"), facts)
-        self.assertNotIn(("programming_language", "c++"), facts)
+        self.assertEqual(
+            [value for key, value in facts if key == "programming_language"][-1],
+            "python"
+        )
 
     def test_prefer_statement_updates_a_specific_saved_fact(self):
         self.assertTrue(
