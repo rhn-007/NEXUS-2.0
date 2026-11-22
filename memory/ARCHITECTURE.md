@@ -16,7 +16,9 @@ small context packet and supplies it with each generation request.
 
 These layers reuse the project's existing stores and services. The redesign
 does not copy the conversation transcript or research database into a second
-memory database. \n\nThe authoritative transcript is `conversation_messages`, owned by
+memory database. 
+
+The authoritative transcript is `conversation_messages`, owned by
 `core/conversation.py`. The legacy `memories` table remains available for
 existing historical rows, but new assistant exchanges are not copied into it.
 `MemoryManager.save_conversation()` is retained as a compatibility shim and
