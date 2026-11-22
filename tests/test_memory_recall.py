@@ -319,9 +319,8 @@ class Answers(WithMemory):
         with tempfile.TemporaryDirectory() as other:
             os.chdir(other)
             empty = MemoryManager()
-            self.assertEqual(
-                empty.answer_fact_question("what is my name"),
-                "Your name is Rohan."
+            self.assertIsNone(
+                empty.answer_fact_question("what is my name")
             )
             self.assertIsNone(empty.facts_context())
             empty.db.close()
@@ -340,9 +339,15 @@ class PromptNote(WithMemory):
             self.memory.process_memory(f"i like hobby number {i}")
         self.assertLessEqual(len(self.memory.facts_context()), 700)
 
-    def test_conversation_rows_are_not_in_the_note(self):
+    def test_legacy_save_does_not_duplicate_authoritative_transcript(self):
         self.memory.save_conversation("secret question", "secret answer")
+        self.assertEqual(self.memory.db.get_conversations(), [])
         self.assertNotIn("secret", self.memory.facts_context())
+
+    def test_missing_identity_is_never_invented(self):
+        self.memory.forget()
+        self.assertIsNone(self.memory.answer_fact_question("what is my name"))
+        self.assertIsNone(self.memory.facts_context())
 
 
 class AssistantWiring(unittest.TestCase):
