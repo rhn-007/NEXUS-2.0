@@ -277,6 +277,13 @@ class Answers(WithMemory):
         self.memory.process_memory("my name is sam")
         self.assertEqual(self.ask("what is my name"), "Your name is Sam.")
 
+    def test_single_value_fact_can_be_changed_back_to_an_older_value(self):
+        self.memory.process_memory("my name is sam")
+        self.assertEqual(self.ask("what is my name"), "Your name is Sam.")
+
+        self.memory.process_memory("my name is rohan")
+        self.assertEqual(self.ask("what is my name"), "Your name is Rohan.")
+
     def test_unknown_personal_favourites_are_not_guessed(self):
         self.assertEqual(
             self.ask("what is my favourite anime"),
