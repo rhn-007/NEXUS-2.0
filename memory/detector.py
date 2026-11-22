@@ -154,11 +154,44 @@ class MemoryDetector:
                         "_"
                     ),
 
-                    "value": value.strip()
+                    "value": re.sub(
+                        r"\\s+instead$",
+                        "",
+                        value.strip()
+                    ).strip()
 
                 }
 
             )
+
+        # Understand explicit corrections to a previously stated favourite.
+        # The replacement value is stored under the original field's key so
+        # single-value memory naturally supersedes the older fact.
+        correction_patterns = (
+            (
+                r"\\bi (?:no longer|don't|do not) prefer\\s+"
+                r"[^.,;!]+?\\s+as my favou?rite\\s+([a-z ]+?)"
+                r"\\s*[.!?].*?\\bmy (?:new )?favou?rite is\\s+"
+                r"([^.,;!]+)"
+            ),
+            (
+                r"\\bi(?:'ve| have) changed my favou?rite\\s+"
+                r"([a-z ]+?)\\s+from\\s+[^.,;!]+?\\s+to\\s+"
+                r"([^.,;!]+)"
+            ),
+        )
+
+        for pattern in correction_patterns:
+            correction = re.search(pattern, text)
+            if correction:
+                key = correction.group(1).strip().replace(" ", "_")
+                value = correction.group(2).strip()
+                memories = [
+                    memory for memory in memories
+                    if memory["key"] != key
+                ]
+                memories.append({"key": key, "value": value})
+                break
 
 
 
