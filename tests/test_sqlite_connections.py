@@ -16,30 +16,25 @@ from research.store import ResearchStore
 class SQLiteConnectionTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_dir.cleanup)
         self.database_path = os.path.join(self.temp_dir.name, "shared.db")
 
         # These are the seven independent connections NEXUS opens against
         # its shared database (MemoryDatabase is used by memory and knowledge).
         self.memory = MemoryDatabase(self.database_path)
+        self.addCleanup(self.memory.close)
         self.knowledge = KnowledgeEngine(self.database_path)
+        self.addCleanup(self.knowledge.close)
         self.conversation = ConversationManager(self.database_path)
+        self.addCleanup(self.conversation.close)
         self.observer = PerformanceObserver(self.database_path)
+        self.addCleanup(self.observer.close)
         self.language = PersonalLanguageLearner(self.database_path)
+        self.addCleanup(self.language.close)
         self.actions = ActionHistory(self.database_path)
+        self.addCleanup(self.actions.close)
         self.research = ResearchStore(self.database_path)
-
-    def tearDown(self):
-        for component in (
-            self.research,
-            self.actions,
-            self.language,
-            self.observer,
-            self.conversation,
-            self.knowledge,
-            self.memory,
-        ):
-            component.close()
-        self.temp_dir.cleanup()
+        self.addCleanup(self.research.close)
 
     def test_every_component_uses_wal_and_a_30_second_busy_timeout(self):
         connections = (
