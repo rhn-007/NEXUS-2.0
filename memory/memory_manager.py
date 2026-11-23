@@ -12,7 +12,7 @@ from memory.semantic_processor import SemanticMemoryProcessor
 MULTI_VALUE_KEYS = {"preference", "interest", "coding"}
 
 _FILLERS = re.compile(
-    r"^(?:(?:hey|ok|okay|so|and|nexus|please|"
+    r"^(?:(?:hey|ok|okay|so|and|nexus|please|tell me|"
     r"(?:can you|could you|can u)\s+(?:please\s+)?tell me|"
     r"can you|could you|can u)[,\s]+)+"
 )
