@@ -247,6 +247,52 @@ class SemanticMemoryProcessor:
 
         return results
 
+    def summarize_conversation(self, messages):
+        """Summarize a recent exchange as its main topic in one or two sentences.
+
+        This is called only for explicit conversation-recall requests, so normal
+        conversation does not incur an additional model request.
+        """
+        if self.llm is None or not messages:
+            return None
+
+        transcript = []
+        for role, content in messages[-8:]:
+            role = str(role or "").strip().lower()
+            content = " ".join(str(content or "").split())
+            if role in {"user", "assistant"} and content:
+                transcript.append(f"{role}: {content[:1200]}")
+
+        if not transcript:
+            return None
+
+        instruction = (
+            "You are NEXUS's conversation-recall summarizer. Identify the main "
+            "subject the user and assistant were discussing. Reply naturally as "
+            "a direct answer to 'What were we talking about?'. Give one or two "
+            "short sentences describing the topic and the important point. "
+            "Synthesize the exchange; do not list messages, quote the transcript, "
+            "use labels such as 'You asked' or 'I replied', or merely repeat the "
+            "last user message. Use only information in the supplied transcript. "
+            "Do not add suggestions or ask a follow-up question."
+        )
+        prompt = (
+            "RECENT CONVERSATION (oldest first):\n"
+            + "\n".join(transcript)
+            + "\n\nSummarize the main topic naturally."
+        )
+        response = self._ask(prompt, instruction)
+        if not isinstance(response, str):
+            return None
+
+        summary = " ".join(response.strip().split())
+        summary = re.sub(r"^(?:NEXUS:\s*)", "", summary, flags=re.IGNORECASE)
+        if not summary or len(summary) > 500:
+            return None
+        if re.search(r"\b(?:you asked|i replied|user:|assistant:)\b", summary, re.IGNORECASE):
+            return None
+        return summary
+
     def select_relevant(self, query, memories):
         """Select existing memory records by meaning, returning only source rows."""
         if (
