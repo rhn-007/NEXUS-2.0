@@ -234,6 +234,31 @@ class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
             [tuple(row) for row in self.memory.db.get_facts()]
         )
 
+    def test_semantic_correction_removes_old_value_even_if_new_value_exists(self):
+        from memory.memory_manager import MemoryManager
+
+        llm = FakeLLM([
+            '{"memories":[{"key":"preference",'
+            '"value":"detailed explanations",'
+            '"replaces":"concise explanations","confidence":0.98}]}'
+        ])
+        self.memory = MemoryManager()
+        self.memory.remember("preference", "concise explanations")
+        self.memory.remember("preference", "detailed explanations")
+        self.memory.set_llm(llm)
+
+        self.assertTrue(
+            self.memory.process_memory(
+                "My preferred explanation style has changed."
+            )
+        )
+        preferences = [
+            value for key, value in self.memory.db.get_facts()
+            if key == "preference"
+        ]
+        self.assertNotIn("concise explanations", preferences)
+        self.assertEqual(preferences.count("detailed explanations"), 1)
+
     def test_manager_uses_semantic_retrieval_for_a_paraphrased_memory_query(self):
         from memory.memory_manager import MemoryManager
 
