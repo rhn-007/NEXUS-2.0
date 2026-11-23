@@ -108,6 +108,25 @@ class AtomicMemoryReplacement(unittest.TestCase):
         self.db.close()
         self.dir.cleanup()
 
+    def test_replacement_does_not_duplicate_an_already_existing_new_value(self):
+        self.db.insert("preference", "concise explanations", "fact")
+        self.db.insert("preference", "detailed explanations", "fact")
+
+        self.assertTrue(
+            self.db.replace_memory(
+                "preference",
+                "concise explanations",
+                "detailed explanations"
+            )
+        )
+
+        facts = [tuple(row) for row in self.db.get_facts()]
+        self.assertNotIn(("preference", "concise explanations"), facts)
+        self.assertEqual(
+            facts.count(("preference", "detailed explanations")),
+            1
+        )
+
     def test_replacement_changes_only_the_exact_memory_value(self):
         self.db.insert("preference", "concise explanations", "fact")
         self.db.insert("preference", "short answers", "fact")
