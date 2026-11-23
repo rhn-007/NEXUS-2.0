@@ -72,6 +72,7 @@ class ContextualReferenceFollowUps(unittest.TestCase):
     def test_intent_runner_routes_resolved_subject(self):
         runner, _ = build()
         from tools.router import ToolResult
+        runner.history = None
         runner.router.execute = MagicMock(
             return_value=ToolResult(True, "Searching for The Weeknd.")
         )
@@ -82,7 +83,7 @@ class ContextualReferenceFollowUps(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertEqual(
             runner.router.execute.call_args.args[0],
-            "search The Weeknd on Spotify"
+            "spotify search The Weeknd"
         )
 
 
