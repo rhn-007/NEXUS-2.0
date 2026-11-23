@@ -149,6 +149,43 @@ class MediaAndMeetingFollowUps(unittest.TestCase):
         self.assertTrue(runner.resolve("again").success)
         self.assertEqual(len(sender.pressed) - before, 3)
 
+    def test_relative_more_repeats_the_last_volume_direction(self):
+        runner, sender = build()
+
+        runner.resolve("increase the volume")
+        runner.resolve("a bit more")
+        runner.resolve("decrease the volume")
+        before = len(sender.pressed)
+
+        result = runner.resolve("a bit more")
+
+        self.assertTrue(result.success)
+        self.assertEqual(sender.pressed[before:], [(0xAE, 5)])
+
+    def test_relative_more_tracks_each_direction_change(self):
+        runner, sender = build()
+
+        runner.resolve("decrease the volume")
+        runner.resolve("a bit more")
+        runner.resolve("increase the volume")
+        before = len(sender.pressed)
+
+        result = runner.resolve("a bit more")
+
+        self.assertTrue(result.success)
+        self.assertEqual(sender.pressed[before:], [(0xAF, 5)])
+
+    def test_volume_followups_accept_natural_more_phrases(self):
+        runner, sender = build()
+        runner.resolve("turn the volume up")
+        before = len(sender.pressed)
+
+        for text in ("a bit more", "a little more", "a little bit more"):
+            with self.subTest(text=text):
+                self.assertTrue(runner.resolve(text).success, text)
+
+        self.assertEqual(len(sender.pressed) - before, 3)
+
     def test_next_one_after_a_media_action(self):
         runner, _ = build()
         runner.resolve("turn the volume up")
