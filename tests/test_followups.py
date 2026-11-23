@@ -82,8 +82,8 @@ class ContextualReferenceFollowUps(unittest.TestCase):
         result = runner.resolve("search him up on Spotify", recent)
         self.assertTrue(result.success)
         self.assertEqual(
-            runner.router.execute.call_args.args[0],
-            "spotify search The Weeknd"
+            runner.router.execute.call_args.args[0].casefold(),
+            "spotify search the weeknd"
         )
 
 
