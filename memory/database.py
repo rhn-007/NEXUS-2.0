@@ -370,16 +370,31 @@ class MemoryDatabase:
             )
             cursor.execute(
                 """
-                INSERT INTO memories (key, value, type, created_at)
-                VALUES (?, ?, ?, ?)
+                SELECT 1 FROM memories
+                WHERE type = ?
+                  AND LOWER(key) = LOWER(?)
+                  AND LOWER(value) = LOWER(?)
+                LIMIT 1
                 """,
                 (
-                    str(key).strip(),
-                    str(new_value).strip(),
                     memory_type,
-                    datetime.now().isoformat()
+                    str(key).strip(),
+                    str(new_value).strip()
                 )
             )
+            if cursor.fetchone() is None:
+                cursor.execute(
+                    """
+                    INSERT INTO memories (key, value, type, created_at)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        str(key).strip(),
+                        str(new_value).strip(),
+                        memory_type,
+                        datetime.now().isoformat()
+                    )
+                )
             self.connection.commit()
             return True
         except Exception:
