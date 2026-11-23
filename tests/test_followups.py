@@ -40,6 +40,52 @@ def build(clock=None, **values):
 FULL_DISK = dict(disks=[("C", 200 * GB, 4 * GB), ("D", 276 * GB, 169 * GB)])
 
 
+class ContextualReferenceFollowUps(unittest.TestCase):
+    def test_resolves_him_to_recently_named_subject(self):
+        followups = FollowUps()
+        recent = [
+            {"role": "assistant", "content": "Your favourite singer is The Weeknd."}
+        ]
+        self.assertEqual(
+            followups.resolve_reference("search him up on Spotify", recent),
+            "search The Weeknd up on Spotify"
+        )
+
+    def test_resolves_possessive_pronouns(self):
+        followups = FollowUps()
+        recent = [
+            {"role": "assistant", "content": "Your favourite music artist is The Weeknd."}
+        ]
+        self.assertEqual(
+            followups.resolve_reference("find his most popular songs", recent),
+            "find The Weeknd's most popular songs"
+        )
+
+    def test_leaves_unrelated_or_ambiguous_messages_unchanged(self):
+        followups = FollowUps()
+        recent = [
+            {"role": "assistant", "content": "The battery is fully charged."}
+        ]
+        self.assertEqual(followups.resolve_reference("is it okay?", recent), "is it okay?")
+        self.assertEqual(followups.resolve_reference("search him up", []), "search him up")
+
+    def test_intent_runner_routes_resolved_subject(self):
+        runner, _ = build()
+        from tools.router import ToolResult
+        runner.router.execute = MagicMock(
+            return_value=ToolResult(True, "Searching for The Weeknd.")
+        )
+        recent = [
+            {"role": "assistant", "content": "Your favourite singer is The Weeknd."}
+        ]
+        result = runner.resolve("search him up on Spotify", recent)
+        self.assertTrue(result.success)
+        self.assertEqual(
+            runner.router.execute.call_args.args[0],
+            "search The Weeknd up on Spotify"
+        )
+
+
 class AnythingElse(unittest.TestCase):
     def test_walks_through_new_information_then_ends(self):
         runner, _ = build(**FULL_DISK)
