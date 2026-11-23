@@ -271,7 +271,8 @@ class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
             "You said you understand concepts much better by building "
             "practical projects rather than just reading about them."
         )
-        self.assertEqual(len(llm.calls), 1)
+        # The deterministic detector handles this known preference without Ollama.
+        self.assertEqual(len(llm.calls), 0)
 
     def test_manager_saves_a_fact_extracted_from_natural_wording(self):
         from memory.memory_manager import MemoryManager
