@@ -137,12 +137,14 @@ class ConversationContextRouting(unittest.TestCase):
             "go to https://example.com/line"
         )
 
-    def test_contextual_action_without_recent_context_does_not_call_planner(self):
+    def test_contextual_action_without_recent_context_uses_normal_fallback(self):
         runner, _ = build()
 
         runner.resolve("open the second one")
 
-        runner.planner.plan.assert_not_called()
+        runner.planner.plan.assert_called_once_with(
+            "open the second one", None
+        )
 
     def test_explicit_new_request_keeps_existing_fast_path(self):
         runner, _ = build()
