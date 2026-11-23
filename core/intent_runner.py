@@ -383,12 +383,25 @@ class IntentRunner:
 
     @classmethod
     def _resolve_contextual_search(cls, text, recent):
-        """Resolve a person/object pronoun in a search using recent context."""
+        """Resolve short pronoun-only search requests from recent context."""
 
-        lowered = str(text or "").lower()
-        if not re.search(r"\b(?:search|look\s+up|find|google)\b", lowered):
-            return None
-        if not re.search(r"\b(?:him|her|them|it|his|hers|their|its)\b", lowered):
+        lowered = str(text or "").lower().strip(" .!?")
+        lowered = re.sub(
+            r"^(?:(?:ok|okay|now|so|please|can you|could you|can u)\s+)+",
+            "",
+            lowered
+        )
+
+        # Keep richer requests such as "find his most popular songs" for the
+        # planner. This shortcut is only for requests whose search target is
+        # the pronoun itself, such as "search him up on Spotify".
+        short_search = re.fullmatch(
+            r"(?:(?:search|find)(?:\s+for)?\s+(?:him|her|them|it)(?:\s+up)?|"
+            r"look\s+(?:him|her|them|it)\s+up)"
+            r"(?:\s+on\s+(?:spotify|(?:the\s+)?browser|(?:the\s+)?web|google))?",
+            lowered
+        )
+        if not short_search:
             return None
 
         subject = cls._contextual_search_subject(recent)
@@ -399,6 +412,7 @@ class IntentRunner:
         if destination == "spotify":
             return f"search for {subject} on Spotify"
         return f"search for {subject}"
+
 
     @staticmethod
     def _needs_conversation_context(text):
