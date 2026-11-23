@@ -156,6 +156,8 @@ class MediaAndMeetingFollowUps(unittest.TestCase):
 
         for text in (
             "a bit more",
+            "a little more",
+            "a little bit more",
             "increase it a bit more",
             "increase the volume a bit more",
             "turn the volume up a bit more",
