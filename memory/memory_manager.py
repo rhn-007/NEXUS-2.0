@@ -1,4 +1,5 @@
 from memory.database import MemoryDatabase
+import math
 import re
 import sqlite3
 
@@ -890,8 +891,8 @@ class MemoryManager:
     # =====================================
 
     @staticmethod
-    def _context_tokens(text):
-        """Return useful lexical terms without common conversational filler."""
+    def _lexical_tokens(text):
+        """Tokenize a query or memory for lightweight BM25 retrieval."""
         ignored = {
             "about", "after", "again", "also", "and", "are", "because",
             "been", "being", "can", "could", "did", "does", "doing",
@@ -902,10 +903,67 @@ class MemoryManager:
             "this", "those", "through", "want", "what", "when", "where",
             "which", "who", "why", "will", "with", "would", "you", "your"
         }
-        return {
+        return [
             token for token in re.findall(r"[a-z0-9_]+", str(text or "").lower())
             if len(token) > 2 and token not in ignored
-        }
+        ]
+
+    @classmethod
+    def _context_tokens(cls, text):
+        """Return unique useful terms for episodic matching."""
+        return set(cls._lexical_tokens(text))
+
+    @classmethod
+    def _bm25_rank(cls, query, memories, k1=1.5, b=0.75):
+        """Rank existing personal memories with a small dependency-free BM25."""
+        query_terms = set(cls._lexical_tokens(query))
+        documents = []
+        for item in memories or []:
+            key = str(item.get("key") or "").strip()
+            value = str(item.get("value") or "").strip()
+            if key and value:
+                documents.append((key, value, cls._lexical_tokens(key + " " + value)))
+
+        if not query_terms or not documents:
+            return []
+
+        document_frequency = {}
+        for _key, _value, tokens in documents:
+            for token in set(tokens):
+                document_frequency[token] = document_frequency.get(token, 0) + 1
+
+        total_documents = len(documents)
+        average_length = sum(len(tokens) for _key, _value, tokens in documents) / total_documents
+        average_length = max(1.0, average_length)
+        ranked = []
+
+        for key, value, tokens in documents:
+            length = len(tokens)
+            frequencies = {}
+            for token in tokens:
+                frequencies[token] = frequencies.get(token, 0) + 1
+
+            score = 0.0
+            for term in query_terms:
+                frequency = frequencies.get(term, 0)
+                if not frequency:
+                    continue
+                df = document_frequency.get(term, 0)
+                inverse_frequency = math.log(
+                    1.0 + (total_documents - df + 0.5) / (df + 0.5)
+                )
+                denominator = frequency + k1 * (
+                    1.0 - b + b * length / average_length
+                )
+                score += inverse_frequency * (
+                    frequency * (k1 + 1.0) / denominator
+                )
+
+            if score > 0:
+                ranked.append((score, key, value))
+
+        ranked.sort(key=lambda item: (-item[0], item[1], item[2].casefold()))
+        return ranked
 
     def adaptive_context(
         self,
@@ -943,20 +1001,13 @@ class MemoryManager:
 
         preferences = grouped.get("preference", [])[-4:]
 
-        scored_facts = []
-        for key, values in grouped.items():
-            if key in {"name", "project", "preference"}:
-                continue
-            key_tokens = self._context_tokens(key.replace("_", " "))
-            for value in values[-5:]:
-                value_tokens = self._context_tokens(value)
-                overlap = query_tokens.intersection(key_tokens | value_tokens)
-                if not overlap:
-                    continue
-                score = len(overlap) / max(1, min(3, len(query_tokens)))
-                scored_facts.append((score, key, value))
-
-        scored_facts.sort(key=lambda item: (-item[0], item[1]))
+        candidate_facts = [
+            {"key": key, "value": value}
+            for key, values in grouped.items()
+            if key not in {"name", "project"}
+            for value in values[-5:]
+        ]
+        scored_facts = self._bm25_rank(query, candidate_facts)
 
         # Hybrid retrieval: combine lexical ranking with semantic ranking.
         # The semantic ranker runs only for explicit personal-memory questions,
@@ -964,12 +1015,7 @@ class MemoryManager:
         # shared word (for example, "learning") from blocking a better match.
         # All candidate text comes from SQLite; the model can only return
         # validated indices into these existing records.
-        semantic_candidates = [
-            {"key": key, "value": value}
-            for key, values in grouped.items()
-            if key not in {"name", "project"}
-            for value in values[-5:]
-        ]
+        semantic_candidates = candidate_facts
         semantic_matches = self.semantic_processor.select_relevant(
             query,
             semantic_candidates
