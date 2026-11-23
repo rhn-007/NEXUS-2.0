@@ -101,6 +101,16 @@ class IntentRunner:
 
                 return follow
 
+            # Resolve straightforward subject references before the planner.
+            # The resolved request still uses the normal fast path and tools.
+            contextual_search = self._resolve_contextual_search(text, recent)
+            if contextual_search:
+                steps = self.fast.fast_steps(contextual_search)
+                if steps:
+                    path = "contextual_reference"
+                    actions = [step.action for step in steps]
+                    return self._run_steps(steps, text)
+
             # Context-dependent requests must reach the planner with the
             # recent conversation before fast parsing or generic routing.
             # Otherwise a phrase such as "open the second one" can lose
@@ -299,6 +309,96 @@ class IntentRunner:
             return qualifier
 
         return f"{qualifier} {topic}"
+
+    @staticmethod
+    def _contextual_search_subject(recent):
+        """Find the latest explicit subject in the active conversation."""
+
+        for item in reversed(recent or []):
+            if not isinstance(item, dict):
+                continue
+
+            role = item.get("role")
+            content = re.sub(r"\s+", " ", str(item.get("content") or "")).strip()
+            if not content:
+                continue
+
+            patterns = (
+                r"^Searching\s+(?:Spotify|Google)\s+for\s+(.+?)[.!?]*$",
+                r"^(?:Your|The user's)\s+.+?\s+(?:is|was)\s+(.+?)[.!?]*$",
+            )
+            if role == "assistant":
+                for pattern in patterns:
+                    match = re.match(pattern, content, re.IGNORECASE)
+                    if match:
+                        subject = match.group(1).strip().rstrip(" .!?")
+                        if subject and len(subject) <= 100:
+                            return subject
+
+            if role == "user":
+                match = re.match(
+                    r"^(.+?)\s+is my (?:favourite|favorite)\s+.+?[.!?]*$",
+                    content,
+                    re.IGNORECASE
+                )
+                if match:
+                    subject = match.group(1).strip().rstrip(" .!?")
+                    if subject and len(subject) <= 100:
+                        return subject
+
+                match = re.match(
+                    r"^my (?:favourite|favorite)\s+.+?\s+is\s+(.+?)[.!?]*$",
+                    content,
+                    re.IGNORECASE
+                )
+                if match:
+                    subject = match.group(1).strip().rstrip(" .!?")
+                    if subject and len(subject) <= 100:
+                        return subject
+
+        return None
+
+    @staticmethod
+    def _contextual_search_destination(text, recent):
+        """Use an explicitly named destination, or retain the active one."""
+
+        lowered = str(text or "").lower()
+        if re.search(r"\bspotify\b", lowered):
+            return "spotify"
+        if re.search(r"\b(?:browser|web browser|google|web|internet)\b", lowered):
+            return "web"
+
+        for item in reversed(recent or []):
+            if not isinstance(item, dict):
+                continue
+            content = str(item.get("content") or "").lower()
+            if not content:
+                continue
+            if "spotify" in content:
+                return "spotify"
+            if re.search(r"\b(?:browser|web browser|google|web|internet)\b", content):
+                return "web"
+
+        return None
+
+    @classmethod
+    def _resolve_contextual_search(cls, text, recent):
+        """Resolve a person/object pronoun in a search using recent context."""
+
+        lowered = str(text or "").lower()
+        if not re.search(r"\b(?:search|look\s+up|find|google)\b", lowered):
+            return None
+        if not re.search(r"\b(?:him|her|them|it|his|hers|their|its)\b", lowered):
+            return None
+
+        subject = cls._contextual_search_subject(recent)
+        if not subject:
+            return None
+
+        destination = cls._contextual_search_destination(text, recent)
+        if destination == "spotify":
+            return f"search for {subject} on Spotify"
+        return f"search for {subject}"
 
     @staticmethod
     def _needs_conversation_context(text):
