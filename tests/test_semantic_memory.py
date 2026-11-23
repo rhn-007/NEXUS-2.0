@@ -386,6 +386,31 @@ class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
         self.assertEqual(llm.calls, [])
 
 
+    def test_conversation_recall_builds_local_context_without_an_extra_ollama_call(self):
+        from core.conversation import ConversationManager
+        from memory.memory_manager import MemoryManager
+
+        llm = FakeLLM([])
+        self.memory = MemoryManager()
+        self.memory.set_llm(llm)
+        self.conversation = ConversationManager()
+        self.conversation.add_user_message("Find beginner robotics projects.")
+        self.conversation.add_assistant_message(
+            "I found several beginner robotics project ideas."
+        )
+        self.conversation.add_user_message("Show me beginner-friendly ones.")
+        self.conversation.add_assistant_message(
+            "Here are beginner-friendly robotics projects."
+        )
+        self.conversation.add_user_message("What were we just talking about?")
+
+        context = self.memory.answer_conversation_recall(
+            "What were we just talking about?"
+        )
+
+        self.assertIn("robotics", context.lower())
+        self.assertEqual(llm.calls, [])
+
     def test_contextual_favourite_singer_answer_is_saved_and_survives_restart(self):
         from core.conversation import ConversationManager
         from memory.memory_manager import MemoryManager
