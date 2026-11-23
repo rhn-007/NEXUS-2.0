@@ -159,16 +159,19 @@ class MemoryManager:
             # presenting contradictory current guidance, while unrelated
             # preferences and all other memory categories remain untouched.
             if replaces:
-                self.db.delete_memories(
-                    key=key,
-                    value=replaces,
+                self.db.replace_memory(
+                    key,
+                    replaces,
+                    value,
                     memory_type="fact"
                 )
-                if key in known:
-                    known[key] = [
-                        existing for existing in known[key]
-                        if _norm(existing) != _norm(replaces)
-                    ]
+                known[key] = [
+                    existing for existing in current_values
+                    if _norm(existing) != _norm(replaces)
+                ]
+                known[key].append(value)
+                stored = True
+                continue
 
             self.db.insert(key, value, "fact")
 
