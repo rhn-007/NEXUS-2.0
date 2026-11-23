@@ -93,15 +93,24 @@ Mem0, LangMem, a vector database, an embedding model, or another dependency.
 
 ### Retrieval
 
-- Existing lexical retrieval remains the fast path.
-- Only when lexical fact matching finds nothing does NEXUS consider semantic
-  ranking, and only for explicit personal-memory questions.
+- Personal-memory retrieval uses hybrid ranking: lexical relevance and
+  semantic relevance are both considered for explicit personal-memory questions.
+- The ranked lists are combined with reciprocal-rank fusion (RRF), so a weak
+  keyword overlap cannot suppress a stronger meaning-based match.
+- Semantic candidates include personal preference categories as well as
+  interests and other facts; communication preferences remain separately
+  available as response guidance.
 - The model receives a bounded list of existing facts and returns candidate
   indices. NEXUS validates those indices and inserts only the original stored
   records into context; generated memory text is never accepted.
 - Ordinary technical questions do not trigger semantic retrieval or an extra
   Ollama request.
-- Communication preferences remain prioritised and are injected as guidance.
+- Recent-conversation questions are routed directly to the persistent
+  transcript. The current recall question is excluded, and the latest prior
+  user turn plus its response are returned without asking the general model
+  to reconstruct the conversation.
+- Profile summaries suppress exact duplicate values across categories without
+  deleting or rewriting the original SQLite rows.
 
 ### Design inspiration
 
