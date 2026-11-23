@@ -258,14 +258,19 @@ class IntentRunner:
                     break
 
             if role == "user":
+                if content.casefold() == str(text or "").strip().casefold():
+                    continue
+
                 original = re.match(
-                    r"^(?:please\s+)?(?:find|search(?:\s+for)?|look\s+up|google)\s+(.+?)[.!?]*$",
+                    r"^(?:please\\s+)?(?:find|search(?:\\s+for)?|look\\s+up|google)\\s+(.+?)[.!?]*$",
                     content,
                     re.IGNORECASE
                 )
                 if original:
                     topic = original.group(1).strip()
-                    break
+                # Do not revive an older search across a newer, unrelated
+                # user request.
+                break
 
         if not topic:
             return None
