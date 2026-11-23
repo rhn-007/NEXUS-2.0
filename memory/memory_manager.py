@@ -3,6 +3,7 @@ import re
 import sqlite3
 
 from memory.detector import MemoryDetector, _looks_like_name
+from memory.semantic_processor import SemanticMemoryProcessor
 
 
 
@@ -62,11 +63,16 @@ class MemoryManager:
         self.db = MemoryDatabase()
 
         self.detector = MemoryDetector()
+        self.semantic_processor = SemanticMemoryProcessor()
 
         # A compact personal-memory snapshot is prepared once at startup.
         # SQLite remains authoritative; writes through this manager refresh it.
         self._session_facts_context = None
         self.load_session_memory()
+
+    def set_llm(self, llm):
+        """Use NEXUS's existing local model for gated semantic memory tasks."""
+        self.semantic_processor.set_llm(llm)
 
     def load_session_memory(self):
         """Refresh the in-session fact index and its compact compatibility snapshot."""
@@ -113,6 +119,19 @@ class MemoryManager:
     ):
 
         memories = self.detector.detect(text)
+
+        # Use semantic extraction only when the deterministic detector found
+        # nothing and the message looks like a personal statement or an
+        # explicit remember request. Ordinary conversation stays model-free.
+        if not memories:
+            existing_memories = [
+                {"key": key, "value": value}
+                for key, value, _memory_type in self.get_memory_context()
+            ]
+            memories = self.semantic_processor.extract(
+                text,
+                existing_memories=existing_memories
+            )
 
         # Also inspect the previous question even when this message contains
         # another detectable fact. For example, "It's badminton. I like
@@ -896,6 +915,28 @@ class MemoryManager:
                 scored_facts.append((score, key, value))
 
         scored_facts.sort(key=lambda item: (-item[0], item[1]))
+
+        # If lexical matching found nothing, let the local model rank existing
+        # personal facts by meaning for an explicit memory-recall question.
+        # Only returned candidate records are used; the model cannot invent
+        # new memory content or select an out-of-range record.
+        if not scored_facts:
+            semantic_candidates = [
+                {"key": key, "value": value}
+                for key, values in grouped.items()
+                if key not in {"name", "project", "preference"}
+                for value in values[-5:]
+            ]
+            semantic_matches = self.semantic_processor.select_relevant(
+                query,
+                semantic_candidates
+            )
+            for memory in semantic_matches:
+                selected.append(
+                    f"{memory['key'].replace('_', ' ')}: "
+                    f"{self._show(memory['key'], memory['value'])}"
+                )
+
         seen_facts = set()
         for _, key, value in scored_facts:
             marker = (key, value.casefold())
