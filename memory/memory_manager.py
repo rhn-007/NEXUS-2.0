@@ -267,7 +267,7 @@ class MemoryManager:
         if len(text) <= max_chars:
             return text
 
-        sentences = re.split(r"(?<=[.!?])\\s+", text)
+        sentences = re.split(r"(?<=[.!?])\s+", text)
         excerpt = ""
         for sentence in sentences:
             candidate = (excerpt + " " + sentence).strip()
