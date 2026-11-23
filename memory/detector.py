@@ -67,7 +67,22 @@ class MemoryDetector:
 
         memories = []
 
-
+        # Deterministically capture explicit project-based learning statements.
+        # This preference is important enough not to depend on an LLM choosing
+        # one of several possible semantic category names.
+        learning_patterns = (
+            r"\\bi understand concepts? .{0,35}better when i "
+            r"(?:build|make|create) (?:practical )?projects?\\b",
+            r"\\bi learn .{0,35}better by (?:building|making|creating) "
+            r"(?:practical )?projects?\\b",
+            r"\\bi prefer learning by (?:building|making|creating) "
+            r"(?:practical )?projects?\\b",
+        )
+        if any(re.search(pattern, text) for pattern in learning_patterns):
+            memories.append({
+                "key": "learning_preference",
+                "value": "understands concepts better by building practical projects rather than just reading about them"
+            })
 
         # ==========================
         # NAME
