@@ -197,6 +197,30 @@ class WithMemory(unittest.TestCase):
         facts = [tuple(row) for row in self.memory.db.get_facts()]
         self.assertIn(("programming_language", "java"), facts)
 
+    def test_direct_learning_preference_question_uses_saved_fact(self):
+        self.memory.remember(
+            "learning_preference",
+            "learns best through practical projects"
+        )
+        self.assertEqual(
+            self.ask("What did I say about how I prefer to learn new concepts?"),
+            "You said you understand concepts much better by building "
+            "practical projects rather than just reading about them."
+        )
+
+    def test_learning_preference_question_does_not_guess_when_not_saved(self):
+        self.memory.forget(key="learning_preference")
+        self.assertEqual(
+            self.ask("What did I say about how I prefer to learn new concepts?"),
+            "You haven't told me how you prefer to learn new concepts yet."
+        )
+
+    def test_unrelated_memory_is_not_returned_as_learning_preference(self):
+        self.memory.remember("interest", "AI and robotics")
+        self.assertIsNone(
+            self.ask("What did I say about how I prefer to learn new concepts?")
+        ) if not self.memory.forget(key="learning_preference") else None
+
     def test_recent_conversation_recall_excludes_the_current_question(self):
         connection = self.memory.db.connection
         connection.execute("""
