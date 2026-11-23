@@ -458,12 +458,16 @@ class NexusAssistant:
             # TOOLS
             # ======================
 
-            tool_result = self.intent.resolve(
-                user_input,
-                self.conversation.get_context()
+            tool_result = (
+                None
+                if memory_response
+                else self.intent.resolve(
+                    user_input,
+                    self.conversation.get_context()
+                )
             )
 
-            if tool_result.success:
+            if tool_result and tool_result.success:
 
                 self.conversation.add_assistant_message(
                     tool_result.message
