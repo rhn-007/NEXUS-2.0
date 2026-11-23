@@ -91,13 +91,17 @@ _PC_WORDS = {
 }
 
 _VOLUME_UP = re.compile(
-    r"^(?:(?:a bit|a little|even|much) )?(?:more|louder|higher|up|"
-    r"raise it|increase it)(?: still)?$"
+    r"^(?:(?:(?:increase|raise) (?:the )?volume|"
+    r"turn (?:the )?volume up|(?:increase|raise) it) )?"
+    r"(?:(?:a bit|a little|even|much) )?"
+    r"(?:more|louder|higher|up)(?: still)?$"
 )
 
 _VOLUME_DOWN = re.compile(
-    r"^(?:(?:a bit|a little|even|much) )?(?:lower|quieter|softer|down|less|"
-    r"lower it(?: more| again)?|decrease it|reduce it)(?: still)?$"
+    r"^(?:(?:(?:decrease|reduce|lower) (?:the )?volume|"
+    r"turn (?:the )?volume down|(?:lower|decrease|reduce) it) )?"
+    r"(?:(?:a bit|a little|even|much) )?"
+    r"(?:lower|quieter|softer|down|less)(?: still)?$"
 )
 
 _NEXT = re.compile(
