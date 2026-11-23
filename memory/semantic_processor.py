@@ -149,7 +149,7 @@ class SemanticMemoryProcessor:
     @staticmethod
     def _existing_pairs(existing_memories):
         pairs = set()
-        for item in list(existing_memories or [])[-self.MAX_EXISTING_MEMORIES:]:
+        for item in existing_memories or []:
             if isinstance(item, dict):
                 key, value = item.get("key"), item.get("value")
             else:
@@ -168,7 +168,7 @@ class SemanticMemoryProcessor:
             return []
 
         existing = []
-        for item in existing_memories or []:
+        for item in list(existing_memories or [])[-self.MAX_EXISTING_MEMORIES:]:
             if isinstance(item, dict):
                 key, value = item.get("key"), item.get("value")
             else:
