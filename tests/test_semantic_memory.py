@@ -124,7 +124,7 @@ class SemanticRetrievalTests(unittest.TestCase):
         ]
 
         result = processor.select_relevant(
-            "What kind of learning approach works best for me?",
+            "What approach suits me?",
             memories
         )
 
