@@ -92,9 +92,19 @@ class SemanticExtractionTests(unittest.TestCase):
         )
 
     def test_tool_requests_do_not_trigger_extraction(self):
-        self.assertFalse(
+        for text in (
+            "I want to open Calculator and check something.",
+            "I need to open Calculator and check something."
+        ):
+            with self.subTest(text=text):
+                self.assertFalse(
+                    SemanticMemoryProcessor.is_extraction_candidate(text)
+                )
+
+    def test_short_personal_statements_can_be_semantically_extracted(self):
+        self.assertTrue(
             SemanticMemoryProcessor.is_extraction_candidate(
-                "I want to open Calculator and check something."
+                "I study computer science."
             )
         )
 
