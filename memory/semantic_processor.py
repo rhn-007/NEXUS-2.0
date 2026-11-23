@@ -35,7 +35,7 @@ class SemanticMemoryProcessor:
         re.IGNORECASE
     )
     _NON_MEMORY_REQUEST = re.compile(
-        r"^(?:i have a question|i need help|i want to know|"
+        r"^(?:i (?:do not|don't) remember|i have a question|i need help|i want to know|"
         r"i was wondering|i'm wondering|i am wondering|"
         r"i want you to|i need you to|i would like you to|"
         r"i'd like you to|i want to (?:open|launch|start|close|run|search|"
