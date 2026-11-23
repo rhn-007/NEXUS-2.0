@@ -250,15 +250,18 @@ class MemoryManager:
             if role == "user":
                 break
 
-        # Keep direct recall concise without cutting a sentence in half.
-        user_text = self._sentence_excerpt(user_text, max_chars=500)
-        response = "We were discussing: " + user_text
-        if assistant_text:
-            response += (
-                "\n\nI replied: "
-                + self._sentence_excerpt(assistant_text, max_chars=500)
-            )
-        return response
+        # Summarize the recent exchange by its subject, rather than replaying
+        # individual messages. Only explicit recall requests invoke the local LLM.
+        recent_exchange = chats[max(0, latest_user_index - 5):]
+        summarizer = getattr(self.semantic_processor, "summarize_conversation", None)
+        if callable(summarizer):
+            summary = summarizer(recent_exchange)
+            if summary:
+                return summary
+
+        # Safe fallback when the local model is unavailable.
+        user_text = self._sentence_excerpt(user_text, max_chars=240)
+        return "We were discussing " + user_text.rstrip(".!?") + "."
 
     @staticmethod
     def _sentence_excerpt(text, max_chars=500):
