@@ -425,7 +425,7 @@ class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
                 "It's The Weeknd.",
                 "Who is my favorite music artist?"
             ),
-            [{"key": "singer", "value": "the weeknd"}]
+            [{"key": "singer", "value": "The Weeknd"}]
         )
 
     def test_favourite_singer_question_is_answered_without_llm(self):
