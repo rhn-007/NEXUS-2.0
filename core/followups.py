@@ -97,8 +97,9 @@ _VOLUME_UP = re.compile(
     r"(?:more|louder|higher|up|increase it|raise it)(?: still)?$"
 )
 
+# Accept common comparative phrases, including "a little bit more".
 _VOLUME_MORE = re.compile(
-    r"^(?:(?:a bit|a little|even|much) )?more(?: still)?$"
+    r"^(?:(?:a bit|a little(?: bit)?|even|much) )?more(?: still)?$"
 )
 
 _VOLUME_DOWN = re.compile(
