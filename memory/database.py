@@ -351,6 +351,41 @@ class MemoryDatabase:
             self.connection.rollback()
             raise
 
+    def replace_memory(self, key, old_value, new_value, memory_type="fact"):
+        """Atomically replace one exact memory value with its correction."""
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(
+                """
+                DELETE FROM memories
+                WHERE type = ?
+                  AND LOWER(key) = LOWER(?)
+                  AND LOWER(value) = LOWER(?)
+                """,
+                (
+                    memory_type,
+                    str(key).strip(),
+                    str(old_value).strip()
+                )
+            )
+            cursor.execute(
+                """
+                INSERT INTO memories (key, value, type, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    str(key).strip(),
+                    str(new_value).strip(),
+                    memory_type,
+                    datetime.now().isoformat()
+                )
+            )
+            self.connection.commit()
+            return True
+        except Exception:
+            self.connection.rollback()
+            raise
+
     # ---------------- DATABASE MANAGEMENT ----------------
 
     def close(self):
