@@ -687,8 +687,10 @@ class MemoryManager:
             parts.append(f"{key.replace('_', ' ')}: {shown}")
 
         note = (
-            "What the user has told you about themselves. Use it when relevant. "
-            "Follow their stated preferences. Do not recite it unless asked: "
+            "Authoritative personal facts the user has explicitly shared. "
+            "Treat these SQLite records as the source of truth about the user; "
+            "never contradict them or replace them with guesses. Follow stated "
+            "preferences when relevant. Do not recite facts unless asked: "
         )
 
         for part in parts:
