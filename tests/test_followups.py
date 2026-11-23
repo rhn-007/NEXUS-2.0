@@ -48,7 +48,7 @@ class ContextualReferenceFollowUps(unittest.TestCase):
         ]
         self.assertEqual(
             followups.resolve_reference("search him up on Spotify", recent),
-            "search The Weeknd up on Spotify"
+            "search The Weeknd on Spotify"
         )
 
     def test_resolves_possessive_pronouns(self):
@@ -82,7 +82,7 @@ class ContextualReferenceFollowUps(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertEqual(
             runner.router.execute.call_args.args[0],
-            "search The Weeknd up on Spotify"
+            "search The Weeknd on Spotify"
         )
 
 
