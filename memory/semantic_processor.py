@@ -38,6 +38,10 @@ class SemanticMemoryProcessor:
         r"i want you to|i need you to|i would like you to|"
         r"i'd like you to|i want to (?:open|launch|start|close|run|search|"
         r"find|show|calculate|play|stop|turn|set|change|check|download|"
+        r"install|visit|browse)|i need to (?:open|launch|start|close|run|search|"
+        r"find|show|calculate|play|stop|turn|set|change|check|download|"
+        r"install|visit|browse)|i'd like to (?:open|launch|start|close|run|"
+        r"search|find|show|calculate|play|stop|turn|set|change|check|download|"
         r"install|visit|browse))\b",
         re.IGNORECASE
     )
@@ -95,7 +99,7 @@ class SemanticMemoryProcessor:
             return False
 
         words = re.findall(r"[a-z0-9']+", value.lower())
-        return len(words) >= 6 and bool(cls._SELF_REFERENCE.search(value))
+        return len(words) >= 4 and bool(cls._SELF_REFERENCE.search(value))
 
     @classmethod
     def is_memory_query(cls, query):
