@@ -28,7 +28,7 @@ class SemanticExtractionTests(unittest.TestCase):
         processor = SemanticMemoryProcessor(llm)
 
         result = processor.extract(
-            "I tend to understand things much better when I build a project.",
+            "I understand concepts much better when I build practical projects rather than just reading about them.",
             existing_memories=[]
         )
 
@@ -153,7 +153,7 @@ class SemanticRetrievalTests(unittest.TestCase):
         ]
 
         result = processor.select_relevant(
-            "What approach suits me?",
+            "What learning approach works best for me?",
             memories
         )
 
