@@ -297,7 +297,7 @@ class PlannerChecksTheModel(unittest.TestCase):
         user = payload["messages"][1]["content"]
         self.assertEqual(payload["options"]["temperature"], 0)
         self.assertIn("keep_alive", payload)
-        self.assertEqual(user.count("Rohan:"), 4)
+        self.assertEqual(user.count("Rohan:"), 6)
         self.assertEqual(user.count("now do it"), 1)
         self.assertLess(len(user), 900)
 
