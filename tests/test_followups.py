@@ -149,6 +149,26 @@ class MediaAndMeetingFollowUps(unittest.TestCase):
         self.assertTrue(runner.resolve("again").success)
         self.assertEqual(len(sender.pressed) - before, 3)
 
+    def test_volume_followups_accept_longer_natural_phrasing(self):
+        runner, sender = build()
+        runner.resolve("turn the volume up")
+        before = len(sender.pressed)
+
+        for text in (
+            "a bit more",
+            "increase it a bit more",
+            "increase the volume a bit more",
+            "turn the volume up a bit more",
+        ):
+            with self.subTest(text=text):
+                self.assertTrue(runner.resolve(text).success, text)
+
+        self.assertEqual(len(sender.pressed) - before, 4)
+
+    def test_volume_followup_requires_existing_media_context(self):
+        runner, _ = build()
+        self.assertFalse(runner.resolve("increase it a bit more").success)
+
     def test_next_one_after_a_media_action(self):
         runner, _ = build()
         runner.resolve("turn the volume up")
