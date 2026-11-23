@@ -215,6 +215,47 @@ class MemoryManager:
     # NATURAL MEMORY RESPONSE
     # =====================================
 
+    def answer_conversation_recall(self, current_query=None, limit=10):
+        """Answer a recent-conversation question from the stored transcript.
+
+        The current question is already persisted before memory routing, so
+        remove it before selecting the latest substantive user/assistant turn.
+        """
+        chats = self._recent_conversation_messages(limit=limit)
+        if not chats:
+            return "I don't have any earlier conversation messages stored yet."
+
+        query_norm = _norm(re.sub(r"[?.!,]", " ", str(current_query or "")))
+        if chats and chats[-1][0] == "user" and _norm(
+            re.sub(r"[?.!,]", " ", chats[-1][1])
+        ) == query_norm:
+            chats = chats[:-1]
+
+        latest_user_index = None
+        for index in range(len(chats) - 1, -1, -1):
+            if chats[index][0] == "user" and chats[index][1].strip():
+                latest_user_index = index
+                break
+
+        if latest_user_index is None:
+            return "I couldn't find an earlier user message in the recent conversation."
+
+        user_text = chats[latest_user_index][1].strip()
+        assistant_text = ""
+        for role, content in chats[latest_user_index + 1:]:
+            if role == "assistant" and content.strip():
+                assistant_text = content.strip()
+                break
+            if role == "user":
+                break
+
+        # Keep direct recall concise; the full transcript remains untouched.
+        user_text = user_text[:500].rstrip()
+        response = "We were discussing: " + user_text
+        if assistant_text:
+            response += "\n\nI replied: " + assistant_text[:350].rstrip()
+        return response
+
     def handle_memory_query(
         self,
         text
@@ -917,28 +958,53 @@ class MemoryManager:
 
         scored_facts.sort(key=lambda item: (-item[0], item[1]))
 
-        # If lexical matching found nothing, let the local model rank existing
-        # personal facts by meaning for an explicit memory-recall question.
-        # Only returned candidate records are used; the model cannot invent
-        # new memory content or select an out-of-range record.
-        if not scored_facts:
-            semantic_candidates = [
-                {"key": key, "value": value}
-                for key, values in grouped.items()
-                if key not in {"name", "project", "preference"}
-                for value in values[-5:]
-            ]
-            semantic_matches = self.semantic_processor.select_relevant(
-                query,
-                semantic_candidates
-            )
-            for memory in semantic_matches:
-                selected.append(
-                    f"{memory['key'].replace('_', ' ')}: "
-                    f"{self._show(memory['key'], memory['value'])}"
-                )
+        # Hybrid retrieval: combine lexical ranking with semantic ranking.
+        # The semantic ranker runs only for explicit personal-memory questions,
+        # but it still runs when lexical matches exist. This prevents a weak
+        # shared word (for example, "learning") from blocking a better match.
+        # All candidate text comes from SQLite; the model can only return
+        # validated indices into these existing records.
+        semantic_candidates = [
+            {"key": key, "value": value}
+            for key, values in grouped.items()
+            if key not in {"name", "project"}
+            for value in values[-5:]
+        ]
+        semantic_matches = self.semantic_processor.select_relevant(
+            query,
+            semantic_candidates
+        )
 
+        # Reciprocal-rank fusion combines the two ranked lists without
+        # assuming their raw scores are on the same scale.
+        fused_scores = {}
+        memory_lookup = {}
+        for rank, (_, key, value) in enumerate(scored_facts, start=1):
+            marker = (key, value.casefold())
+            fused_scores[marker] = fused_scores.get(marker, 0.0) + 1.0 / (60 + rank)
+            memory_lookup[marker] = (key, value)
+
+        for rank, memory in enumerate(semantic_matches, start=1):
+            key = memory["key"]
+            value = memory["value"]
+            marker = (key, value.casefold())
+            fused_scores[marker] = fused_scores.get(marker, 0.0) + 1.0 / (60 + rank)
+            memory_lookup[marker] = (key, value)
+
+        ranked_memories = sorted(
+            fused_scores,
+            key=lambda marker: (-fused_scores[marker], marker[0], marker[1])
+        )
         seen_facts = set()
+        for marker in ranked_memories[:4]:
+            key, value = memory_lookup[marker]
+            if marker in seen_facts:
+                continue
+            seen_facts.add(marker)
+            selected.append(
+                f"{key.replace('_', ' ')}: {self._show(key, value)}"
+            )
+
         for _, key, value in scored_facts:
             marker = (key, value.casefold())
             if marker in seen_facts:
