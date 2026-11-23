@@ -99,5 +99,34 @@ class NoDuplicateFacts(unittest.TestCase):
                 os.chdir(old)
 
 
+class AtomicMemoryReplacement(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.db = MemoryDatabase(os.path.join(self.dir.name, "memory.db"))
+
+    def tearDown(self):
+        self.db.close()
+        self.dir.cleanup()
+
+    def test_replacement_changes_only_the_exact_memory_value(self):
+        self.db.insert("preference", "concise explanations", "fact")
+        self.db.insert("preference", "short answers", "fact")
+        self.db.insert("interest", "concise explanations", "fact")
+
+        self.assertTrue(
+            self.db.replace_memory(
+                "preference",
+                "concise explanations",
+                "detailed explanations"
+            )
+        )
+
+        facts = [tuple(row) for row in self.db.get_facts()]
+        self.assertNotIn(("preference", "concise explanations"), facts)
+        self.assertIn(("preference", "detailed explanations"), facts)
+        self.assertIn(("preference", "short answers"), facts)
+        self.assertIn(("interest", "concise explanations"), facts)
+
+
 if __name__ == "__main__":
     unittest.main()
