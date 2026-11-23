@@ -662,7 +662,7 @@ class IntentFastPath:
         # planner, which receives the recent conversation. Do not guess the
         # target in this fast, context-free parser.
         if re.search(
-            r"\\b(?:him|her|them|it|his|hers|their|its|this|that|these|those)\\b",
+            r"\b(?:him|her|them|it|his|hers|their|its|this|that|these|those)\b",
             target
         ):
             return None
