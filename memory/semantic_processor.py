@@ -287,9 +287,16 @@ class SemanticMemoryProcessor:
 
         summary = " ".join(response.strip().split())
         summary = re.sub(r"^(?:NEXUS:\s*)", "", summary, flags=re.IGNORECASE)
+        summary = re.sub(r"^(?:[-*•]+\s*)", "", summary)
         if not summary or len(summary) > 500:
             return None
         if re.search(r"\b(?:you asked|i replied|user:|assistant:)\b", summary, re.IGNORECASE):
+            return None
+        sentences = [
+            sentence for sentence in re.split(r"(?<=[.!?])\s+", summary)
+            if sentence.strip()
+        ]
+        if len(sentences) > 2:
             return None
         return summary
 
