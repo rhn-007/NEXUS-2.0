@@ -111,6 +111,37 @@ class Detector(unittest.TestCase):
         )
         self.assertEqual(detected, [{"key": "sport", "value": "badminton"}])
 
+    def test_recent_conversation_recall_excludes_the_current_question(self):
+        connection = self.memory.db.connection
+        connection.execute("""
+            CREATE TABLE conversation_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+        rows = [
+            ("user", "I understand concepts much better when I build practical projects."),
+            ("assistant", "That is a project-based way of learning."),
+            ("user", "What were we talking about right now?"),
+        ]
+        with connection:
+            for role, content in rows:
+                connection.execute(
+                    "INSERT INTO conversation_messages "
+                    "(conversation_id, role, content, created_at) "
+                    "VALUES ('default', ?, ?, 'now')",
+                    (role, content)
+                )
+
+        response = self.memory.answer_conversation_recall(
+            "What were we talking about right now?"
+        )
+        self.assertIn("build practical projects", response)
+        self.assertNotIn("What were we talking about right now?", response)
+
     def test_short_answer_is_not_linked_to_an_unrelated_question(self):
         detected = MemoryDetector().detect_answer(
             "it is badminton",
