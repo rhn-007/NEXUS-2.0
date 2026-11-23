@@ -16,7 +16,7 @@ _FILLERS = re.compile(
 )
 
 _FACT_QUESTIONS = (
-    re.compile(r"^what(?:'s| is| are) my (?P<favourite>favou?rite )?(?P<thing>.+)$"),
+    re.compile(r"^(?:what(?:'s| is| are)|who(?:'s| is)) my (?P<favourite>favou?rite )?(?P<thing>.+)$"),
     re.compile(r"^what (?P<thing>[a-z ]{2,25}?) am i (?:currently |now )?(?:working on|building|doing)$"),
     re.compile(r"^(?:tell me|remind me of) my (?P<favourite>favou?rite )?(?P<thing>.+)$"),
     re.compile(r"^(?:do you (?:know|remember)|you know|you remember) my (?P<favourite>favou?rite )?(?P<thing>.+)$"),
@@ -765,6 +765,10 @@ class MemoryManager:
         # This avoids adding one regex for every individual paraphrase while
         # keeping ambiguous or unknown questions out of deterministic recall.
         question_key_aliases = {
+            "singer": "singer",
+            "music artist": "singer",
+            "musical artist": "singer",
+            "artist": "singer",
             "sport": "sport",
             "programming language": "programming_language",
             "coding language": "programming_language",
