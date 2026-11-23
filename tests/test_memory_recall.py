@@ -222,6 +222,13 @@ class WithMemory(unittest.TestCase):
             "You haven't told me how you prefer to learn new concepts yet."
         )
 
+    def test_conversation_recall_excerpt_ends_at_a_sentence_boundary(self):
+        excerpt = self.memory._sentence_excerpt(
+            "First complete sentence. " + ("Second sentence continues here. " * 30),
+            max_chars=40
+        )
+        self.assertEqual(excerpt, "First complete sentence.")
+
     def test_recent_conversation_recall_excludes_the_current_question(self):
         connection = self.memory.db.connection
         connection.execute("""
@@ -692,6 +699,19 @@ class AssistantWiring(unittest.TestCase):
             "I've cleared your stored personal facts."
         )
         a.memory.forget.assert_called_once_with()
+
+    def test_learning_preference_question_uses_direct_fact_retrieval(self):
+        a = self.assistant()
+        a.memory.answer_fact_question.return_value = (
+            "You said you understand concepts much better by building practical projects."
+        )
+        response = a.check_memory(
+            "What did I say about how I prefer to learn new concepts?"
+        )
+        self.assertIn("building practical projects", response)
+        a.memory.answer_fact_question.assert_called_once_with(
+            "What did I say about how I prefer to learn new concepts?"
+        )
 
     def test_recent_conversation_recall_is_routed_directly(self):
         a = self.assistant()
