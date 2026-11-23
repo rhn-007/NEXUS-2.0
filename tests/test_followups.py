@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock
 
 from core.followups import EXPIRES_AFTER_SECONDS, FollowUps
-from core.intent import IntentFastPath, app_targets_from
+from core.intent import IntentFastPath, Step, app_targets_from
 from core.intent_runner import IntentRunner
 from tests.test_media import FakeSender
 from tests.test_system_info import GB, FakeReader
@@ -41,49 +41,55 @@ FULL_DISK = dict(disks=[("C", 200 * GB, 4 * GB), ("D", 276 * GB, 169 * GB)])
 
 
 class ContextualReferenceFollowUps(unittest.TestCase):
-    def test_resolves_him_to_recently_named_subject(self):
-        followups = FollowUps()
-        recent = [
-            {"role": "assistant", "content": "Your favourite singer is The Weeknd."}
-        ]
-        self.assertEqual(
-            followups.resolve_reference("search him up on Spotify", recent),
-            "search The Weeknd on Spotify"
-        )
-
-    def test_resolves_possessive_pronouns(self):
-        followups = FollowUps()
-        recent = [
-            {"role": "assistant", "content": "Your favourite music artist is The Weeknd."}
-        ]
-        self.assertEqual(
-            followups.resolve_reference("find his most popular songs", recent),
-            "find The Weeknd's most popular songs"
-        )
-
-    def test_leaves_unrelated_or_ambiguous_messages_unchanged(self):
-        followups = FollowUps()
-        recent = [
-            {"role": "assistant", "content": "The battery is fully charged."}
-        ]
-        self.assertEqual(followups.resolve_reference("is it okay?", recent), "is it okay?")
-        self.assertEqual(followups.resolve_reference("search him up", []), "search him up")
-
-    def test_intent_runner_routes_resolved_subject(self):
+    def test_contextual_search_is_deferred_to_planner(self):
         runner, _ = build()
         from tools.router import ToolResult
+
         runner.history = None
         runner.router.execute = MagicMock(
             return_value=ToolResult(True, "Searching for The Weeknd.")
         )
         recent = [
-            {"role": "assistant", "content": "Your favourite singer is The Weeknd."}
+            {"role": "user", "content": "The Weeknd is my favourite singer."},
+            {"role": "assistant", "content": "I'll keep that in mind."}
         ]
-        result = runner.resolve("search him up on Spotify", recent)
+        plan = MagicMock(
+            kind="act",
+            valid=True,
+            planner_ms=1.0,
+            expects="",
+            steps=[Step("web_search", "The Weeknd popular songs", "search The Weeknd popular songs")]
+        )
+        runner.planner.plan.return_value = plan
+
+        result = runner.resolve("find his most popular songs", recent)
+
         self.assertTrue(result.success)
+        runner.planner.plan.assert_called_once_with(
+            "find his most popular songs", recent
+        )
         self.assertEqual(
-            runner.router.execute.call_args.args[0].casefold(),
-            "spotify search the weeknd"
+            runner.router.execute.call_args.args[0],
+            "search The Weeknd popular songs"
+        )
+
+    def test_site_search_with_pronoun_is_deferred_to_planner(self):
+        runner, _ = build()
+        recent = [
+            {"role": "user", "content": "The Weeknd is my favourite singer."}
+        ]
+
+        self.assertEqual(
+            runner.fast.fast_steps("search him up on Spotify"),
+            []
+        )
+        self.assertTrue(
+            runner.fast.looks_like_request("search him up on Spotify")
+        )
+        runner.planner.plan.assert_not_called()
+        runner.resolve("search him up on Spotify", recent)
+        runner.planner.plan.assert_called_once_with(
+            "search him up on Spotify", recent
         )
 
 
