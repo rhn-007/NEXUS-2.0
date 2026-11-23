@@ -91,6 +91,20 @@ class SemanticExtractionTests(unittest.TestCase):
             }]
         )
 
+    def test_tool_requests_do_not_trigger_extraction(self):
+        self.assertFalse(
+            SemanticMemoryProcessor.is_extraction_candidate(
+                "I want to open Calculator and check something."
+            )
+        )
+
+    def test_explicit_remember_request_triggers_extraction(self):
+        self.assertTrue(
+            SemanticMemoryProcessor.is_extraction_candidate(
+                "Please remember that I work best with visual examples."
+            )
+        )
+
     def test_ordinary_questions_do_not_trigger_extraction(self):
         llm = FakeLLM([])
         processor = SemanticMemoryProcessor(llm)
