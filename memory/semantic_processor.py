@@ -20,7 +20,9 @@ class SemanticMemoryProcessor:
     MAX_RETRIEVAL_RESULTS = 4
 
     _EXPLICIT_MEMORY_REQUEST = re.compile(
-        r"\b(?:please )?(?:remember|keep in mind)\b",
+        r"^(?:(?:please\s+)?(?:remember|keep in mind)\b|"
+        r"i (?:want|need) you to remember\b|"
+        r"i would like (?:you|nexus) to remember\b)",
         re.IGNORECASE
     )
     _SELF_REFERENCE = re.compile(
