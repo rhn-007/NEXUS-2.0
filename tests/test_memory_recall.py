@@ -287,7 +287,21 @@ class WithMemory(unittest.TestCase):
         response = self.memory.answer_conversation_recall(
             "What were we talking about right now?"
         )
-        self.assertIn("build practical projects", response)
+        self.memory.semantic_processor.llm = MagicMock()
+        self.memory.semantic_processor.llm.generate_response.return_value = (
+            "We were discussing your preference for learning through practical "
+            "projects rather than just reading about concepts."
+        )
+        response = self.memory.answer_conversation_recall(
+            "What were we talking about right now?"
+        )
+        self.assertEqual(
+            response,
+            "We were discussing your preference for learning through practical "
+            "projects rather than just reading about concepts."
+        )
+        self.assertNotIn("You asked", response)
+        self.assertNotIn("I replied", response)
         self.assertNotIn("What were we talking about right now?", response)
 
     def test_short_answer_to_favourite_question_is_saved_and_recalled(self):
