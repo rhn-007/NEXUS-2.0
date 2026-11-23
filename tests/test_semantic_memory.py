@@ -167,5 +167,79 @@ class SemanticRetrievalTests(unittest.TestCase):
         )
 
 
+class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
+    def setUp(self):
+        import os
+        import tempfile
+
+        self.old_cwd = os.getcwd()
+        self.temp_dir = tempfile.TemporaryDirectory()
+        os.chdir(self.temp_dir.name)
+
+    def tearDown(self):
+        import os
+
+        if hasattr(self, "memory"):
+            self.memory.db.close()
+        os.chdir(self.old_cwd)
+        self.temp_dir.cleanup()
+
+    def test_manager_saves_a_fact_extracted_from_natural_wording(self):
+        from memory.memory_manager import MemoryManager
+
+        llm = FakeLLM([
+            '{"memories":[{"key":"learning_preference",'
+            '"value":"learns best through practical projects",'
+            '"confidence":0.94}]}'
+        ])
+        self.memory = MemoryManager()
+        self.memory.set_llm(llm)
+
+        self.assertTrue(
+            self.memory.process_memory(
+                "I tend to understand things much better when I build a project."
+            )
+        )
+        self.assertIn(
+            ("learning_preference", "learns best through practical projects"),
+            [tuple(row) for row in self.memory.db.get_facts()]
+        )
+
+    def test_manager_uses_semantic_retrieval_for_a_paraphrased_memory_query(self):
+        from memory.memory_manager import MemoryManager
+
+        llm = FakeLLM(['{"relevant":[1]}'])
+        self.memory = MemoryManager()
+        self.memory.remember("interest", "drawing")
+        self.memory.remember(
+            "learning_preference",
+            "learns best through practical projects"
+        )
+        self.memory.set_llm(llm)
+
+        context = self.memory.adaptive_context(
+            "What kind of learning approach works best for me?"
+        )
+
+        self.assertIn(
+            "learning preference: learns best through practical projects",
+            context
+        )
+        self.assertEqual(len(llm.calls), 1)
+
+    def test_ordinary_assistant_queries_do_not_make_extra_model_calls(self):
+        from memory.memory_manager import MemoryManager
+
+        llm = FakeLLM([])
+        self.memory = MemoryManager()
+        self.memory.remember("interest", "drawing")
+        self.memory.set_llm(llm)
+
+        self.memory.process_memory("Explain binary search.")
+        self.memory.adaptive_context("Explain binary search.")
+
+        self.assertEqual(llm.calls, [])
+
+
 if __name__ == "__main__":
     unittest.main()
