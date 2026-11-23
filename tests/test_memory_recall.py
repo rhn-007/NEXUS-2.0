@@ -668,6 +668,34 @@ class AssistantWiring(unittest.TestCase):
         )
         a.memory.forget.assert_called_once_with()
 
+    def test_recent_conversation_recall_is_routed_directly(self):
+        a = self.assistant()
+        a.memory.answer_conversation_recall.return_value = (
+            "We were discussing practical project-based learning."
+        )
+
+        response = a.check_memory("What were we talking about right now?")
+
+        self.assertIn("practical project-based learning", response)
+        a.memory.answer_conversation_recall.assert_called_once_with(
+            "What were we talking about right now?"
+        )
+        a.memory.answer_fact_question.assert_not_called()
+
+    def test_profile_summary_deduplicates_values_across_categories(self):
+        a = self.assistant()
+        a.memory.get_memory_context.return_value = [
+            ("interest", "badminton", "fact"),
+            ("sport", "badminton", "fact"),
+            ("tv_show", "The Mentalist", "fact"),
+            ("favourite_tv_show", "The Mentalist", "fact"),
+        ]
+
+        response = a.check_memory("what do you know about me")
+
+        self.assertEqual(response.casefold().count("badminton"), 1)
+        self.assertEqual(response.casefold().count("the mentalist"), 1)
+
     def test_the_whole_profile_question_still_uses_the_profile(self):
         a = self.assistant()
         a.memory.get_memory_context.return_value = [
