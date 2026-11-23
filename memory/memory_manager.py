@@ -250,12 +250,36 @@ class MemoryManager:
             if role == "user":
                 break
 
-        # Keep direct recall concise; the full transcript remains untouched.
-        user_text = user_text[:500].rstrip()
+        # Keep direct recall concise without cutting a sentence in half.
+        user_text = self._sentence_excerpt(user_text, max_chars=500)
         response = "We were discussing: " + user_text
         if assistant_text:
-            response += "\n\nI replied: " + assistant_text[:350].rstrip()
+            response += (
+                "\n\nI replied: "
+                + self._sentence_excerpt(assistant_text, max_chars=500)
+            )
         return response
+
+    @staticmethod
+    def _sentence_excerpt(text, max_chars=500):
+        """Return a readable excerpt ending at a sentence boundary when possible."""
+        text = " ".join(str(text or "").split())
+        if len(text) <= max_chars:
+            return text
+
+        sentences = re.split(r"(?<=[.!?])\\s+", text)
+        excerpt = ""
+        for sentence in sentences:
+            candidate = (excerpt + " " + sentence).strip()
+            if len(candidate) > max_chars:
+                break
+            excerpt = candidate
+        if excerpt:
+            return excerpt
+
+        # A single unusually long sentence has no safe sentence boundary.
+        shortened = text[:max_chars].rsplit(" ", 1)[0].rstrip(" ,;:")
+        return shortened + "…"
 
     def handle_memory_query(
         self,
@@ -713,6 +737,31 @@ class MemoryManager:
 
         if not question or len(question) > 90:
             return None
+
+        # Explicit questions about a previously stated learning preference
+        # are answered from the matching SQLite fact, never guessed by the LLM.
+        learning_preference_question = re.fullmatch(
+            r"(?:what did i say about how i prefer to learn"
+            r"(?: new concepts)?|what have i told you about how i learn"
+            r"(?: new concepts)?|how did i say i learn best)",
+            question
+        )
+        if learning_preference_question:
+            grouped = self._facts_by_key()
+            values = (
+                grouped.get("learning_preference")
+                or grouped.get("learning_approach")
+                or grouped.get("learning_style")
+            )
+            if not values:
+                return "You haven't told me how you prefer to learn new concepts yet."
+            value = _join(values)
+            if "practical project" in value.lower() or "build" in value.lower():
+                return (
+                    "You said you understand concepts much better by building "
+                    "practical projects rather than just reading about them."
+                )
+            return "You told me: " + value.rstrip(".") + "."
 
         grouped = self._facts_by_key()
 
