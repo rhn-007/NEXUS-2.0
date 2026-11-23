@@ -74,6 +74,12 @@ class IntentRunner:
 
                     return answered
 
+            # Resolve pronouns in actionable follow-ups before any intent
+            # parser or tool sees the request. Leave ambiguous references alone.
+            resolved_text = self.followups.resolve_reference(text, recent)
+            if resolved_text != text:
+                text = resolved_text
+
             about_me = capability_answer(text)
 
             if about_me:
