@@ -796,6 +796,7 @@ class MemoryManager:
                 continue
 
             label = {
+                "singer": "favourite singer",
                 "sport": "favourite sport",
                 "programming_language": "favourite programming language",
                 "project": "AI project name",
@@ -908,6 +909,13 @@ class MemoryManager:
             thing = _norm(match.group("thing"))
 
             thing = re.sub(r"^(?:the|a|an)\s+", "", thing)
+            # "singer", "artist", and "music artist" are the same
+            # personal-memory category for favourite-artist questions.
+            thing = {
+                "music artist": "singer",
+                "musical artist": "singer",
+                "artist": "singer",
+            }.get(thing, thing)
 
             favourite = bool(
                 match.groupdict().get("favourite")
