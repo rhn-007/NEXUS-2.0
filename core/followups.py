@@ -309,6 +309,14 @@ class FollowUps:
         resolved = re.sub(r"\bhers\b", subject + "'s", resolved, flags=re.IGNORECASE)
         resolved = re.sub(r"\btheir\b", subject + "'s", resolved, flags=re.IGNORECASE)
         resolved = re.sub(r"\bits\b", subject + "'s", resolved, flags=re.IGNORECASE)
+        # Remove the natural-language particle in phrases such as
+        # "look him up on Spotify" before the existing site-search parser.
+        resolved = re.sub(
+            r"\bup\s+(on|in)\s+(spotify|youtube|github|wikipedia|reddit)\b",
+            r"\1 \2",
+            resolved,
+            flags=re.IGNORECASE
+        )
         return resolved
 
 
