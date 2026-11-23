@@ -114,6 +114,11 @@ class SemanticExtractionTests(unittest.TestCase):
                 "Please remember that I work best with visual examples."
             )
         )
+        self.assertFalse(
+            SemanticMemoryProcessor.is_extraction_candidate(
+                "I don't remember my password."
+            )
+        )
 
     def test_ordinary_questions_do_not_trigger_extraction(self):
         llm = FakeLLM([])
