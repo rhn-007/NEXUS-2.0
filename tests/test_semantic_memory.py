@@ -322,10 +322,10 @@ class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
         self.assertNotIn("concise explanations", preferences)
         self.assertEqual(preferences.count("detailed explanations"), 1)
 
-    def test_manager_uses_semantic_retrieval_for_a_paraphrased_memory_query(self):
+    def test_paraphrased_memory_query_uses_local_fallback_without_ollama(self):
         from memory.memory_manager import MemoryManager
 
-        llm = FakeLLM(['{"relevant":[1]}'])
+        llm = FakeLLM([])
         self.memory = MemoryManager()
         self.memory.remember("interest", "drawing")
         self.memory.remember(
@@ -342,7 +342,7 @@ class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
             "learning preference: learns best through practical projects",
             context
         )
-        self.assertEqual(len(llm.calls), 1)
+        self.assertEqual(llm.calls, [])
 
     def test_bm25_ranks_matching_memory_above_unrelated_memory(self):
         from memory.memory_manager import MemoryManager
@@ -363,10 +363,10 @@ class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
         self.assertTrue(ranked)
         self.assertEqual(ranked[0][1], "learning_preference")
 
-    def test_semantic_ranking_runs_even_when_weak_lexical_overlap_exists(self):
+    def test_memory_ranking_uses_local_relevance_without_extra_ollama_call(self):
         from memory.memory_manager import MemoryManager
 
-        llm = FakeLLM(['{"relevant":[1]}'])
+        llm = FakeLLM([])
         self.memory = MemoryManager()
         self.memory.remember("interest", "drawing")
         self.memory.remember(
@@ -383,7 +383,7 @@ class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
             "learning preference: learns best by building practical projects",
             context
         )
-        self.assertEqual(len(llm.calls), 1)
+        self.assertEqual(llm.calls, [])
 
 
     def test_contextual_favourite_singer_answer_is_saved_and_survives_restart(self):
