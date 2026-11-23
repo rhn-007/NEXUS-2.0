@@ -234,7 +234,7 @@ class FollowUps:
     # ======================================================
 
     _REFERENCE_REQUEST = re.compile(
-        r"\b(?:search|look up|find|open|play|show|tell me about|"
+        r"\b(?:search|look|look up|find|open|play|show|tell me about|"
         r"get|check|compare|summarize|research)\b",
         re.IGNORECASE
     )
