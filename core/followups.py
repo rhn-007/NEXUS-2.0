@@ -101,7 +101,7 @@ _VOLUME_DOWN = re.compile(
     r"^(?:(?:(?:decrease|reduce|lower) (?:the )?volume|"
     r"turn (?:the )?volume down|(?:lower|decrease|reduce) it) )?"
     r"(?:(?:a bit|a little|even|much) )?"
-    r"(?:lower|quieter|softer|down|less)(?: still)?$"
+    r"(?:lower|quieter|softer|down|less|lower it(?: more| again)?|decrease it|reduce it)(?: still)?$"
 )
 
 _NEXT = re.compile(
