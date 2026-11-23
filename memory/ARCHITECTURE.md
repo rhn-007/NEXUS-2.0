@@ -93,8 +93,9 @@ Mem0, LangMem, a vector database, an embedding model, or another dependency.
 
 ### Retrieval
 
-- Personal-memory retrieval uses hybrid ranking: lexical relevance and
-  semantic relevance are both considered for explicit personal-memory questions.
+- Personal-memory retrieval uses hybrid ranking: dependency-free BM25 lexical
+  relevance and local-model semantic relevance are both considered for explicit
+  personal-memory questions.
 - The ranked lists are combined with reciprocal-rank fusion (RRF), so a weak
   keyword overlap cannot suppress a stronger meaning-based match.
 - Semantic candidates include personal preference categories as well as
