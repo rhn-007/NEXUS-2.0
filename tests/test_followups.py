@@ -165,6 +165,36 @@ class MediaAndMeetingFollowUps(unittest.TestCase):
 
         self.assertEqual(len(sender.pressed) - before, 4)
 
+    def test_relative_more_repeats_the_last_volume_direction(self):
+        runner, sender = build()
+
+        runner.resolve("increase the volume")
+        runner.resolve("a bit more")
+        runner.resolve("decrease the volume")
+        before = len(sender.pressed)
+
+        result = runner.resolve("a bit more")
+
+        self.assertTrue(result.success)
+        self.assertEqual(
+            sender.pressed[before:],
+            [(0xAE, 5)],
+            "After decreasing volume, relative 'more' must continue decreasing."
+        )
+
+    def test_relative_more_tracks_each_direction_change(self):
+        runner, sender = build()
+
+        runner.resolve("decrease the volume")
+        runner.resolve("a bit more")
+        runner.resolve("increase the volume")
+        before = len(sender.pressed)
+
+        result = runner.resolve("a bit more")
+
+        self.assertTrue(result.success)
+        self.assertEqual(sender.pressed[before:], [(0xAF, 5)])
+
     def test_volume_followup_requires_existing_media_context(self):
         runner, _ = build()
         self.assertFalse(runner.resolve("increase it a bit more").success)
