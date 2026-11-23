@@ -287,7 +287,10 @@ class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
         llm = FakeLLM(['{"relevant":[1]}'])
         self.memory = MemoryManager()
         self.memory.remember("interest", "drawing")
-        self.memory.remember("preference", "learns best by building practical projects")
+        self.memory.remember(
+            "learning_preference",
+            "learns best by building practical projects"
+        )
         self.memory.set_llm(llm)
 
         context = self.memory.adaptive_context(
@@ -295,7 +298,7 @@ class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
         )
 
         self.assertIn(
-            "preference: learns best by building practical projects",
+            "learning preference: learns best by building practical projects",
             context
         )
         self.assertEqual(len(llm.calls), 1)
