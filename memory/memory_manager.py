@@ -245,16 +245,25 @@ class MemoryManager:
 
         user_text = chats[latest_user_index][1].strip()
 
-        # Summarize the recent exchange by its subject, rather than replaying
-        # individual messages. Only explicit recall requests invoke the local LLM.
+        # Build a compact recall context locally. Ollama will turn this
+        # grounded transcript material into the final natural-language reply,
+        # avoiding a second model request just to summarise the same exchange.
         recent_exchange = chats[max(0, latest_user_index - 5):]
-        summarizer = getattr(self.semantic_processor, "summarize_conversation", None)
-        if callable(summarizer):
-            summary = summarizer(recent_exchange)
-            if summary:
-                return summary
+        summary = self._recent_conversation_summary()
+        excerpts = []
+        for role, content in recent_exchange[-6:]:
+            excerpt = self._sentence_excerpt(content, max_chars=220)
+            if excerpt:
+                excerpts.append(f"{role.title()}: {excerpt}")
 
-        # Safe fallback when the local model is unavailable.
+        parts = []
+        if summary:
+            parts.append("Stored conversation summary: " + summary[-700:])
+        if excerpts:
+            parts.append("Recent exchange:\n" + "\n".join(excerpts))
+        if parts:
+            return "\n".join(parts)
+
         user_text = self._sentence_excerpt(user_text, max_chars=240)
         return "The recent conversation was about: " + user_text
 
@@ -1077,41 +1086,25 @@ class MemoryManager:
         ]
         scored_facts = self._bm25_rank(query, candidate_facts)
 
-        # Hybrid retrieval: combine lexical ranking with semantic ranking.
-        # The semantic ranker runs only for explicit personal-memory questions,
-        # but it still runs when lexical matches exist. This prevents a weak
-        # shared word (for example, "learning") from blocking a better match.
-        # All candidate text comes from SQLite; the model can only return
-        # validated indices into these existing records.
-        semantic_candidates = candidate_facts
-        semantic_matches = self.semantic_processor.select_relevant(
-            query,
-            semantic_candidates
-        )
+        # Keep retrieval local and fast. Ollama is already going to receive
+        # this context for the final answer, so asking it for a second ranking
+        # call would add latency without adding another source of truth.
+        ranked_memories = [
+            (key, value) for _, key, value in scored_facts[:4]
+        ]
 
-        # Reciprocal-rank fusion combines the two ranked lists without
-        # assuming their raw scores are on the same scale.
-        fused_scores = {}
-        memory_lookup = {}
-        for rank, (_, key, value) in enumerate(scored_facts, start=1):
-            marker = (key, value.casefold())
-            fused_scores[marker] = fused_scores.get(marker, 0.0) + 1.0 / (60 + rank)
-            memory_lookup[marker] = (key, value)
+        # A paraphrased personal-memory question may have no shared keywords
+        # with its saved fact. In that case, provide a small bounded candidate
+        # set and let the single response-generation call reason over it.
+        if not ranked_memories and self.semantic_processor.is_memory_query(query):
+            ranked_memories = [
+                (item["key"], item["value"])
+                for item in candidate_facts[:4]
+            ]
 
-        for rank, memory in enumerate(semantic_matches, start=1):
-            key = memory["key"]
-            value = memory["value"]
-            marker = (key, value.casefold())
-            fused_scores[marker] = fused_scores.get(marker, 0.0) + 1.0 / (60 + rank)
-            memory_lookup[marker] = (key, value)
-
-        ranked_memories = sorted(
-            fused_scores,
-            key=lambda marker: (-fused_scores[marker], marker[0], marker[1])
-        )
         seen_facts = set()
-        for marker in ranked_memories[:4]:
-            key, value = memory_lookup[marker]
+        for key, value in ranked_memories:
+            marker = (key, value.casefold())
             if marker in seen_facts:
                 continue
             seen_facts.add(marker)
