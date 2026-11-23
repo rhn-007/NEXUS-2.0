@@ -437,16 +437,13 @@ class NexusAssistant:
                 canonical
             )
 
-            if memory_response:
+            # Memory-changing commands remain deterministic and immediate.
+            # Memory answers, however, are passed to Ollama as authoritative
+            # SQLite context so there is only one final response voice.
+            if memory_response and canonical.lower().strip().startswith("forget "):
 
-                self.conversation.add_assistant_message(
-                    memory_response
-                )
-
-                self.speaker.speak(
-                    memory_response
-                )
-
+                self.conversation.add_assistant_message(memory_response)
+                self.speaker.speak(memory_response)
                 return memory_response
 
             # ======================
@@ -541,13 +538,45 @@ class NexusAssistant:
                     }
                 )
 
-            # Put what he has told NEXUS first, right after the system prompt.
+            # Put what the user has told NEXUS first, right after the system prompt.
             if facts_context:
                 context.insert(
                     0,
                     {
                         "role": "system",
                         "content": facts_context
+                    }
+                )
+
+            # Deterministic SQLite answers are evidence for Ollama, not a
+            # competing response. This keeps personal facts consistent while
+            # preserving one natural-language response-generation call.
+            if memory_response:
+                context.insert(
+                    0,
+                    {
+                        "role": "system",
+                        "content": (
+                            "AUTHORITATIVE SQLITE MEMORY RESULT FOR THIS REQUEST:\n"
+                            + str(memory_response)
+                            + "\nTreat this stored result as the source of truth. "
+                            "Do not contradict it, replace it with a guess, or add "
+                            "personal details that it does not contain. Answer the "
+                            "user naturally and concisely using this information."
+                        )
+                    }
+                )
+            elif self.memory.semantic_processor.is_memory_query(user_input):
+                context.insert(
+                    0,
+                    {
+                        "role": "system",
+                        "content": (
+                            "The user is asking about their personal memories. "
+                            "Use only the relevant user-provided facts in the "
+                            "SQLite memory context. If the needed fact is absent, "
+                            "say you do not know; never guess or invent a personal fact."
+                        )
                     }
                 )
 
