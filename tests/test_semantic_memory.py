@@ -213,6 +213,31 @@ class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
         os.chdir(self.old_cwd)
         self.temp_dir.cleanup()
 
+    def test_learning_preference_is_saved_and_directly_recalled_end_to_end(self):
+        from memory.memory_manager import MemoryManager
+
+        llm = FakeLLM([
+            '{"memories":[{"key":"learning_preference",'
+            '"value":"learns best through practical projects",'
+            '"confidence":0.94}]}'
+        ])
+        self.memory = MemoryManager()
+        self.memory.set_llm(llm)
+
+        self.assertTrue(
+            self.memory.process_memory(
+                "I understand concepts much better when I build practical projects rather than just reading about them."
+            )
+        )
+        self.assertEqual(
+            self.memory.answer_fact_question(
+                "What did I say about how I prefer to learn new concepts?"
+            ),
+            "You said you understand concepts much better by building "
+            "practical projects rather than just reading about them."
+        )
+        self.assertEqual(len(llm.calls), 1)
+
     def test_manager_saves_a_fact_extracted_from_natural_wording(self):
         from memory.memory_manager import MemoryManager
 
