@@ -853,6 +853,19 @@ class NexusAssistant:
             re.sub(r"[?.!,]", " ", str(user_input or "").lower()).split()
         )
 
+        # Recent-conversation recall is handled directly from the transcript,
+        # rather than asking the general model to guess what happened.
+        recent_recall_phrases = (
+            "what were we talking about",
+            "what were we discussing",
+            "what were we just talking about",
+            "what were we just discussing",
+            "what did we just discuss",
+            "what did we just talk about",
+        )
+        if any(phrase in text for phrase in recent_recall_phrases):
+            return self.memory.answer_conversation_recall(user_input)
+
         # Forgetting is limited to personal facts. Conversation transcripts,
         # researched knowledge, and action history remain intact.
         forget_all_phrases = {
@@ -937,6 +950,16 @@ class NexusAssistant:
                 return "I have some memories stored, but no reliable personal details to share yet."
 
             parts = []
+            seen_profile_values = set()
+
+            def unique_profile_values(values):
+                unique = []
+                for value in values:
+                    marker = str(value).strip().casefold()
+                    if marker and marker not in seen_profile_values:
+                        seen_profile_values.add(marker)
+                        unique.append(value)
+                return unique
 
             names = grouped.get("name", [])
             if names:
@@ -944,13 +967,15 @@ class NexusAssistant:
 
             interests = grouped.get("interest", [])
             if interests:
-                readable = [value for value in interests if value.casefold() != "coding"]
+                readable = unique_profile_values(
+                    [value for value in interests if value.casefold() != "coding"]
+                )
                 if readable:
                     parts.append("You've mentioned enjoying " + self._join_recollection(readable) + ".")
 
             coding = grouped.get("coding", [])
             languages = grouped.get("programming_language", [])
-            coding_values = list(dict.fromkeys(coding + languages))
+            coding_values = unique_profile_values(list(dict.fromkeys(coding + languages)))
             if coding_values:
                 parts.append(
                     "Python is one of the programming languages you've mentioned using."
@@ -959,16 +984,16 @@ class NexusAssistant:
                 )
 
             projects = grouped.get("project", [])
-            named_projects = [
+            named_projects = unique_profile_values([
                 value for value in projects
                 if value.casefold() not in {"a personal project", "personal project", "a project", "project"}
-            ]
+            ])
             if named_projects:
                 parts.append(
                     "You're also working on " + self._join_recollection(named_projects) + "."
                 )
 
-            preferences = grouped.get("preference", [])
+            preferences = unique_profile_values(grouped.get("preference", []))
             if preferences:
                 parts.append("And you've told me you prefer " + self._join_recollection(preferences) + ".")
 
@@ -977,6 +1002,9 @@ class NexusAssistant:
                     "name", "interest", "coding", "programming_language",
                     "project", "preference"
                 }:
+                    continue
+                values = unique_profile_values(values)
+                if not values:
                     continue
                 label = key.replace("_", " ")
                 parts.append(
