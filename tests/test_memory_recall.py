@@ -355,6 +355,38 @@ class Answers(WithMemory):
             context.index("Previous conversation summary")
         )
 
+    def test_explicit_communication_preference_corrections_are_detected(self):
+        cases = [
+            (
+                "I no longer prefer concise explanations. "
+                "I now prefer detailed explanations.",
+                [("preference", "detailed explanations")],
+            ),
+            (
+                "I used to prefer short answers, but now I prefer "
+                "detailed answers.",
+                [("preference", "detailed answers")],
+            ),
+        ]
+        for text, expected in cases:
+            with self.subTest(text=text):
+                self.assertEqual(found(text), expected)
+
+    def test_explicit_preference_correction_replaces_only_the_old_preference(self):
+        self.assertTrue(
+            self.memory.process_memory(
+                "I no longer prefer concise explanations. "
+                "I now prefer detailed explanations."
+            )
+        )
+        preferences = [
+            value for key, value in self.memory.db.get_facts()
+            if key == "preference"
+        ]
+        self.assertNotIn("concise explanations", preferences)
+        self.assertIn("detailed explanations", preferences)
+        self.assertIn("short answers", preferences)
+
     def test_preferences_list_every_one(self):
         for text in ["what do i prefer", "what are my preferences",
                      "how do i like my answers", "what is my preferred style"]:
