@@ -108,7 +108,10 @@ class IntentRunner:
             if (
                 recent
                 and self._needs_conversation_context(text)
-                and self.fast.looks_like_request(text)
+                and (
+                    self.fast.looks_like_request(text)
+                    or self._search_refinement(text, recent)
+                )
             ):
 
                 refined_query = self._search_refinement(text, recent)
@@ -278,8 +281,17 @@ class IntentRunner:
         # Avoid repeating a leading descriptor already supplied by the
         # refinement (e.g. "beginner-friendly beginner robotics projects").
         qualifier_words = set(re.findall(r"[a-z0-9]+", qualifier.lower()))
+        redundant_words = set(qualifier_words)
+
+        # Treat common equivalent search descriptors as duplicates too.
+        if "cheaper" in qualifier_words or "cheapest" in qualifier_words:
+            redundant_words.update({"affordable", "budget", "lowcost"})
+
         topic_words = topic.split()
-        while topic_words and re.sub(r"[^a-z0-9]", "", topic_words[0].lower()) in qualifier_words:
+        while topic_words:
+            first_word = re.findall(r"[a-z0-9]+", topic_words[0].lower())
+            if not first_word or not all(word in redundant_words for word in first_word):
+                break
             topic_words.pop(0)
 
         topic = " ".join(topic_words).strip()
