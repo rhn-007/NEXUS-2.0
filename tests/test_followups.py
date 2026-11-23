@@ -73,8 +73,13 @@ class ContextualReferenceFollowUps(unittest.TestCase):
             "search The Weeknd popular songs"
         )
 
-    def test_site_search_with_pronoun_is_deferred_to_planner(self):
+    def test_site_search_with_pronoun_uses_the_known_subject(self):
+        from tools.router import ToolResult
+
         runner, _ = build()
+        runner.router.execute = MagicMock(
+            return_value=ToolResult(True, "Searching Spotify for The Weeknd.")
+        )
         recent = [
             {"role": "user", "content": "The Weeknd is my favourite singer."}
         ]
@@ -83,14 +88,12 @@ class ContextualReferenceFollowUps(unittest.TestCase):
             runner.fast.fast_steps("search him up on Spotify"),
             []
         )
-        self.assertTrue(
-            runner.fast.looks_like_request("search him up on Spotify")
-        )
+        result = runner.resolve("search him up on Spotify", recent)
+
+        self.assertTrue(result.success)
+        runner.router.execute.assert_called_once_with("spotify search the weeknd")
         runner.planner.plan.assert_not_called()
-        runner.resolve("search him up on Spotify", recent)
-        runner.planner.plan.assert_called_once_with(
-            "search him up on Spotify", recent
-        )
+
 
 
 class ConversationContextRouting(unittest.TestCase):
