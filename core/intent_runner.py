@@ -111,6 +111,17 @@ class IntentRunner:
                 and self.fast.looks_like_request(text)
             ):
 
+                refined_query = self._search_refinement(text, recent)
+
+                if refined_query:
+                    refined = self._run_command(
+                        text, f"search {refined_query}"
+                    )
+                    if refined is not None:
+                        path = "contextual_search_refinement"
+                        actions = ["web_search"]
+                        return refined
+
                 plan = self.planner.plan(text, recent)
 
                 path = "contextual_planner"
@@ -207,6 +218,70 @@ class IntentRunner:
             if path not in ("none", "router") or decision:
 
                 self._record(path, actions, decision, planner_ms, started)
+
+    @staticmethod
+    def _search_refinement(text, recent):
+        """Turn 'show me cheaper ones' into a search using the active query."""
+
+        match = re.match(
+            r"^(?:show|find|search|list)\s+(?:me\s+)?(.+?)\s+ones?\b[?.!]*$",
+            str(text or "").strip(),
+            re.IGNORECASE
+        )
+
+        if not match:
+            return None
+
+        qualifier = match.group(1).strip()
+        if not qualifier:
+            return None
+
+        topic = None
+
+        for item in reversed(recent or []):
+            if not isinstance(item, dict):
+                continue
+
+            role = item.get("role")
+            content = str(item.get("content") or "").strip()
+            if not content:
+                continue
+
+            if role == "assistant":
+                searching = re.search(
+                    r"\bSearching Google for\s+(.+?)[.!?]*$",
+                    content,
+                    re.IGNORECASE
+                )
+                if searching:
+                    topic = searching.group(1).strip()
+                    break
+
+            if role == "user":
+                original = re.match(
+                    r"^(?:please\s+)?(?:find|search(?:\s+for)?|look\s+up|google)\s+(.+?)[.!?]*$",
+                    content,
+                    re.IGNORECASE
+                )
+                if original:
+                    topic = original.group(1).strip()
+                    break
+
+        if not topic:
+            return None
+
+        # Avoid repeating a leading descriptor already supplied by the
+        # refinement (e.g. "beginner-friendly beginner robotics projects").
+        qualifier_words = set(re.findall(r"[a-z0-9]+", qualifier.lower()))
+        topic_words = topic.split()
+        while topic_words and re.sub(r"[^a-z0-9]", "", topic_words[0].lower()) in qualifier_words:
+            topic_words.pop(0)
+
+        topic = " ".join(topic_words).strip()
+        if not topic:
+            return qualifier
+
+        return f"{qualifier} {topic}"
 
     @staticmethod
     def _needs_conversation_context(text):
