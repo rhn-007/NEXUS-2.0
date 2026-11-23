@@ -262,7 +262,7 @@ class IntentRunner:
                     continue
 
                 original = re.match(
-                    r"^(?:please\\s+)?(?:find|search(?:\\s+for)?|look\\s+up|google)\\s+(.+?)[.!?]*$",
+                    r"^(?:please\s+)?(?:find|search(?:\s+for)?|look\s+up|google)\s+(.+?)[.!?]*$",
                     content,
                     re.IGNORECASE
                 )
