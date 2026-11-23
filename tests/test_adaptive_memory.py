@@ -32,7 +32,8 @@ class AdaptiveMemoryTests(unittest.TestCase):
         context = self.memory.adaptive_context("Tell me about badminton")
 
         self.assertIn("name: Rohan", context)
-        self.assertIn("preference: concise explanations", context)
+        self.assertIn("User communication preferences", context)
+        self.assertIn("concise explanations", context)
         self.assertIn("sport: badminton", context)
         self.assertNotIn("food: pizza", context)
 
