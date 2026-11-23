@@ -88,6 +88,7 @@ class NexusAssistant:
         # ==========================
 
         self.llm = OllamaClient(observer=self.observer)
+        self.memory.set_llm(self.llm)
 
         # ==========================
         # VOICE
