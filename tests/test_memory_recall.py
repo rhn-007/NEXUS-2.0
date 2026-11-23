@@ -334,6 +334,27 @@ class Answers(WithMemory):
             "your favourite sport is badminton; your favourite programming language is python; and you haven't told me your AI project name yet."
         )
 
+    def test_adaptive_context_marks_saved_preferences_as_response_guidance(self):
+        context = self.memory.adaptive_context("explain recursion")
+        self.assertIn(
+            "User communication preferences (apply when relevant, "
+            "unless they conflict with higher-priority instructions):",
+            context
+        )
+        self.assertIn("concise explanations", context)
+        self.assertIn("short answers", context)
+        self.assertNotIn("preference:", context)
+
+    def test_adaptive_context_keeps_preferences_ahead_of_history(self):
+        context = self.memory.adaptive_context(
+            "explain recursion",
+            summary="We previously discussed a long unrelated topic."
+        )
+        self.assertLess(
+            context.index("User communication preferences"),
+            context.index("Previous conversation summary")
+        )
+
     def test_preferences_list_every_one(self):
         for text in ["what do i prefer", "what are my preferences",
                      "how do i like my answers", "what is my preferred style"]:
