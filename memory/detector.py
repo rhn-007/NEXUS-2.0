@@ -318,6 +318,41 @@ class MemoryDetector:
                     {"key": "preference", "value": item}
                 )
 
+        # Explicit corrections to general communication preferences.
+        # Only replace a prior value when the user clearly contrasts the old
+        # preference with a new one; ordinary preference statements remain
+        # additive and are never treated as implicit corrections.
+        preference_corrections = (
+            re.search(
+                r"\\bi (?:no longer|don't|do not) prefer\\s+"
+                r"([^.,;!?]+)[.!?;]+\\s*(?:but\\s*)?"
+                r"i (?:now )?prefer\\s+([^.,;!?]+)",
+                text
+            ),
+            re.search(
+                r"\\bi used to prefer\\s+([^.,;!?]+)[,;]+\\s*"
+                r"but (?:now )?i prefer\\s+([^.,;!?]+)",
+                text
+            ),
+        )
+        correction = next(
+            (match for match in preference_corrections if match),
+            None
+        )
+        if correction:
+            old_value = correction.group(1).strip()[:80]
+            new_value = correction.group(2).strip()[:80]
+            if old_value and new_value and old_value != new_value:
+                memories = [
+                    memory for memory in memories
+                    if memory["key"] != "preference"
+                ]
+                memories.append({
+                    "key": "preference",
+                    "value": new_value,
+                    "replaces": old_value
+                })
+
         # ==========================
         # REMOVE DUPLICATES
         # ==========================
