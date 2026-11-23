@@ -284,9 +284,6 @@ class WithMemory(unittest.TestCase):
                     (role, content)
                 )
 
-        response = self.memory.answer_conversation_recall(
-            "What were we talking about right now?"
-        )
         self.memory.semantic_processor.llm = MagicMock()
         self.memory.semantic_processor.llm.generate_response.return_value = (
             "We were discussing your preference for learning through practical "
