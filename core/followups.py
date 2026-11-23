@@ -95,6 +95,11 @@ _VOLUME_UP = re.compile(
     r"raise it|increase it)(?: still)?$"
 )
 
+# Relative "more" follows the most recent volume direction.
+_VOLUME_MORE = re.compile(
+    r"^(?:(?:a bit|a little(?: bit)?|even|much) )?more(?: still)?$"
+)
+
 _VOLUME_DOWN = re.compile(
     r"^(?:(?:a bit|a little|even|much) )?(?:lower|quieter|softer|down|less|"
     r"lower it(?: more| again)?|decrease it|reduce it)(?: still)?$"
@@ -278,6 +283,13 @@ class FollowUps:
                 return "media", "previous"
 
             if state["topic"] in ("volume_up", "volume_down", "set_volume"):
+
+                # Relative "more" continues the latest direction.
+                if (
+                    state["topic"] in ("volume_up", "volume_down")
+                    and _VOLUME_MORE.match(cleaned)
+                ):
+                    return "media", state["topic"]
 
                 if _VOLUME_UP.match(cleaned):
                     return "media", "volume_up"
