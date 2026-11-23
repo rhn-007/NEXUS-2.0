@@ -272,9 +272,10 @@ class FollowUps:
             )
             for candidate in reversed(candidates):
                 words = candidate.split()
-                if not words or any(
-                    word.strip(".,!?").casefold() in FollowUps._GENERIC_SUBJECTS
-                    for word in words
+                if not words or (
+                    len(words) == 1
+                    and words[0].strip(".,!?").casefold()
+                    in FollowUps._GENERIC_SUBJECTS
                 ):
                     continue
                 if candidate.casefold() in {
