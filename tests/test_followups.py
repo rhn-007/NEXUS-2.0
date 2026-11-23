@@ -93,6 +93,66 @@ class ContextualReferenceFollowUps(unittest.TestCase):
         )
 
 
+class ConversationContextRouting(unittest.TestCase):
+    def test_contextual_action_uses_recent_conversation_before_router(self):
+        runner, _ = build()
+        from tools.router import ToolResult
+
+        runner.history = None
+        runner.router.execute = MagicMock(
+            return_value=ToolResult(True, "Opened the selected result.")
+        )
+        recent = [
+            {"role": "user", "content": "Find beginner robotics projects."},
+            {
+                "role": "assistant",
+                "content": "Here are three options: 1. Arduino rover "
+                           "(https://example.com/rover), 2. Line follower "
+                           "(https://example.com/line), 3. Robotic arm "
+                           "(https://example.com/arm)."
+            }
+        ]
+        plan = MagicMock(
+            kind="act",
+            valid=True,
+            planner_ms=1.0,
+            expects="",
+            steps=[
+                Step(
+                    "open_website",
+                    "https://example.com/line",
+                    "go to https://example.com/line"
+                )
+            ]
+        )
+        runner.planner.plan.return_value = plan
+
+        result = runner.resolve("open the second one", recent)
+
+        self.assertTrue(result.success)
+        runner.planner.plan.assert_called_once_with(
+            "open the second one", recent
+        )
+        runner.router.execute.assert_called_once_with(
+            "go to https://example.com/line"
+        )
+
+    def test_contextual_action_without_recent_context_does_not_call_planner(self):
+        runner, _ = build()
+
+        runner.resolve("open the second one")
+
+        runner.planner.plan.assert_not_called()
+
+    def test_explicit_new_request_keeps_existing_fast_path(self):
+        runner, _ = build()
+
+        self.assertFalse(
+            runner._needs_conversation_context("open notepad")
+        )
+        self.assertTrue(runner.fast.fast_steps("open notepad"))
+
+
 class AnythingElse(unittest.TestCase):
     def test_walks_through_new_information_then_ends(self):
         runner, _ = build(**FULL_DISK)
