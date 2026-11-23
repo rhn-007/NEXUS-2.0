@@ -217,9 +217,10 @@ class WithMemory(unittest.TestCase):
 
     def test_unrelated_memory_is_not_returned_as_learning_preference(self):
         self.memory.remember("interest", "AI and robotics")
-        self.assertIsNone(
-            self.ask("What did I say about how I prefer to learn new concepts?")
-        ) if not self.memory.forget(key="learning_preference") else None
+        self.assertEqual(
+            self.ask("What did I say about how I prefer to learn new concepts?"),
+            "You haven't told me how you prefer to learn new concepts yet."
+        )
 
     def test_recent_conversation_recall_excludes_the_current_question(self):
         connection = self.memory.db.connection
