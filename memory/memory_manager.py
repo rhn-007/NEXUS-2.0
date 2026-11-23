@@ -12,7 +12,9 @@ from memory.semantic_processor import SemanticMemoryProcessor
 MULTI_VALUE_KEYS = {"preference", "interest", "coding"}
 
 _FILLERS = re.compile(
-    r"^(?:(?:hey|ok|okay|so|and|nexus|please|can you|could you|can u)[,\s]+)+"
+    r"^(?:(?:hey|ok|okay|so|and|nexus|please|"
+    r"(?:can you|could you|can u)\s+(?:please\s+)?tell me|"
+    r"can you|could you|can u)[,\s]+)+"
 )
 
 _FACT_QUESTIONS = (
@@ -730,6 +732,15 @@ class MemoryManager:
             if re.fullmatch(pattern, question):
                 question = canonical
                 break
+
+        # Indirect questions such as "tell me who my favourite artist is"
+        # use the same deterministic lookup as "who is my favourite artist".
+        indirect_favourite = re.fullmatch(
+            r"who my (?:favourite |favorite )?([a-z ]+?) is",
+            question
+        )
+        if indirect_favourite:
+            question = "who is my favourite " + indirect_favourite.group(1).strip()
 
         if not question or len(question) > 90:
             return None
