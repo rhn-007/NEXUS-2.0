@@ -142,6 +142,41 @@ class SemanticExtractionTests(unittest.TestCase):
         self.assertEqual(result, [])
 
 
+class ConversationSummaryTests(unittest.TestCase):
+    def test_summarizes_the_main_topic_without_replaying_messages(self):
+        expected = (
+            "We were discussing your preference for learning through practical "
+            "projects rather than just reading about concepts."
+        )
+        llm = FakeLLM([expected])
+        processor = SemanticMemoryProcessor(llm)
+
+        result = processor.summarize_conversation([
+            ("user", "I understand concepts much better when I build practical projects."),
+            ("assistant", "That is a project-based way of learning."),
+        ])
+
+        self.assertEqual(result, expected)
+        self.assertEqual(len(llm.calls), 1)
+        self.assertIn("main subject", llm.calls[0]["context"][0]["content"].lower())
+
+    def test_summary_fails_safely_when_model_returns_transcript_labels(self):
+        llm = FakeLLM(["You asked about learning. I replied with some ideas."])
+        processor = SemanticMemoryProcessor(llm)
+
+        result = processor.summarize_conversation([
+            ("user", "How do I learn concepts?"),
+            ("assistant", "Build projects."),
+        ])
+
+        self.assertIsNone(result)
+
+    def test_summary_does_not_call_model_without_a_model_or_messages(self):
+        processor = SemanticMemoryProcessor()
+        self.assertIsNone(processor.summarize_conversation([]))
+        self.assertIsNone(processor.summarize_conversation([("user", "Hello")]))
+
+
 class SemanticRetrievalTests(unittest.TestCase):
     def test_selects_only_existing_memory_indices_returned_by_the_model(self):
         llm = FakeLLM(['{"relevant":[2,0,99,2,"1"]}'])
