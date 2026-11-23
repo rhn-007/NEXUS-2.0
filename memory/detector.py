@@ -324,14 +324,14 @@ class MemoryDetector:
         # additive and are never treated as implicit corrections.
         preference_corrections = (
             re.search(
-                r"\\bi (?:no longer|don't|do not) prefer\\s+"
-                r"([^.,;!?]+)[.!?;]+\\s*(?:but\\s*)?"
-                r"i (?:now )?prefer\\s+([^.,;!?]+)",
+                r"\bi (?:no longer|don't|do not) prefer\s+"
+                r"([^.,;!?]+)[.!?;]+\s*(?:but\s*)?"
+                r"i (?:now )?prefer\s+([^.,;!?]+)",
                 text
             ),
             re.search(
-                r"\\bi used to prefer\\s+([^.,;!?]+)[,;]+\\s*"
-                r"but (?:now )?i prefer\\s+([^.,;!?]+)",
+                r"\bi used to prefer\s+([^.,;!?]+)[,;]+\s*"
+                r"but (?:now )?i prefer\s+([^.,;!?]+)",
                 text
             ),
         )
