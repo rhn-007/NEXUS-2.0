@@ -507,5 +507,19 @@ class RealToolsEndToEnd(unittest.TestCase):
         startfile.assert_called_once_with("spotify:search:Coldplay")
 
 
+class PlannerPromptAuthorization(unittest.TestCase):
+    def test_explicit_actions_do_not_request_confirmation(self):
+        messages = planner().build_messages(
+            "search him up on the browser",
+            recent=[
+                {"role": "assistant", "content": "Your favourite singer is The Weeknd."}
+            ]
+        )
+        self.assertIn(
+            "Do not ask for confirmation when Rohan has already explicitly",
+            messages[0]["content"]
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
