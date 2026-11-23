@@ -48,6 +48,11 @@ NEXUS continues with the remaining context rather than failing the response.
   rebuilds the cache from SQLite.
 - Single-value facts keep their latest value; preference, interest, and coding
   facts can retain multiple values.
+- Clearly phrased corrections to a communication preference replace only the
+  exact superseded preference. The delete-and-insert is one SQLite transaction;
+  unrelated preferences and other memory categories are preserved.
+- Ordinary preference statements remain additive. NEXUS does not infer a
+  correction from an ambiguous or merely negative statement.
 - Explicit forgetting removes personal facts only. It does not silently erase
   conversation transcripts, researched knowledge, or action history.
 - Once enough messages leave the active context window, older completed turns
