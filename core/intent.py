@@ -160,8 +160,8 @@ _VERB_PHRASES = [
     ]),
     ("search", [
         "search the web for", "search online for", "search the internet for",
-        "search google for", "search for", "search", "google", "look up",
-        "lookup"
+        "search google for", "search for", "search", "find", "look for",
+        "google", "look up", "lookup"
     ]),
     ("open", [
         "open up", "open", "launch", "start up", "start", "run",
@@ -657,6 +657,15 @@ class IntentFastPath:
             return None
 
         target = self._clean_target(target)
+
+        # A request with an unresolved reference belongs to the contextual
+        # planner, which receives the recent conversation. Do not guess the
+        # target in this fast, context-free parser.
+        if re.search(
+            r"\\b(?:him|her|them|it|his|hers|their|its|this|that|these|those)\\b",
+            target
+        ):
+            return None
 
         if not target or target in GENERIC_TARGETS:
             return None
