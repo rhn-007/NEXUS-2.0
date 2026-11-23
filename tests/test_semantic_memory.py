@@ -281,6 +281,25 @@ class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(len(llm.calls), 1)
 
+    def test_bm25_ranks_matching_memory_above_unrelated_memory(self):
+        from memory.memory_manager import MemoryManager
+
+        memories = [
+            {"key": "interest", "value": "drawing"},
+            {
+                "key": "learning_preference",
+                "value": "learns best through practical projects"
+            },
+        ]
+
+        ranked = MemoryManager._bm25_rank(
+            "What learning approach works best for me?",
+            memories
+        )
+
+        self.assertTrue(ranked)
+        self.assertEqual(ranked[0][1], "learning_preference")
+
     def test_semantic_ranking_runs_even_when_weak_lexical_overlap_exists(self):
         from memory.memory_manager import MemoryManager
 
