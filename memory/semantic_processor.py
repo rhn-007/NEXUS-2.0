@@ -61,7 +61,7 @@ class SemanticMemoryProcessor:
             re.IGNORECASE
         ),
         re.compile(
-            r"\bwhat\b.*\b(?:suits|works well for|is right for)\s+me\b",
+            r"\bwhat\b.*\b(?:suits|works well for|works best for|is right for)\s+me\b",
             re.IGNORECASE
         ),
         re.compile(
