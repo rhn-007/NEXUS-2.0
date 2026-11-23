@@ -154,6 +154,41 @@ class ConversationContextRouting(unittest.TestCase):
         )
         self.assertTrue(runner.fast.fast_steps("open notepad"))
 
+    def test_search_refinement_reuses_the_previous_search_topic(self):
+        from tools.router import ToolResult
+
+        runner, _ = build()
+        runner.history = None
+        runner.router.execute = MagicMock(
+            return_value=ToolResult(True, "Searching Google for beginner-friendly robotics projects.")
+        )
+        recent = [
+            {"role": "user", "content": "Find beginner robotics projects."},
+            {"role": "assistant", "content": "Searching Google for beginner robotics projects."}
+        ]
+
+        result = runner.resolve("Show me beginner-friendly ones.", recent)
+
+        self.assertTrue(result.success)
+        runner.router.execute.assert_called_once_with(
+            "search beginner-friendly robotics projects"
+        )
+        runner.planner.plan.assert_not_called()
+
+    def test_search_refinement_is_generic_and_needs_a_prior_search(self):
+        recent = [
+            {"role": "user", "content": "Find affordable laptops."},
+            {"role": "assistant", "content": "Searching Google for affordable laptops."}
+        ]
+
+        self.assertEqual(
+            IntentRunner._search_refinement("Show me cheaper ones", recent),
+            "cheaper laptops"
+        )
+        self.assertIsNone(
+            IntentRunner._search_refinement("Show me cheaper ones", [])
+        )
+
 
 class AnythingElse(unittest.TestCase):
     def test_walks_through_new_information_then_ends(self):
