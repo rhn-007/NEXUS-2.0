@@ -281,6 +281,25 @@ class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(len(llm.calls), 1)
 
+    def test_semantic_ranking_runs_even_when_weak_lexical_overlap_exists(self):
+        from memory.memory_manager import MemoryManager
+
+        llm = FakeLLM(['{"relevant":[1]}'])
+        self.memory = MemoryManager()
+        self.memory.remember("interest", "drawing")
+        self.memory.remember("preference", "learns best by building practical projects")
+        self.memory.set_llm(llm)
+
+        context = self.memory.adaptive_context(
+            "What learning approach works best for me?"
+        )
+
+        self.assertIn(
+            "preference: learns best by building practical projects",
+            context
+        )
+        self.assertEqual(len(llm.calls), 1)
+
     def test_ordinary_assistant_queries_do_not_make_extra_model_calls(self):
         from memory.memory_manager import MemoryManager
 
