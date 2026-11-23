@@ -245,6 +245,8 @@ class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
 
         if hasattr(self, "memory"):
             self.memory.db.close()
+        if hasattr(self, "conversation"):
+            self.conversation.close()
         os.chdir(self.old_cwd)
         self.temp_dir.cleanup()
 
