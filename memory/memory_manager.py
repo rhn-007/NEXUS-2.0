@@ -242,13 +242,6 @@ class MemoryManager:
             return "I couldn't find an earlier user message in the recent conversation."
 
         user_text = chats[latest_user_index][1].strip()
-        assistant_text = ""
-        for role, content in chats[latest_user_index + 1:]:
-            if role == "assistant" and content.strip():
-                assistant_text = content.strip()
-                break
-            if role == "user":
-                break
 
         # Summarize the recent exchange by its subject, rather than replaying
         # individual messages. Only explicit recall requests invoke the local LLM.
@@ -261,7 +254,7 @@ class MemoryManager:
 
         # Safe fallback when the local model is unavailable.
         user_text = self._sentence_excerpt(user_text, max_chars=240)
-        return "We were discussing " + user_text.rstrip(".!?") + "."
+        return "The recent conversation was about: " + user_text
 
     @staticmethod
     def _sentence_excerpt(text, max_chars=500):
