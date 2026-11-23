@@ -68,3 +68,44 @@ NEXUS continues with the remaining context rather than failing the response.
 This is retrieval-augmented session memory, not model fine-tuning. Ollama
 receives the selected memory on every request; the model itself does not
 permanently absorb the facts into its weights.
+
+## Stage 3 — Semantic extraction and retrieval
+
+Stage 3 adds a small semantic layer around the existing Python and SQLite memory
+system. It reuses the already configured local Ollama client; it does not add
+Mem0, LangMem, a vector database, an embedding model, or another dependency.
+
+### Extraction
+
+- The existing deterministic detector remains the fast path.
+- Only when it finds no fact does the semantic processor consider the message.
+- A lightweight gate avoids model calls for ordinary questions, short messages,
+  common help requests, and common tool commands.
+- Likely personal statements and explicit "remember" requests are sent to the
+  local model as a single-user-message extraction task.
+- The model must return structured JSON. NEXUS validates category names,
+  value length, confidence (at least 0.75), and duplicates before writing.
+- A correction can replace an existing fact only when the proposed old value
+  exactly matches a stored value under the same key. Otherwise it is treated
+  as a new fact.
+- Model errors or invalid output produce no semantic memories and do not break
+  the conversation.
+
+### Retrieval
+
+- Existing lexical retrieval remains the fast path.
+- Only when lexical fact matching finds nothing does NEXUS consider semantic
+  ranking, and only for explicit personal-memory questions.
+- The model receives a bounded list of existing facts and returns candidate
+  indices. NEXUS validates those indices and inserts only the original stored
+  records into context; generated memory text is never accepted.
+- Ordinary technical questions do not trigger semantic retrieval or an extra
+  Ollama request.
+- Communication preferences remain prioritised and are injected as guidance.
+
+### Design inspiration
+
+This adapts Mem0's retrieve-before-update flow and LangMem's structured,
+context-aware extraction and memory selection. It intentionally avoids their
+framework dependencies and vector-store requirements to preserve NEXUS's
+lightweight local architecture.
