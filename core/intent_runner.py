@@ -9,6 +9,7 @@ Decides how a message is carried out, in this order:
 Anything left over is normal conversation.
 """
 
+import re
 import time
 
 from core.capabilities import answer as capability_answer
@@ -100,6 +101,39 @@ class IntentRunner:
 
                 return follow
 
+            # Context-dependent requests must reach the planner with the
+            # recent conversation before fast parsing or generic routing.
+            # Otherwise a phrase such as "open the second one" can lose
+            # the result list it refers to.
+            if (
+                recent
+                and self._needs_conversation_context(text)
+                and self.fast.looks_like_request(text)
+            ):
+
+                plan = self.planner.plan(text, recent)
+
+                path = "contextual_planner"
+                decision = plan.kind if plan.valid else "invalid"
+                planner_ms = plan.planner_ms
+
+                if plan.kind == "ask":
+
+                    if plan.expects:
+                        self.pending = {"kind": plan.expects, "tries": 0}
+
+                    return ToolResult(True, plan.question)
+
+                if plan.kind == "act":
+
+                    actions = [step.action for step in plan.steps]
+
+                    return self._run_steps(plan.steps, text)
+
+                # The planner determined this is not a safe, clear action.
+                # Let the normal conversational model answer instead.
+                return ToolResult()
+
             steps = self.fast.fast_steps(text)
 
             if len(steps) > 1:
@@ -173,6 +207,17 @@ class IntentRunner:
             if path not in ("none", "router") or decision:
 
                 self._record(path, actions, decision, planner_ms, started)
+
+    @staticmethod
+    def _needs_conversation_context(text):
+        """Whether an action request refers to earlier conversation content."""
+
+        return bool(re.search(
+            r"\\b(?:it|its|they|them|their|those|these|that|this|one|ones|"
+            r"another|same|former|latter|first|second|third|fourth|last|"
+            r"previous|above|there|his|her|hers|him|more|other|instead)\\b",
+            str(text or "").lower()
+        ))
 
     # ======================================================
     # FOLLOW-UP: THE MEETING CODE
