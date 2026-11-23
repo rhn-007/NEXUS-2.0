@@ -213,7 +213,7 @@ class IntentRunner:
         """Whether an action request refers to earlier conversation content."""
 
         return bool(re.search(
-            r"\\b(?:it|its|they|them|their|those|these|that|this|one|ones|"
+            r"\b(?:it|its|they|them|their|those|these|that|this|one|ones|"
             r"another|same|former|latter|first|second|third|fourth|last|"
             r"previous|above|there|his|her|hers|him|more|other|instead)\\b",
             str(text or "").lower()
