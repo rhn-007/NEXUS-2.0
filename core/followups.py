@@ -97,6 +97,10 @@ _VOLUME_UP = re.compile(
     r"(?:more|louder|higher|up|increase it|raise it)(?: still)?$"
 )
 
+_VOLUME_MORE = re.compile(
+    r"^(?:(?:a bit|a little|even|much) )?more(?: still)?$"
+)
+
 _VOLUME_DOWN = re.compile(
     r"^(?:(?:(?:decrease|reduce|lower) (?:the )?volume|"
     r"turn (?:the )?volume down|(?:lower|decrease|reduce) it) )?"
@@ -282,6 +286,15 @@ class FollowUps:
                 return "media", "previous"
 
             if state["topic"] in ("volume_up", "volume_down", "set_volume"):
+
+                # Relative "more" means continue the most recent adjustment,
+                # not always increase the volume. The remembered action is
+                # refreshed after each successful follow-up command.
+                if (
+                    state["topic"] in ("volume_up", "volume_down")
+                    and _VOLUME_MORE.match(cleaned)
+                ):
+                    return "media", state["topic"]
 
                 if _VOLUME_UP.match(cleaned):
                     return "media", "volume_up"
