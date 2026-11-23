@@ -165,7 +165,7 @@ class MediaAndMeetingFollowUps(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertTrue(runner.resolve(text).success, text)
 
-        self.assertEqual(len(sender.pressed) - before, 4)
+        self.assertEqual(len(sender.pressed) - before, 6)
 
     def test_relative_more_repeats_the_last_volume_direction(self):
         runner, sender = build()
