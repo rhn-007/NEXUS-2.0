@@ -661,10 +661,18 @@ class IntentFastPath:
         # A request with an unresolved reference belongs to the contextual
         # planner, which receives the recent conversation. Do not guess the
         # target in this fast, context-free parser.
-        if re.search(
-            r"\b(?:him|her|them|it|his|hers|their|its|this|that|these|those)\b",
-            target
-        ):
+        unresolved_reference = (
+            re.match(
+                r"^(?:him|her|them|it|his|hers|their|its|this|that|these|those)\b",
+                target
+            )
+            or re.search(
+                r"\b(?:youtube|github|wikipedia|reddit|spotify)\s+for\s+"
+                r"(?:him|her|them|it|his|hers|their|its|this|that|these|those)\b",
+                target
+            )
+        )
+        if unresolved_reference:
             return None
 
         if not target or target in GENERIC_TARGETS:
