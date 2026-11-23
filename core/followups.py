@@ -94,7 +94,7 @@ _VOLUME_UP = re.compile(
     r"^(?:(?:(?:increase|raise) (?:the )?volume|"
     r"turn (?:the )?volume up|(?:increase|raise) it) )?"
     r"(?:(?:a bit|a little|even|much) )?"
-    r"(?:more|louder|higher|up)(?: still)?$"
+    r"(?:more|louder|higher|up|increase it|raise it)(?: still)?$"
 )
 
 _VOLUME_DOWN = re.compile(
