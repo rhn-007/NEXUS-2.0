@@ -189,6 +189,17 @@ class ConversationContextRouting(unittest.TestCase):
             IntentRunner._search_refinement("Show me cheaper ones", [])
         )
 
+        stale_context = [
+            {"role": "user", "content": "Find beginner robotics projects."},
+            {"role": "assistant", "content": "Searching Google for beginner robotics projects."},
+            {"role": "user", "content": "Let's talk about the weather."},
+            {"role": "assistant", "content": "Sure, what about it?"},
+            {"role": "user", "content": "Show me cheaper ones"}
+        ]
+        self.assertIsNone(
+            IntentRunner._search_refinement("Show me cheaper ones", stale_context)
+        )
+
 
 class AnythingElse(unittest.TestCase):
     def test_walks_through_new_information_then_ends(self):
