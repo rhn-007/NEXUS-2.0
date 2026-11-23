@@ -411,7 +411,8 @@ class MemoryDetector:
         question = re.sub(r"[?.!,]", " ", str(previous_question).lower())
         question = " ".join(question.split())
         question_match = re.fullmatch(
-            r"what(?:'s| is) my favou?rite ([a-z][a-z ]{0,30})",
+            r"(?:what(?:'s| is)|who(?:'s| is)) my favou?rite "
+            r"([a-z][a-z ]{0,30})",
             question
         )
         if not question_match:
