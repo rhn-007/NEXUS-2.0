@@ -218,7 +218,7 @@ class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
         self.memory.set_llm(llm)
 
         context = self.memory.adaptive_context(
-            "What kind of learning approach works best for me?"
+            "What approach suits me?"
         )
 
         self.assertIn(
