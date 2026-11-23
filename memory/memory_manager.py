@@ -849,15 +849,18 @@ class MemoryManager:
         grouped = self._session_facts or {}
         selected = []
 
-        # Identity, the active project, and communication preferences are
-        # useful across topics and form the compact always-available profile.
-        for key in ("name", "project", "preference"):
+        # Identity and the active project are useful across topics. Keep
+        # communication preferences separate so the model sees them as
+        # response guidance rather than as another biographical fact.
+        for key in ("name", "project"):
             values = grouped.get(key, [])
             if values:
                 selected.append(
                     f"{key.replace('_', ' ')}: "
                     + ", ".join(self._show(key, value) for value in values[-4:])
                 )
+
+        preferences = grouped.get("preference", [])[-4:]
 
         scored_facts = []
         for key, values in grouped.items():
@@ -884,6 +887,13 @@ class MemoryManager:
             )
 
         sections = []
+        if preferences:
+            sections.append(
+                "User communication preferences (apply when relevant, "
+                "unless they conflict with higher-priority instructions): "
+                + "; ".join(preferences) + "."
+            )
+
         if selected:
             sections.append(
                 "Relevant saved personal memory (user-provided facts only; "
