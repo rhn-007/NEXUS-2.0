@@ -201,6 +201,64 @@ class ConversationContextRouting(unittest.TestCase):
         )
 
 
+    def test_contextual_pronoun_search_uses_known_subject_on_spotify(self):
+        from tools.router import ToolResult
+
+        runner, _ = build()
+        runner.router.execute = MagicMock(
+            return_value=ToolResult(True, "Searching Spotify for The Weeknd.")
+        )
+        recent = [
+            {"role": "user", "content": "Who is my favourite music artist?"},
+            {"role": "assistant", "content": "Your favourite singer is The Weeknd."}
+        ]
+
+        result = runner.resolve("Can you search him up on Spotify?", recent)
+
+        self.assertTrue(result.success)
+        runner.router.execute.assert_called_once_with("spotify search the weeknd")
+        runner.planner.plan.assert_not_called()
+
+    def test_contextual_search_without_destination_keeps_previous_destination(self):
+        from tools.router import ToolResult
+
+        runner, _ = build()
+        runner.router.execute = MagicMock(
+            return_value=ToolResult(True, "Searching Spotify for The Weeknd.")
+        )
+        recent = [
+            {"role": "user", "content": "Who is my favourite music artist?"},
+            {"role": "assistant", "content": "Your favourite singer is The Weeknd."},
+            {"role": "user", "content": "Can you search him up on Spotify?"},
+            {"role": "assistant", "content": "Searching Spotify for The Weeknd."}
+        ]
+
+        result = runner.resolve("Now search him up.", recent)
+
+        self.assertTrue(result.success)
+        runner.router.execute.assert_called_once_with("spotify search the weeknd")
+        runner.planner.plan.assert_not_called()
+
+    def test_explicit_browser_destination_overrides_previous_spotify_search(self):
+        from tools.router import ToolResult
+
+        runner, _ = build()
+        runner.router.execute = MagicMock(
+            return_value=ToolResult(True, "Searching Google for The Weeknd.")
+        )
+        recent = [
+            {"role": "assistant", "content": "Your favourite singer is The Weeknd."},
+            {"role": "user", "content": "Can you search him up on Spotify?"},
+            {"role": "assistant", "content": "Searching Spotify for The Weeknd."}
+        ]
+
+        result = runner.resolve("Search him up on the browser.", recent)
+
+        self.assertTrue(result.success)
+        runner.router.execute.assert_called_once_with("search the weeknd")
+        runner.planner.plan.assert_not_called()
+
+
 class AnythingElse(unittest.TestCase):
     def test_walks_through_new_information_then_ends(self):
         runner, _ = build(**FULL_DISK)
