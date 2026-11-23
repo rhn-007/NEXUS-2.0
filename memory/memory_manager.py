@@ -146,12 +146,29 @@ class MemoryManager:
             key = str(memory["key"]).strip().lower()
             value = str(memory["value"]).strip()
             current_values = known.get(key, [])
+            replaces = str(memory.get("replaces", "")).strip()
 
             if key in MULTI_VALUE_KEYS:
                 if any(_norm(existing) == _norm(value) for existing in current_values):
                     continue
             elif current_values and _norm(current_values[-1]) == _norm(value):
                 continue
+
+            # Apply only explicit detector-confirmed corrections. Removing the
+            # exact superseded value keeps the visible preference history from
+            # presenting contradictory current guidance, while unrelated
+            # preferences and all other memory categories remain untouched.
+            if replaces:
+                self.db.delete_memories(
+                    key=key,
+                    value=replaces,
+                    memory_type="fact"
+                )
+                if key in known:
+                    known[key] = [
+                        existing for existing in known[key]
+                        if _norm(existing) != _norm(replaces)
+                    ]
 
             self.db.insert(key, value, "fact")
 
