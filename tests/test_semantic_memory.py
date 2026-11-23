@@ -430,6 +430,18 @@ class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
             [{"key": "singer", "value": "The Weeknd"}]
         )
 
+    def test_indirect_favourite_music_artist_question_is_answered_without_llm(self):
+        from memory.memory_manager import MemoryManager
+
+        self.memory = MemoryManager()
+        self.memory.remember("singer", "The Weeknd")
+        self.assertEqual(
+            self.memory.answer_fact_question(
+                "Can you tell me who my favorite music artist is?"
+            ),
+            "Your favourite singer is The Weeknd."
+        )
+
     def test_favourite_singer_question_is_answered_without_llm(self):
         from memory.memory_manager import MemoryManager
 
