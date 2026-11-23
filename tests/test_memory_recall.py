@@ -95,6 +95,17 @@ class Detector(unittest.TestCase):
             [("preference", "concise explanations")]
         )
 
+    def test_project_based_learning_preference_is_detected_deterministically(self):
+        self.assertEqual(
+            found(
+                "I understand concepts much better when I build practical projects rather than just reading about them."
+            ),
+            [(
+                "learning_preference",
+                "understands concepts better by building practical projects rather than just reading about them"
+            )]
+        )
+
     def test_questions_about_preferences_store_nothing(self):
         self.assertEqual(found("what do i prefer"), [])
 
@@ -152,6 +163,25 @@ class WithMemory(unittest.TestCase):
 
     def ask(self, text):
         return self.memory.answer_fact_question(text)
+
+    def test_project_based_learning_statement_is_saved_and_recalled_without_llm(self):
+        statement = (
+            "I understand concepts much better when I build practical projects "
+            "rather than just reading about them."
+        )
+        self.assertTrue(self.memory.process_memory(statement))
+        self.assertIn(
+            (
+                "learning_preference",
+                "understands concepts better by building practical projects rather than just reading about them"
+            ),
+            [tuple(row) for row in self.memory.db.get_facts()]
+        )
+        self.assertEqual(
+            self.ask("What did I say about how I prefer to learn new concepts?"),
+            "You said you understand concepts much better by building "
+            "practical projects rather than just reading about them."
+        )
 
     def test_natural_favourite_correction_replaces_the_previous_value(self):
         correction = (
