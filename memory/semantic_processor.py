@@ -50,6 +50,10 @@ class SemanticMemoryProcessor:
             re.IGNORECASE
         ),
         re.compile(
+            r"\bwhat\b.*\b(?:suits|works well for|is right for)\s+me\b",
+            re.IGNORECASE
+        ),
+        re.compile(
             r"\bwhat\s+(?:are|is)\s+my\s+"
             r"(?:interests|hobbies|preferences|goals|plans|projects)\b",
             re.IGNORECASE
