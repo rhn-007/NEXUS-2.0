@@ -431,6 +431,11 @@ class MemoryDetector:
             return []
 
         key = question_match.group(1).strip().replace(" ", "_")
+        # Treat common ways of asking about a favourite music performer as
+        # one stable fact, so the answer can be recalled with equivalent wording.
+        if key in {"artist", "music_artist", "musical_artist"}:
+            key = "singer"
+
         value = answer_match.group(1).strip(" .!?")
         if not key or not value:
             return []
