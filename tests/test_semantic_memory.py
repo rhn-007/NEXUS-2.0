@@ -383,6 +383,61 @@ class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(len(llm.calls), 1)
 
+
+    def test_contextual_favourite_singer_answer_is_saved_and_survives_restart(self):
+        from core.conversation import ConversationManager
+        from memory.memory_manager import MemoryManager
+
+        self.memory = MemoryManager()
+        self.memory.set_llm(FakeLLM([]))
+        self.conversation = ConversationManager()
+        self.conversation.add_user_message("Who is my favorite singer?")
+        self.conversation.add_assistant_message(
+            "I don't have information about your favorite singer yet."
+        )
+        self.conversation.add_user_message("It is The Weeknd.")
+
+        self.assertTrue(self.memory.process_memory("It is The Weeknd."))
+        self.assertEqual(
+            self.memory.answer_fact_question("Who is my favorite singer?"),
+            "Your favourite singer is The Weeknd."
+        )
+        self.assertEqual(
+            self.memory.answer_fact_question("Who is my favorite music artist?"),
+            "Your favourite singer is The Weeknd."
+        )
+
+        # Re-open the memory manager against the same SQLite file to verify
+        # that contextual extraction is durable, not just cached in RAM.
+        self.memory.db.close()
+        self.memory = MemoryManager()
+        self.assertEqual(
+            self.memory.answer_fact_question("Who is my favorite artist?"),
+            "Your favourite singer is The Weeknd."
+        )
+
+    def test_contextual_favourite_artist_answer_uses_canonical_singer_key(self):
+        from memory.detector import MemoryDetector
+
+        detector = MemoryDetector()
+        self.assertEqual(
+            detector.detect_answer(
+                "It's The Weeknd.",
+                "Who is my favorite music artist?"
+            ),
+            [{"key": "singer", "value": "the weeknd"}]
+        )
+
+    def test_favourite_singer_question_is_answered_without_llm(self):
+        from memory.memory_manager import MemoryManager
+
+        self.memory = MemoryManager()
+        self.memory.remember("singer", "The Weeknd")
+        self.assertEqual(
+            self.memory.answer_fact_question("Who is my favorite music artist?"),
+            "Your favourite singer is The Weeknd."
+        )
+
     def test_ordinary_assistant_queries_do_not_make_extra_model_calls(self):
         from memory.memory_manager import MemoryManager
 
