@@ -119,3 +119,20 @@ This adapts Mem0's retrieve-before-update flow and LangMem's structured,
 context-aware extraction and memory selection. It intentionally avoids their
 framework dependencies and vector-store requirements to preserve NEXUS's
 lightweight local architecture.
+## Stage 3: reliable recall and contextual follow-ups
+
+Personal-memory questions that explicitly ask what the user previously said
+about learning new concepts use deterministic retrieval from the matching
+SQLite fact key. The response is grounded in that stored value; unrelated
+interests and semantic candidates are not substituted as answers. If the
+matching fact is absent, NEXUS says it has not been told rather than guessing.
+
+Recent-conversation recall reads the authoritative transcript, excludes the
+current recall question, and trims long excerpts at sentence boundaries so
+the spoken/displayed response does not end halfway through a sentence.
+
+Context-aware media follow-ups reuse the existing FollowUps state and
+IntentRunner routing. Volume adjustments accept longer natural phrases such
+as "increase it a bit more" only when a recent media/volume action establishes
+the context. This remains a small deterministic extension; no new dependency
+or extra model call is required.
