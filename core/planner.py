@@ -31,8 +31,8 @@ logger = setup_logger(__name__)
 
 MAX_STEPS = 3
 MAX_VALUE_LENGTH = 150
-HISTORY_MESSAGES = 4
-HISTORY_CHARACTERS = 160
+HISTORY_MESSAGES = 6
+HISTORY_CHARACTERS = 700
 PLANNER_TIMEOUT_SECONDS = 40
 
 MODES = ("voice", "keyboard", "continuous")
@@ -151,8 +151,19 @@ class IntentPlanner:
             f"Known apps and folders: {', '.join(self.app_names) or 'none'}.\n"
             f"Known websites: {', '.join(self.websites) or 'none'}.\n"
             f"Use at most {MAX_STEPS} steps, in the order to do them. Use the "
-            "recent conversation to understand words like \"it\" or \"that\". "
-            "For chat, use no steps. Never invent actions or apps.\n"
+            "recent conversation as the active task context, not just as "
+            "pronoun hints. Track the current subject, what Rohan is trying "
+            "to accomplish, relevant results or options NEXUS just returned, "
+            "and the latest progress. Resolve short follow-up requests such "
+            "as \"open the second one\", \"compare it with that one\", "
+            "\"find its repository\", or \"do the same for this one\" "
+            "using the recent conversation. When referring to a result, use "
+            "only a result actually present in the recent conversation. "
+            "If multiple interpretations are plausible or the referenced "
+            "item is not available, ask one short clarifying question. "
+            "Do not guess, invent results, or treat unrelated older topics "
+            "as the active task. For chat, use no steps. Never invent "
+            "actions or apps.\n"
             "Examples:\n"
             "\"open the browser and look up cats\" -> act: open_browser, "
             "web_search cats\n"
