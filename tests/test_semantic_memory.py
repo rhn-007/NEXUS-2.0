@@ -632,6 +632,24 @@ class UnifiedMemoryPipelineRegressionTests(unittest.TestCase):
             "Your favourite singer is The Weeknd."
         )
 
+    def test_relevant_earlier_exchange_is_added_to_shared_context(self):
+        from memory.memory_manager import MemoryManager
+
+        self.memory = MemoryManager()
+        query = "What do you remember about my favourite singer?"
+        context = self.memory.adaptive_context(
+            query,
+            recent_messages=[{"role": "user", "content": query}],
+            transcript=[
+                {"role": "user", "content": "Who is my favourite singer?"},
+                {"role": "assistant", "content": "Your favourite singer is The Weeknd."},
+            ],
+            max_chars=3200
+        )
+
+        self.assertIn("Earlier exchange", context)
+        self.assertIn("The Weeknd", context)
+
 
 if __name__ == "__main__":
     unittest.main()
