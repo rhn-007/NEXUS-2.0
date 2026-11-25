@@ -129,6 +129,21 @@ class MemoryDetector:
             )
 
         # ==========================
+        # EXPLICIT TV SHOWS
+        # ==========================
+
+        tv_show_patterns = (
+            r"\\bi (?:like|love|enjoy) (?:watching\\s+)?(?:the\\s+)?"
+            r"(?:tv\\s+show|television\\s+series)\\s+([^.,!?;]+)",
+        )
+        for pattern in tv_show_patterns:
+            for title in re.findall(pattern, original_text, re.IGNORECASE):
+                memories.append({
+                    "key": "tv_show",
+                    "value": title.strip()
+                })
+
+        # ==========================
         # INTERESTS
         # ==========================
 
@@ -144,6 +159,14 @@ class MemoryDetector:
 
         for item in interests:
 
+            # Do not also save explicitly labelled TV shows as generic interests.
+            if re.match(
+                r"^(?:(?:watching|following|playing)\\s+)?(?:the\\s+)?"
+                r"(?:tv\\s+show|television\\s+series)\\s+",
+                item.strip(),
+                re.IGNORECASE
+            ):
+                continue
 
             memories.append(
 
