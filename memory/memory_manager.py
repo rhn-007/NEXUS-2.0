@@ -861,6 +861,12 @@ class MemoryManager:
 
         question = _FILLERS.sub("", question)
 
+        # Canonicalize this common conversational recall phrase explicitly.
+        # It must reach the deterministic SQLite interests handler rather
+        # than falling through to the language model.
+        if question == "what do you remember about my hobbies and interests":
+            question = "what are my hobbies and interests"
+
         # Normalize common natural-language paraphrases into the same
         # deterministic fact questions handled below. Keep these patterns
         # narrow so unrelated questions continue to the normal assistant.
