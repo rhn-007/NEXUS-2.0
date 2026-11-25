@@ -443,6 +443,21 @@ class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
             "Your favourite singer is The Weeknd."
         )
 
+    def test_explicit_favourite_music_artist_statement_is_saved_and_recalled(self):
+        from memory.memory_manager import MemoryManager
+
+        self.memory = MemoryManager()
+
+        self.assertTrue(
+            self.memory.process_memory(
+                "My favorite music artist is The Weeknd."
+            )
+        )
+        self.assertEqual(
+            self.memory.answer_fact_question("Who is my favourite singer?"),
+            "Your favourite singer is The Weeknd."
+        )
+
     def test_contextual_favourite_artist_answer_uses_canonical_singer_key(self):
         from memory.detector import MemoryDetector
 
