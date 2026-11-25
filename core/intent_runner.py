@@ -387,7 +387,7 @@ class IntentRunner:
 
         lowered = str(text or "").lower().strip(" .!?")
         lowered = re.sub(
-            r"^(?:(?:ok|okay|now|so|also|please|could you|can u)\s+)+",
+            r"^(?:(?:ok|okay|now|so|also|please|could you|can you|can u)\s+)+",
             "",
             lowered
         )
