@@ -76,13 +76,28 @@ class MemoryDetector:
             r"(?:build|make|create) (?:practical )?projects?\b",
             r"\bi learn .{0,35}better by (?:building|making|creating) "
             r"(?:practical )?projects?\b",
-            r"\bi prefer learning by (?:building|making|creating) "
+            r"\bi prefer learning (?:by|through|via) "
+            r"(?:(?:building|making|creating) )?(?:practical )?projects?\b",
+            r"\bi understand concepts? .{0,35}better when i build "
             r"(?:practical )?projects?\b",
         )
         if any(re.search(pattern, text) for pattern in learning_patterns):
             memories.append({
                 "key": "learning_preference",
                 "value": "understands concepts better by building practical projects rather than just reading about them"
+            })
+
+        # Study-time preferences are single-value facts: a later correction
+        # naturally supersedes the earlier value in MemoryManager.
+        study_time = re.search(
+            r"\bi prefer studying (?:in the |during the |at )?"
+            r"(morning|afternoon|evening|night)\b",
+            text
+        )
+        if study_time:
+            memories.append({
+                "key": "study_time",
+                "value": study_time.group(1)
             })
 
         # ==========================
