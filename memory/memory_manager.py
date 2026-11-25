@@ -91,7 +91,7 @@ def _clean_interest_value(value):
     # These are incomplete conversational fragments, not interests.
     fragment_only = {
         "sometimes", "occasionally", "often", "usually", "rarely",
-        "sometimes", "something", "anything", "everything", "stuff",
+        "something", "anything", "everything", "stuff",
         "things", "whatever", "it", "this", "that", "them", "there"
     }
     if all(token in fragment_only for token in tokens):
