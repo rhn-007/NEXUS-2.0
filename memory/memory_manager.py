@@ -50,6 +50,7 @@ _INTEREST_QUESTIONS = re.compile(
     r"what do i like doing|"
     r"tell me about my (?:hobbies|interests)|"
     r"what do you know about my (?:hobbies|interests)|"
+    r"what do you remember about my (?:hobbies|interests)|"
     r"what have i told you about my (?:hobbies|interests))$"
 )
 
