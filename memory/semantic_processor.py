@@ -76,6 +76,14 @@ class SemanticMemoryProcessor:
             r"\bremind\s+me\s+(?:what|which|how)\b",
             re.IGNORECASE
         ),
+        re.compile(
+            r"\b(?:what|who|which|how)\b.{0,70}\b(?:my|me|i|we|our)\b"
+            r".{0,70}\b(?:remember|told|said|mentioned|prefer|preference|"
+            r"learning|study|studying|favourite|favorite|hobbies|interests|"
+            r"goals|projects|discussed|talked)\b|"
+            r"\bwhat\s+do\s+you\s+know\s+about\s+my\b",
+            re.IGNORECASE
+        ),
     )
 
     def __init__(self, llm=None):
