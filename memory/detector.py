@@ -73,7 +73,7 @@ class MemoryDetector:
         # does not prevent the correction from reaching SQLite.
         interest_retraction = re.search(
             r"(?:^|[.!?]\s*)(?P<title>[^.!?;]+?)\s+"
-            r"is not one of my interests\\b",
+            r"is not one of my interests\b",
             original_text,
             re.IGNORECASE
         )
