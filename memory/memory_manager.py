@@ -33,6 +33,7 @@ _PREFERENCE_QUESTIONS = re.compile(
 _INTEREST_QUESTIONS = re.compile(
     r"^(?:what (?:is my hobby|are my hobbies|are my interests)|"
     r"what about my (?:hobbies|interests)|"
+    r"about my (?:hobbies|interests)|"
     r"what (?:hobbies|interests) do i have|"
     r"what do i like doing|"
     r"tell me about my (?:hobbies|interests)|"
