@@ -626,6 +626,36 @@ class UnifiedMemoryPipelineRegressionTests(unittest.TestCase):
         )
         self.assertEqual(llm.calls, [])
 
+    def test_interest_recall_filters_legacy_fragments_and_deduplicates(self):
+        from memory.memory_manager import MemoryManager
+
+        self.memory = MemoryManager()
+        legacy_values = [
+            ("interest", "robotics and artificial intelligence"),
+            ("interest", "drawing"),
+            ("interest", "to play sometimes"),
+            ("interest", "to play badminton"),
+            ("interest", "badminton as the favourite sport"),
+            ("interest", "playing the TV show The Mentalist"),
+            ("hobby", "drawing"),
+        ]
+        for key, value in legacy_values:
+            self.memory.remember(key, value)
+
+        before = [tuple(row) for row in self.memory.db.get_facts()]
+        self.assertEqual(
+            self.memory.answer_fact_question(
+                "What interests did I mention earlier?"
+            ),
+            "You've mentioned enjoying robotics and artificial intelligence, "
+            "drawing, badminton and The Mentalist."
+        )
+        # Cleanup is presentation-only: historical SQLite rows remain intact.
+        self.assertEqual(
+            [tuple(row) for row in self.memory.db.get_facts()],
+            before
+        )
+
     def test_study_time_correction_replaces_the_previous_value(self):
         from memory.memory_manager import MemoryManager
 
