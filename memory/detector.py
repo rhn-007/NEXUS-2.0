@@ -68,6 +68,24 @@ class MemoryDetector:
 
         memories = []
 
+        # Explicit negative statements retract an existing interest. Keep this
+        # deterministic so the positive clause elsewhere in the same message
+        # does not prevent the correction from reaching SQLite.
+        interest_retraction = re.search(
+            r"(?:^|[.!?]\\s*)(?P<title>[^.!?;]+?)\\s+"
+            r"is not one of my interests\\b",
+            original_text,
+            re.IGNORECASE
+        )
+        if interest_retraction:
+            title = interest_retraction.group("title").strip(" \\t,")
+            if title:
+                memories.append({
+                    "key": "interest",
+                    "value": title,
+                    "remove": True
+                })
+
         # Deterministically capture explicit project-based learning statements.
         # This preference is important enough not to depend on an LLM choosing
         # one of several possible semantic category names.
