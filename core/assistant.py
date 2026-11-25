@@ -439,7 +439,11 @@ class NexusAssistant:
 
             # Deterministic SQLite answers are evidence for Ollama, never a
             # competing response pathway. Forget commands remain deterministic.
-            memory_evidence = self.check_memory(canonical)
+            # Use the user's original wording for memory retrieval. The fast
+            # command parser can normalize phrases such as "what time do I
+            # prefer studying?" into a clock-time command, losing the memory
+            # subject before SQLite lookup.
+            memory_evidence = self.check_memory(user_input)
             if memory_evidence and canonical.lower().strip().startswith("forget "):
                 self.conversation.add_assistant_message(memory_evidence)
                 self.speaker.speak(memory_evidence)
