@@ -181,7 +181,7 @@ class MemoryDetector:
                 "musical_artist": "singer",
             }.get(key, key)
             value = re.sub(
-                r"\\s+instead$",
+                r"\s+instead$",
                 "",
                 favorite.group(2).strip(),
                 flags=re.IGNORECASE
