@@ -72,13 +72,13 @@ def _clean_interest_value(value):
         flags=re.IGNORECASE
     )
     cleaned = re.sub(
-        r"^(?:to\\s+)?play(?:ing)?\\s+",
+        r"^(?:to\s+)?play(?:ing)?\s+",
         "",
         cleaned,
         flags=re.IGNORECASE
     )
     cleaned = re.sub(
-        r"^(?:playing\\s+)?(?:the\\s+)?tv\\s+show\\s+",
+        r"^(?:playing\s+)?(?:the\s+)?tv\s+show\s+",
         "",
         cleaned,
         flags=re.IGNORECASE
