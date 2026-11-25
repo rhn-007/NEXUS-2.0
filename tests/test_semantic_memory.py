@@ -648,13 +648,36 @@ class UnifiedMemoryPipelineRegressionTests(unittest.TestCase):
                 "What interests did I mention earlier?"
             ),
             "You've mentioned enjoying robotics and artificial intelligence, "
-            "drawing, badminton and The Mentalist."
+            "drawing and badminton. You also mentioned the TV show The Mentalist."
         )
         # Cleanup is presentation-only: historical SQLite rows remain intact.
         self.assertEqual(
             [tuple(row) for row in self.memory.db.get_facts()],
             before
         )
+
+    def test_explicit_tv_show_is_stored_separately_from_interests(self):
+        from memory.memory_manager import MemoryManager
+
+        llm = FakeLLM([])
+        self.memory = MemoryManager()
+        self.memory.set_llm(llm)
+
+        self.assertTrue(
+            self.memory.process_memory(
+                "I enjoy watching the TV show The Mentalist."
+            )
+        )
+        facts = [tuple(row) for row in self.memory.db.get_facts()]
+        self.assertIn(("tv_show", "The Mentalist"), facts)
+        self.assertNotIn(("interest", "watching the TV show The Mentalist"), facts)
+        self.assertEqual(
+            self.memory.answer_fact_question(
+                "What interests did I mention earlier?"
+            ),
+            "You mentioned the TV show The Mentalist."
+        )
+        self.assertEqual(llm.calls, [])
 
     def test_study_time_correction_replaces_the_previous_value(self):
         from memory.memory_manager import MemoryManager
