@@ -448,7 +448,7 @@ class NexusAssistant:
                 r"\?|\b(?:can you|could you|would you|please|explain|"
                 r"show me|find|search|open|tell me|what|how|why|when|where|"
                 r"which|help me|write|create|calculate|convert|play|start|"
-                r"stop|launch)\\b",
+                r"stop|launch)\b",
                 user_input,
                 re.IGNORECASE
             ))
