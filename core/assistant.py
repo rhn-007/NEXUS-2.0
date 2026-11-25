@@ -433,9 +433,35 @@ class NexusAssistant:
             # UNIFIED MEMORY UPDATE + RETRIEVAL
             # ======================
 
+            # Detect standalone personal statements before storing them. A
+            # simple fact should receive a brief deterministic acknowledgement,
+            # not an Ollama-generated reply that may add unwanted questions.
+            previous_user_message = self.memory._previous_user_message()
+            personal_statement = bool(
+                self.memory.detector.detect(user_input)
+                or self.memory.detector.detect_answer(
+                    user_input,
+                    previous_user_message
+                )
+            )
+            contains_follow_up_request = bool(re.search(
+                r"\\?|\\b(?:can you|could you|would you|please|explain|"
+                r"show me|find|search|open|tell me|what|how|why|when|where|"
+                r"which|help me|write|create|calculate|convert|play|start|"
+                r"stop|launch)\\b",
+                user_input,
+                re.IGNORECASE
+            ))
+
             # Update SQLite before retrieval so a newly stated fact or
             # correction is available to the very same response.
             self.memory.process_memory(user_input)
+
+            if personal_statement and not contains_follow_up_request:
+                response = "Got it. I'll keep that in mind."
+                self.conversation.add_assistant_message(response)
+                self.speaker.speak(response)
+                return response
 
             # Deterministic SQLite answers are evidence for Ollama, never a
             # competing response pathway. Forget commands remain deterministic.
