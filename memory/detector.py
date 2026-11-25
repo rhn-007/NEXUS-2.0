@@ -54,7 +54,8 @@ class MemoryDetector:
 
 
 
-        original_text = str(text).strip()\n        text = original_text.lower().strip()
+        original_text = str(text).strip()
+        text = original_text.lower().strip()
 
         # Questions and "forget ..." are not things to remember.
         if (
