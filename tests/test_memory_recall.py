@@ -16,6 +16,21 @@ def found(text):
 
 
 class Detector(unittest.TestCase):
+    def test_short_favourite_answer_accepts_its_without_an_apostrophe(self):
+        self.assertEqual(
+            MemoryDetector().detect_answer(
+                "its blue",
+                "What is my favourite colour?"
+            ),
+            [{"key": "colour", "value": "blue"}]
+        )
+
+    def test_interested_in_statements_are_saved_as_interests(self):
+        self.assertIn(
+            ("interest", "robotics and artificial intelligence"),
+            found("I am interested in robotics and artificial intelligence.")
+        )
+
     def test_preferences_are_saved(self):
         for text, value in [("remember that i prefer concise explanations", "concise explanations"),
                             ("i prefer short answers", "short answers"),
