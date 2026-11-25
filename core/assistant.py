@@ -545,8 +545,16 @@ class NexusAssistant:
 
             # Put what the user has told NEXUS first, right after the system prompt.
             if facts_context:
+                # Keep retrieved memory after historical dialogue and directly
+                # before the current user message. Older incorrect assistant
+                # replies must not outweigh the current SQLite-backed facts.
+                insert_at = (
+                    len(context) - 1
+                    if context and context[-1].get("role") == "user"
+                    else len(context)
+                )
                 context.insert(
-                    0,
+                    insert_at,
                     {
                         "role": "system",
                         "content": facts_context
@@ -557,17 +565,25 @@ class NexusAssistant:
             # competing response. This keeps personal facts consistent while
             # preserving one natural-language response-generation call.
             if memory_evidence:
+                # Place the exact answer evidence immediately before the
+                # current question, after any older dialogue that may contain
+                # mistaken or outdated assistant responses.
+                insert_at = (
+                    len(context) - 1
+                    if context and context[-1].get("role") == "user"
+                    else len(context)
+                )
                 context.insert(
-                    0,
+                    insert_at,
                     {
                         "role": "system",
                         "content": (
-                            "AUTHORITATIVE SQLITE MEMORY RESULT FOR THIS REQUEST:\n"
+                            "AUTHORITATIVE SQLITE MEMORY RESULT FOR THIS REQUEST:\\n"
                             + str(memory_evidence)
-                            + "\nTreat this stored result as the source of truth. "
-                            "Do not contradict it, replace it with a guess, or add "
-                            "personal details that it does not contain. Answer the "
-                            "user naturally and concisely using this information."
+                            + "\\nThis result is the source of truth for the "
+                            "current question. Answer directly from it. Do not "
+                            "contradict it, replace it with a guess, or add "
+                            "personal details it does not contain."
                         )
                     }
                 )
