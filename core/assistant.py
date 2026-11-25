@@ -439,11 +439,11 @@ class NexusAssistant:
 
             # Deterministic SQLite answers are evidence for Ollama, never a
             # competing response pathway. Forget commands remain deterministic.
-            memory_response = self.check_memory(canonical)
-            if memory_response and canonical.lower().strip().startswith("forget "):
-                self.conversation.add_assistant_message(memory_response)
-                self.speaker.speak(memory_response)
-                return memory_response
+            memory_evidence = self.check_memory(canonical)
+            if memory_evidence and canonical.lower().strip().startswith("forget "):
+                self.conversation.add_assistant_message(memory_evidence)
+                self.speaker.speak(memory_evidence)
+                return memory_evidence
 
             is_memory_request = self.memory.is_memory_request(user_input)
 
@@ -453,7 +453,7 @@ class NexusAssistant:
 
             tool_result = (
                 None
-                if memory_response or is_memory_request
+                if memory_evidence or is_memory_request
                 else self.intent.resolve(
                     user_input,
                     self.conversation.get_context()
@@ -552,14 +552,14 @@ class NexusAssistant:
             # Deterministic SQLite answers are evidence for Ollama, not a
             # competing response. This keeps personal facts consistent while
             # preserving one natural-language response-generation call.
-            if memory_response:
+            if memory_evidence:
                 context.insert(
                     0,
                     {
                         "role": "system",
                         "content": (
                             "AUTHORITATIVE SQLITE MEMORY RESULT FOR THIS REQUEST:\n"
-                            + str(memory_response)
+                            + str(memory_evidence)
                             + "\nTreat this stored result as the source of truth. "
                             "Do not contradict it, replace it with a guess, or add "
                             "personal details that it does not contain. Answer the "
