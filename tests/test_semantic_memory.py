@@ -503,5 +503,34 @@ class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
         self.assertEqual(llm.calls, [])
 
 
+class MemoryAnswerRoutingTests(unittest.TestCase):
+    def test_direct_fact_answers_bypass_ollama_synthesis(self):
+        from core.assistant import NexusAssistant
+
+        for question in (
+            "Who is my favorite singer?",
+            "Tell me who my favorite singer is.",
+            "What are my hobbies?",
+            "What programming language do I prefer?",
+        ):
+            with self.subTest(question=question):
+                self.assertFalse(
+                    NexusAssistant._is_synthesized_memory_request(question)
+                )
+
+    def test_profile_and_recent_conversation_answers_keep_synthesis(self):
+        from core.assistant import NexusAssistant
+
+        for question in (
+            "What do you know about me?",
+            "Tell me about myself.",
+            "What were we just talking about?",
+        ):
+            with self.subTest(question=question):
+                self.assertTrue(
+                    NexusAssistant._is_synthesized_memory_request(question)
+                )
+
+
 if __name__ == "__main__":
     unittest.main()
