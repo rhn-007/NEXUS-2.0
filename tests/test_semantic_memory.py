@@ -762,6 +762,29 @@ class UnifiedMemoryPipelineRegressionTests(unittest.TestCase):
         )
         self.assertEqual(llm.calls, [])
 
+    def test_legacy_viewing_interests_are_normalized_and_deduplicated(self):
+        from memory.memory_manager import MemoryManager
+
+        self.memory = MemoryManager()
+        self.memory.remember("interest", "watching stranger things")
+        self.memory.remember("interest", "watching the mentalist")
+        self.memory.remember("tv_show", "the met list")
+        self.memory.remember("tv_show", "the mentalist")
+        self.memory.remember("interest", "badminton")
+        self.memory.remember("interest", "badminton as the favourite sport")
+        self.memory.remember("interest", "to play sometimes")
+
+        answer = self.memory.answer_fact_question(
+            "What do you remember about my hobbies and interests?"
+        )
+        self.assertIn("badminton", answer)
+        self.assertIn("Stranger Things", answer)
+        self.assertIn("The Mentalist", answer)
+        self.assertEqual(answer.count("The Mentalist"), 1)
+        self.assertNotIn("met list", answer.lower())
+        self.assertNotIn("favourite sport", answer.lower())
+        self.assertNotIn("sometimes", answer.lower())
+
     def test_remember_hobbies_and_interests_wording_is_deterministic(self):
         from memory.memory_manager import MemoryManager
 
