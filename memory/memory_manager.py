@@ -112,20 +112,33 @@ def _clean_interest_value(value):
 
 
 def _clean_tv_show_value(value):
-    """Extract a TV-show title only when the saved wording labels it explicitly."""
+    """Extract a TV-show title from explicit labels or legacy viewing phrases."""
     original = " ".join(str(value or "").split()).strip(" .,!?:;")
     if not original:
         return None
 
     match = re.match(
-        r"^(?:(?:watching|playing|following|enjoying|liking)\s+)?"
-        r"(?:the\s+)?(?:tv\s+show|television\s+series)\s+(.+)$",
+        r"^(?:(?:watching|playing|following|enjoying|liking)\\s+)?"
+        r"(?:the\\s+)?(?:tv\\s+show|television\\s+series)\\s+(.+)$",
         original,
         flags=re.IGNORECASE
     )
     if match:
-        return match.group(1).strip(" .,!?:;") or None
-    return None
+        title = match.group(1).strip(" .,!?:;")
+    else:
+        viewing = re.match(
+            r"^watching\\s+(?:the\\s+)?(.+)$",
+            original,
+            flags=re.IGNORECASE
+        )
+        if not viewing:
+            return None
+        title = viewing.group(1).strip(" .,!?:;")
+
+    # Normalize a known legacy speech-recognition variant confirmed by the user.
+    if _norm(title) in {"the met list", "met list"}:
+        return "The Mentalist"
+    return title or None
 
 
 def _clean_tv_show_title(value):
