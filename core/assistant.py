@@ -472,11 +472,18 @@ class NexusAssistant:
             # A deterministic fact lookup is already a complete, grounded
             # answer. Do not send it back through a small language model that
             # may add unsupported personal details or resurrect corrected facts.
-            deterministic_fact_answer = self.memory.answer_fact_question(user_input)
-            if deterministic_fact_answer:
-                self.conversation.add_assistant_message(deterministic_fact_answer)
-                self.speaker.speak(deterministic_fact_answer)
-                return deterministic_fact_answer
+            normalized_memory_question = " ".join(
+                re.sub(r"[?.!]", " ", str(user_input or "").lower()).split()
+            )
+            if normalized_memory_question in {
+                "what do you remember about my hobbies and interests",
+                "what are my hobbies and interests",
+            }:
+                deterministic_fact_answer = self.memory.answer_fact_question(user_input)
+                if deterministic_fact_answer:
+                    self.conversation.add_assistant_message(deterministic_fact_answer)
+                    self.speaker.speak(deterministic_fact_answer)
+                    return deterministic_fact_answer
 
             if memory_evidence and canonical.lower().strip().startswith("forget "):
                 self.conversation.add_assistant_message(memory_evidence)
