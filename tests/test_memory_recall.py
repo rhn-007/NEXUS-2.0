@@ -685,6 +685,11 @@ class AssistantWiring(unittest.TestCase):
         a.input_manager.last_input_was_voice = False
         a.memory.answer_fact_question.return_value = None
         a.memory.is_memory_request.return_value = False
+        # MagicMock methods are truthy by default. Model the real detector's
+        # no-match behaviour so ordinary messages are not treated as facts.
+        a.memory._previous_user_message.return_value = None
+        a.memory.detector.detect.return_value = None
+        a.memory.detector.detect_answer.return_value = None
         a.memory.facts_context.return_value = facts_note
         a.memory.adaptive_context.return_value = facts_note
         a.conversation.get_recent_transcript.return_value = []
