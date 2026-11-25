@@ -30,8 +30,18 @@ _PREFERENCE_QUESTIONS = re.compile(
     r"my (?:answers|explanations|replies|responses))$"
 )
 
+_TV_SHOW_QUESTIONS = re.compile(
+    r"^(?:what tv shows have i told you i enjoy|"
+    r"what tv shows have i mentioned|"
+    r"which tv shows do i enjoy|"
+    r"what tv shows do i enjoy|"
+    r"what television shows have i told you i enjoy|"
+    r"what shows have i told you i enjoy)$"
+)
+
 _INTEREST_QUESTIONS = re.compile(
-    r"^(?:what (?:is my hobby|are my hobbies|are my interests)|"
+    r"^(?:what (?:is my hobby|are my hobbies|are my interests|"
+    r"are my hobbies and interests)|"
     r"what about my (?:hobbies|interests)|"
     r"about my (?:hobbies|interests)|"
     r"what (?:hobbies|interests) do i have|"
@@ -866,7 +876,9 @@ class MemoryManager:
         learning_preference_question = re.fullmatch(
             r"(?:what did i say about how i prefer to learn"
             r"(?: new concepts)?|what have i told you about how i learn"
-            r"(?: new concepts)?|how did i say i learn best|"
+            r"(?: new concepts)?|what do you remember about how i prefer to learn"
+            r"(?: new concepts)?|what do you remember about how i learn|"
+            r"how did i say i learn best|"
             r"how do i prefer to learn|what is my learning preference|"
             r"what are my learning preferences|"
             r"what do you know about my learning preferences|"
@@ -1032,6 +1044,28 @@ class MemoryManager:
                 return None
 
             return "You prefer " + _join(values) + "."
+
+        if _TV_SHOW_QUESTIONS.fullmatch(question):
+            shows = []
+            seen = set()
+            for raw_value in grouped.get("tv_show", []):
+                show = _clean_tv_show_title(raw_value)
+                if show and _norm(show) not in seen:
+                    seen.add(_norm(show))
+                    shows.append(show)
+            # Older versions sometimes stored explicitly labelled show titles
+            # in the general-interest category. Read those without treating
+            # arbitrary interests or model-generated guesses as TV shows.
+            for raw_value in grouped.get("interest", []) + grouped.get("hobby", []):
+                show = _clean_tv_show_value(raw_value)
+                if show and _norm(show) not in seen:
+                    seen.add(_norm(show))
+                    shows.append(show)
+            if not shows:
+                return "You haven't told me which TV shows you enjoy yet."
+            return "You told me you enjoy watching " + _join(
+                "the TV show " + show for show in shows
+            ) + "."
 
         if _INTEREST_QUESTIONS.match(question):
 
