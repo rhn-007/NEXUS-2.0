@@ -762,6 +762,25 @@ class UnifiedMemoryPipelineRegressionTests(unittest.TestCase):
         )
         self.assertEqual(llm.calls, [])
 
+    def test_remember_hobbies_and_interests_wording_is_deterministic(self):
+        from memory.memory_manager import MemoryManager
+
+        llm = FakeLLM([])
+        self.memory = MemoryManager()
+        self.memory.set_llm(llm)
+        self.memory.remember("interest", "badminton")
+        self.memory.remember("interest", "robotics and artificial intelligence")
+        self.memory.remember("tv_show", "The Mentalist")
+
+        self.assertEqual(
+            self.memory.answer_fact_question(
+                "What do you remember about my hobbies and interests?"
+            ),
+            "You've mentioned enjoying badminton and robotics and artificial intelligence. "
+            "You also mentioned the TV show The Mentalist."
+        )
+        self.assertEqual(llm.calls, [])
+
     def test_natural_learning_recall_wording_is_deterministic(self):
         from memory.memory_manager import MemoryManager
 
