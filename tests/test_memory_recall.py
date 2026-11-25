@@ -67,7 +67,7 @@ class Detector(unittest.TestCase):
             ),
             (
                 "Actually, my favourite programming language is Java instead.",
-                [("programming_language", "java")],
+                [("programming_language", "Java")],
             ),
         ]
         for text, expected in cases:
@@ -284,18 +284,19 @@ class WithMemory(unittest.TestCase):
                     (role, content)
                 )
 
-        self.memory.semantic_processor.llm = MagicMock()
-        self.memory.semantic_processor.llm.generate_response.return_value = (
-            "We were discussing your preference for learning through practical "
-            "projects rather than just reading about concepts."
-        )
         response = self.memory.answer_conversation_recall(
             "What were we talking about right now?"
         )
-        self.assertEqual(
-            response,
-            "We were discussing your preference for learning through practical "
-            "projects rather than just reading about concepts."
+        # Recall supplies grounded evidence to the shared Ollama response path;
+        # it must not make a second model call to summarize the same excerpt.
+        self.assertIn("Recent exchange:", response)
+        self.assertIn(
+            "User: I understand concepts much better when I build practical projects.",
+            response
+        )
+        self.assertIn(
+            "Assistant: That is a project-based way of learning.",
+            response
         )
         self.assertNotIn("You asked", response)
         self.assertNotIn("I replied", response)
@@ -668,6 +669,7 @@ class AssistantWiring(unittest.TestCase):
         a.conversation.get_context.return_value = [{"role": "user", "content": "hi"}]
         a.input_manager.last_input_was_voice = False
         a.memory.answer_fact_question.return_value = None
+        a.memory.is_memory_request.return_value = False
         a.memory.facts_context.return_value = facts_note
         a.memory.adaptive_context.return_value = facts_note
         a.conversation.get_recent_transcript.return_value = []
@@ -804,14 +806,24 @@ class AssistantWiring(unittest.TestCase):
         self.assertIn("\n\n", response)
         a.memory.answer_fact_question.assert_not_called()
 
-    def test_a_fact_question_is_answered_without_the_model(self):
+    def test_a_fact_question_supplies_authoritative_evidence_to_the_model(self):
         a = self.assistant()
         a.memory.answer_fact_question.return_value = "Your name is Rohan."
-        a.check_memory = lambda text: a.memory.answer_fact_question(text)
-        result = a._process_input("what is my name")
-        self.assertEqual(result, "Your name is Rohan.")
-        a.llm.generate_response.assert_not_called()
-        a.speaker.speak.assert_called_once_with("Your name is Rohan.")
+        with patch.dict("os.environ", {"NEXUS_STREAM": "0"}):
+            result = a._process_input("what is my name")
+
+        self.assertEqual(result, "Fine.")
+        a.llm.generate_response.assert_called_once()
+        context = a.llm.generate_response.call_args.args[1]
+        evidence = [
+            item["content"]
+            for item in context
+            if item.get("role") == "system"
+            and "AUTHORITATIVE SQLITE MEMORY RESULT" in item.get("content", "")
+        ]
+        self.assertEqual(len(evidence), 1)
+        self.assertIn("Your name is Rohan.", evidence[0])
+        a.speaker.speak.assert_called_once_with("Fine.")
 
 
 if __name__ == "__main__":
