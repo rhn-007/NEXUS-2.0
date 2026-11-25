@@ -80,6 +80,10 @@ class NexusAssistant:
             "what were we just discussing",
             "what did we just discuss",
             "what did we just talk about",
+            "what have we discussed recently",
+            "what have we talked about recently",
+            "what did we discuss recently",
+            "what did we talk about recently",
         )
 
         return any(
