@@ -54,7 +54,7 @@ class MemoryDetector:
 
 
 
-        text = text.lower().strip()
+        original_text = str(text).strip()\n        text = original_text.lower().strip()
 
         # Questions and "forget ..." are not things to remember.
         if (
@@ -149,35 +149,28 @@ class MemoryDetector:
         # FAVORITES
         # ==========================
 
-        favorites = re.findall(
-
+        # Match case-insensitively while keeping the user's original spelling
+        # and capitalization in the stored value.
+        favorites = re.finditer(
             r"my favou?rite ([a-z ]+?) (?:is|was) ([^.,]+)",
-
-            text
-
+            original_text,
+            re.IGNORECASE
         )
 
-
-        for key,value in favorites:
-
-
-            memories.append(
-
-                {
-                    "key": key.strip().replace(
-                        " ",
-                        "_"
-                    ),
-
-                    "value": re.sub(
-                        r"\s+instead$",
-                        "",
-                        value.strip()
-                    ).strip()
-
-                }
-
-            )
+        for favorite in favorites:
+            key = favorite.group(1).strip().replace(" ", "_")
+            key = {
+                "artist": "singer",
+                "music_artist": "singer",
+                "musical_artist": "singer",
+            }.get(key, key)
+            value = re.sub(
+                r"\\s+instead$",
+                "",
+                favorite.group(2).strip(),
+                flags=re.IGNORECASE
+            ).strip()
+            memories.append({"key": key, "value": value})
 
         # Understand explicit corrections to a previously stated favourite.
         # The replacement value is stored under the original field's key so
