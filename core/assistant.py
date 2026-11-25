@@ -578,9 +578,9 @@ class NexusAssistant:
                     {
                         "role": "system",
                         "content": (
-                            "AUTHORITATIVE SQLITE MEMORY RESULT FOR THIS REQUEST:\\n"
+                            "AUTHORITATIVE SQLITE MEMORY RESULT FOR THIS REQUEST:\n"
                             + str(memory_evidence)
-                            + "\\nThis result is the source of truth for the "
+                            + "\nThis result is the source of truth for the "
                             "current question. Answer directly from it. Do not "
                             "contradict it, replace it with a guess, or add "
                             "personal details it does not contain."
