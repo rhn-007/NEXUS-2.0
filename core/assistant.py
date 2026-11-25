@@ -630,6 +630,35 @@ class NexusAssistant:
                     }
                 )
 
+            # Give detected personal statements a request-specific response
+            # instruction. Small local models may otherwise ignore the general
+            # personality guidance and fall back to generic chat acknowledgements.
+            if personal_statement:
+                insert_at = (
+                    len(context) - 1
+                    if context and context[-1].get("role") == "user"
+                    else len(context)
+                )
+                context.insert(
+                    insert_at,
+                    {
+                        "role": "system",
+                        "content": (
+                            "RESPONSE INSTRUCTION FOR THE LATEST USER MESSAGE: "
+                            "The user has just shared a personal fact or preference. "
+                            "Acknowledge the actual detail in one concise, natural "
+                            "sentence. Refer to the specific fact; do not reply with "
+                            "generic phrases such as 'Got it' or 'Thanks for sharing'. "
+                            "Do not offer help, invite another question, or ask a "
+                            "follow-up question. Do not add unsupported assumptions. "
+                            "For example, if the user says their favourite colour is "
+                            "black, respond with a natural observation about black "
+                            "being their favourite colour, not a customer-service "
+                            "sign-off."
+                        )
+                    }
+                )
+
             # The reply appears on screen as it is written, and the first
             # sentence starts speaking early. What is stored is unchanged.
             presenter = (
