@@ -561,5 +561,107 @@ class MemoryAnswerRoutingTests(unittest.TestCase):
                 )
 
 
+
+class UnifiedMemoryPipelineRegressionTests(unittest.TestCase):
+    def setUp(self):
+        import os
+        import tempfile
+
+        self.old_cwd = os.getcwd()
+        self.temp_dir = tempfile.TemporaryDirectory()
+        os.chdir(self.temp_dir.name)
+
+    def tearDown(self):
+        import os
+
+        if hasattr(self, "memory"):
+            self.memory.db.close()
+        os.chdir(self.old_cwd)
+        self.temp_dir.cleanup()
+
+    def test_learning_through_projects_is_detected_without_a_second_model_call(self):
+        from memory.memory_manager import MemoryManager
+
+        llm = FakeLLM([])
+        self.memory = MemoryManager()
+        self.memory.set_llm(llm)
+
+        self.assertTrue(self.memory.process_memory(
+            "I prefer learning through practical projects rather than just reading."
+        ))
+        self.assertIn(
+            ("learning_preference",
+             "understands concepts better by building practical projects rather than just reading about them"),
+            [tuple(row) for row in self.memory.db.get_facts()]
+        )
+        self.assertEqual(llm.calls, [])
+
+    def test_study_time_correction_replaces_the_previous_value(self):
+        from memory.memory_manager import MemoryManager
+
+        llm = FakeLLM([])
+        self.memory = MemoryManager()
+        self.memory.set_llm(llm)
+
+        self.memory.process_memory("I prefer studying in the morning.")
+        self.memory.process_memory("Actually, I prefer studying at night.")
+
+        self.assertEqual(
+            self.memory.answer_fact_question("What time do I prefer studying?"),
+            "You prefer studying at night."
+        )
+        self.assertEqual(
+            self.memory._facts_by_key().get("study_time"),
+            ["night"]
+        )
+        self.assertEqual(llm.calls, [])
+
+    def test_personal_memory_questions_are_classified_before_tool_routing(self):
+        from memory.memory_manager import MemoryManager
+
+        for question in (
+            "What do you know about my learning preferences?",
+            "What do you remember about my favourite singer?",
+            "What have we discussed recently?",
+            "How do I prefer to learn?",
+            "Who is my favourite music artist?",
+        ):
+            with self.subTest(question=question):
+                self.assertTrue(MemoryManager.is_memory_request(question))
+
+    def test_memory_request_context_includes_all_personal_facts(self):
+        from memory.memory_manager import MemoryManager
+
+        self.memory = MemoryManager()
+        self.memory.remember(
+            "learning_preference",
+            "understands concepts better by building practical projects"
+        )
+        self.memory.remember("study_time", "night")
+        self.memory.remember("interest", "robotics")
+
+        context = self.memory.adaptive_context(
+            "What do you know about my learning preferences?",
+            max_chars=3200
+        )
+
+        self.assertIn("learning preference:", context.lower())
+        self.assertIn("study time:", context.lower())
+        self.assertIn("interest:", context.lower())
+
+    def test_remembered_favourite_question_uses_saved_fact(self):
+        from memory.memory_manager import MemoryManager
+
+        self.memory = MemoryManager()
+        self.memory.remember("singer", "The Weeknd")
+
+        self.assertEqual(
+            self.memory.answer_fact_question(
+                "What do you remember about my favourite singer?"
+            ),
+            "Your favourite singer is The Weeknd."
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
