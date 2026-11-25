@@ -118,8 +118,8 @@ def _clean_tv_show_value(value):
         return None
 
     match = re.match(
-        r"^(?:(?:watching|playing|following|enjoying|liking)\\s+)?"
-        r"(?:the\\s+)?(?:tv\\s+show|television\\s+series)\\s+(.+)$",
+        r"^(?:(?:watching|playing|following|enjoying|liking)\s+)?"
+        r"(?:the\s+)?(?:tv\s+show|television\s+series)\s+(.+)$",
         original,
         flags=re.IGNORECASE
     )
@@ -127,7 +127,7 @@ def _clean_tv_show_value(value):
         title = match.group(1).strip(" .,!?:;")
     else:
         viewing = re.match(
-            r"^watching\\s+(?:the\\s+)?(.+)$",
+            r"^watching\s+(?:the\s+)?(.+)$",
             original,
             flags=re.IGNORECASE
         )
@@ -143,7 +143,10 @@ def _clean_tv_show_value(value):
 
 def _clean_tv_show_title(value):
     """Clean a title already stored under the dedicated tv_show key."""
-    return " ".join(str(value or "").split()).strip(" .,!?:;") or None
+    title = " ".join(str(value or "").split()).strip(" .,!?:;") or None
+    if title and _norm(title) in {"the met list", "met list"}:
+        return "The Mentalist"
+    return title
 
 
 def _matches_interest_retraction(existing_value, title):
