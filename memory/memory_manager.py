@@ -59,7 +59,34 @@ def _join(values):
 
 class MemoryManager:
 
-
+    @staticmethod
+    def is_memory_request(text):
+        """Identify personal-memory requests before action/capability routing."""
+        value = " ".join(
+            re.sub(r"[?.!,]", " ", str(text or "").lower()).split()
+        )
+        if not value:
+            return False
+        explicit = (
+            "what do you know about me",
+            "what do you know about my",
+            "what do you remember about me",
+            "what do you remember about my",
+            "what have i told you",
+            "what did i tell you",
+            "what did i say about",
+            "what have we discussed",
+            "what have we talked about",
+            "what were we discussing",
+            "what were we talking about",
+            "tell me about myself",
+            "describe me",
+            "my profile",
+            "my details",
+        )
+        if any(phrase in value for phrase in explicit):
+            return True
+        return SemanticMemoryProcessor.is_memory_query(value)
 
     def __init__(self):
 
@@ -687,10 +714,12 @@ class MemoryManager:
             parts.append(f"{key.replace('_', ' ')}: {shown}")
 
         note = (
-            "Authoritative personal facts the user has explicitly shared. "
-            "Treat these SQLite records as the source of truth about the user; "
-            "never contradict them or replace them with guesses. Follow stated "
-            "preferences when relevant. Do not recite facts unless asked: "
+            "SHARED NEXUS MEMORY CONTEXT. These are authoritative personal "
+            "facts the user explicitly shared and persisted conversation records. "
+            "Use them as part of your reasoning and response, not as a separate "
+            "answer source. The latest stored value for a single-value fact is "
+            "the current one. Never contradict stored facts or replace them with "
+            "guesses. Do not recite unrelated facts unless asked: "
         )
 
         for part in parts:
@@ -744,6 +773,17 @@ class MemoryManager:
                 question = canonical
                 break
 
+        # Natural recall wording should resolve to the same authoritative
+        # fact as a direct "who/what is my favourite ..." question.
+        remembered_favourite = re.fullmatch(
+            r"(?:what do you (?:remember|know) about|what have i told you about) "
+            r"my (?:favourite |favorite )?([a-z ]+)",
+            question
+        )
+        if remembered_favourite:
+            thing = remembered_favourite.group(1).strip()
+            question = "who is my favourite " + thing
+
         # Indirect questions such as "tell me who my favourite artist is"
         # use the same deterministic lookup as "who is my favourite artist".
         indirect_favourite = re.fullmatch(
@@ -761,7 +801,11 @@ class MemoryManager:
         learning_preference_question = re.fullmatch(
             r"(?:what did i say about how i prefer to learn"
             r"(?: new concepts)?|what have i told you about how i learn"
-            r"(?: new concepts)?|how did i say i learn best)",
+            r"(?: new concepts)?|how did i say i learn best|"
+            r"how do i prefer to learn|what is my learning preference|"
+            r"what are my learning preferences|"
+            r"what do you know about my learning preferences|"
+            r"what do you remember about my learning preferences)",
             question
         )
         if learning_preference_question:
@@ -898,6 +942,19 @@ class MemoryManager:
             if projects:
                 return "Your AI project name is " + _join(projects) + "."
             return "You haven't told me your AI project name yet."
+
+        study_time_question = re.fullmatch(
+            r"(?:what time do i prefer studying|"
+            r"when do i prefer to study|"
+            r"what is my preferred study time|"
+            r"what time do i usually study)",
+            question
+        )
+        if study_time_question:
+            values = grouped.get("study_time", [])
+            if values:
+                return "You prefer studying at " + _join(values) + "."
+            return "You haven't told me your preferred study time yet."
 
         if _PREFERENCE_QUESTIONS.match(question):
 
@@ -1066,6 +1123,7 @@ class MemoryManager:
         query_tokens = self._context_tokens(query)
         grouped = self._session_facts or {}
         selected = []
+        memory_request = self.is_memory_request(query)
 
         # Identity and the active project are useful across topics. Keep
         # communication preferences separate so the model sees them as
@@ -1091,9 +1149,11 @@ class MemoryManager:
         # Keep retrieval local and fast. Ollama is already going to receive
         # this context for the final answer, so asking it for a second ranking
         # call would add latency without adding another source of truth.
-        ranked_memories = [
-            (key, value) for _, key, value in scored_facts[:4]
-        ]
+        ranked_memories = (
+            [(item["key"], item["value"]) for item in candidate_facts]
+            if memory_request
+            else [(key, value) for _, key, value in scored_facts[:4]]
+        )
 
         # A paraphrased personal-memory question may have no shared keywords
         # with its saved fact. In that case, provide a small bounded candidate
