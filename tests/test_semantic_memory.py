@@ -679,6 +679,59 @@ class UnifiedMemoryPipelineRegressionTests(unittest.TestCase):
         )
         self.assertEqual(llm.calls, [])
 
+    def test_tv_show_question_uses_only_explicitly_stored_titles(self):
+        from memory.memory_manager import MemoryManager
+
+        llm = FakeLLM([])
+        self.memory = MemoryManager()
+        self.memory.set_llm(llm)
+        self.memory.remember("tv_show", "The Mentalist")
+
+        self.assertEqual(
+            self.memory.answer_fact_question(
+                "What TV shows have I told you I enjoy?"
+            ),
+            "You told me you enjoy watching the TV show The Mentalist."
+        )
+        self.assertEqual(llm.calls, [])
+
+    def test_combined_hobbies_and_interests_question_is_deterministic(self):
+        from memory.memory_manager import MemoryManager
+
+        llm = FakeLLM([])
+        self.memory = MemoryManager()
+        self.memory.set_llm(llm)
+        self.memory.remember("interest", "robotics and artificial intelligence")
+        self.memory.remember("interest", "drawing")
+        self.memory.remember("tv_show", "The Mentalist")
+
+        self.assertEqual(
+            self.memory.answer_fact_question("What are my hobbies and interests?"),
+            "You've mentioned enjoying robotics and artificial intelligence, "
+            "drawing. You also mentioned the TV show The Mentalist."
+        )
+        self.assertEqual(llm.calls, [])
+
+    def test_natural_learning_recall_wording_is_deterministic(self):
+        from memory.memory_manager import MemoryManager
+
+        llm = FakeLLM([])
+        self.memory = MemoryManager()
+        self.memory.set_llm(llm)
+        self.memory.remember(
+            "learning_preference",
+            "understands concepts better by building practical projects"
+        )
+
+        self.assertEqual(
+            self.memory.answer_fact_question(
+                "What do you remember about how I prefer to learn?"
+            ),
+            "You said you understand concepts much better by building "
+            "practical projects rather than just reading about them."
+        )
+        self.assertEqual(llm.calls, [])
+
     def test_study_time_correction_replaces_the_previous_value(self):
         from memory.memory_manager import MemoryManager
 
