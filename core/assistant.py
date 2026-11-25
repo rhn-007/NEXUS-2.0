@@ -457,12 +457,10 @@ class NexusAssistant:
             # correction is available to the very same response.
             self.memory.process_memory(user_input)
 
-            if personal_statement and not contains_follow_up_request:
-                response = "Got it. I'll keep that in mind."
-                self.conversation.add_assistant_message(response)
-                self.speaker.speak(response)
-                return response
-
+            # Personal statements are stored first, then continue through the
+            # normal shared-context response path. This lets NEXUS acknowledge
+            # the actual detail conversationally instead of using a fixed reply.
+            
             # Deterministic SQLite answers are evidence for Ollama, never a
             # competing response pathway. Forget commands remain deterministic.
             # Use the user's original wording for memory retrieval. The fast
