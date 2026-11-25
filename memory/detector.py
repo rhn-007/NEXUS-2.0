@@ -72,7 +72,7 @@ class MemoryDetector:
         # deterministic so the positive clause elsewhere in the same message
         # does not prevent the correction from reaching SQLite.
         interest_retraction = re.search(
-            r"(?:^|[.!?]\\s*)(?P<title>[^.!?;]+?)\\s+"
+            r"(?:^|[.!?]\s*)(?P<title>[^.!?;]+?)\s+"
             r"is not one of my interests\\b",
             original_text,
             re.IGNORECASE
