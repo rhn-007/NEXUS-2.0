@@ -503,6 +503,20 @@ class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
         self.assertEqual(llm.calls, [])
 
 
+class DeterministicDetectorRegressionTests(unittest.TestCase):
+    def test_favourite_music_artist_preserves_name_and_uses_canonical_key(self):
+        from memory.detector import MemoryDetector
+
+        memories = MemoryDetector().detect(
+            "My favorite music artist is The Weeknd."
+        )
+
+        self.assertIn(
+            {"key": "singer", "value": "The Weeknd"},
+            memories
+        )
+
+
 class MemoryAnswerRoutingTests(unittest.TestCase):
     def test_direct_fact_answers_bypass_ollama_synthesis(self):
         from core.assistant import NexusAssistant
