@@ -566,6 +566,66 @@ class UnifiedMemoryPipelineRegressionTests(unittest.TestCase):
         )
         self.assertEqual(llm.calls, [])
 
+    def test_live_favourite_colour_statement_is_saved_and_recalled(self):
+        from memory.memory_manager import MemoryManager
+
+        llm = FakeLLM([])
+        self.memory = MemoryManager()
+        self.memory.set_llm(llm)
+        self.assertTrue(self.memory.process_memory("My favourite colour is blue."))
+        self.assertEqual(
+            self.memory.answer_fact_question("What is my favourite colour?"),
+            "Your favourite color is blue."
+        )
+        self.assertEqual(llm.calls, [])
+
+    def test_live_programming_language_question_is_recalled(self):
+        from memory.memory_manager import MemoryManager
+
+        llm = FakeLLM([])
+        self.memory = MemoryManager()
+        self.memory.set_llm(llm)
+        self.assertTrue(self.memory.process_memory(
+            "My favourite programming language is Python."
+        ))
+        self.assertEqual(
+            self.memory.answer_fact_question(
+                "Which programming language do I prefer?"
+            ),
+            "Your favourite programming language is Python."
+        )
+        self.assertEqual(llm.calls, [])
+
+    def test_learning_preference_is_recalled_in_natural_wording(self):
+        from memory.memory_manager import MemoryManager
+
+        llm = FakeLLM([])
+        self.memory = MemoryManager()
+        self.memory.set_llm(llm)
+        self.assertTrue(self.memory.process_memory(
+            "I prefer learning through practical projects."
+        ))
+        self.assertIn(
+            "practical projects",
+            self.memory.answer_fact_question("How do I prefer to learn?")
+        )
+        self.assertEqual(llm.calls, [])
+
+    def test_interests_question_recalls_deterministically_detected_interest(self):
+        from memory.memory_manager import MemoryManager
+
+        llm = FakeLLM([])
+        self.memory = MemoryManager()
+        self.memory.set_llm(llm)
+        self.assertTrue(self.memory.process_memory(
+            "I am interested in robotics and artificial intelligence."
+        ))
+        self.assertEqual(
+            self.memory.answer_fact_question("What interests did I mention earlier?"),
+            "You've mentioned enjoying robotics and artificial intelligence."
+        )
+        self.assertEqual(llm.calls, [])
+
     def test_study_time_correction_replaces_the_previous_value(self):
         from memory.memory_manager import MemoryManager
 
