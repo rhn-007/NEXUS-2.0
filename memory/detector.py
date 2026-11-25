@@ -132,13 +132,14 @@ class MemoryDetector:
         # INTERESTS
         # ==========================
 
-        interests = re.findall(
-
-            r"(?:i like|i love|i enjoy)\s+([^.,]+)",
-
-            text
-
+        interest_patterns = (
+            r"(?:i like|i love|i enjoy)\s+([^.,!?;]+)",
+            r"(?:i am interested in|i'm interested in|i’m interested in)\s+([^.,!?;]+)",
+            r"i have (?:recently )?become interested in\s+([^.,!?;]+)",
         )
+        interests = []
+        for pattern in interest_patterns:
+            interests.extend(re.findall(pattern, text))
 
 
         for item in interests:
@@ -432,7 +433,7 @@ class MemoryDetector:
         # Accept a direct answer followed by an additional sentence, e.g.
         # "It's badminton. I like badminton." Keep only the answer clause.
         answer_match = re.match(
-            r"(?:it is|it's|it’s|the answer is)\s+"
+            r"(?:it is|it's|it’s|its|the answer is)\s+"
             r"([a-z][a-z0-9' -]{0,59}?)"
             r"(?=\s*[.!?](?:\s|$)|$)",
             answer_text,
