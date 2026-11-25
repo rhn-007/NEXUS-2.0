@@ -445,7 +445,7 @@ class NexusAssistant:
                 )
             )
             contains_follow_up_request = bool(re.search(
-                r"\\?|\\b(?:can you|could you|would you|please|explain|"
+                r"\?|\b(?:can you|could you|would you|please|explain|"
                 r"show me|find|search|open|tell me|what|how|why|when|where|"
                 r"which|help me|write|create|calculate|convert|play|start|"
                 r"stop|launch)\\b",
