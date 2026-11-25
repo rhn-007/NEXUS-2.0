@@ -468,6 +468,16 @@ class NexusAssistant:
             # prefer studying?" into a clock-time command, losing the memory
             # subject before SQLite lookup.
             memory_evidence = self.check_memory(user_input)
+
+            # A deterministic fact lookup is already a complete, grounded
+            # answer. Do not send it back through a small language model that
+            # may add unsupported personal details or resurrect corrected facts.
+            deterministic_fact_answer = self.memory.answer_fact_question(user_input)
+            if deterministic_fact_answer:
+                self.conversation.add_assistant_message(deterministic_fact_answer)
+                self.speaker.speak(deterministic_fact_answer)
+                return deterministic_fact_answer
+
             if memory_evidence and canonical.lower().strip().startswith("forget "):
                 self.conversation.add_assistant_message(memory_evidence)
                 self.speaker.speak(memory_evidence)
