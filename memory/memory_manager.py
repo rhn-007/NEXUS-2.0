@@ -35,6 +35,8 @@ _INTEREST_QUESTIONS = re.compile(
     r"what about my (?:hobbies|interests)|"
     r"about my (?:hobbies|interests)|"
     r"what (?:hobbies|interests) do i have|"
+    r"what interests did i mention earlier|"
+    r"what interests have i mentioned(?: earlier)?|"
     r"what do i like doing|"
     r"tell me about my (?:hobbies|interests)|"
     r"what do you know about my (?:hobbies|interests)|"
@@ -806,7 +808,10 @@ class MemoryManager:
             r"how do i prefer to learn|what is my learning preference|"
             r"what are my learning preferences|"
             r"what do you know about my learning preferences|"
-            r"what do you remember about my learning preferences)",
+            r"what do you remember about my learning preferences|"
+            r"how do i like to learn|"
+            r"what is my preferred way to learn|"
+            r"what learning method do i prefer)",
             question
         )
         if learning_preference_question:
