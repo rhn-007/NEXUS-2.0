@@ -519,6 +519,27 @@ class SemanticMemoryManagerIntegrationTests(unittest.TestCase):
 
 
 class DeterministicDetectorRegressionTests(unittest.TestCase):
+    def test_explicit_negative_interest_is_detected_as_a_retraction(self):
+        from memory.detector import MemoryDetector
+
+        memories = MemoryDetector().detect(
+            "I enjoy watching The Mentalist. "
+            "The Mindhunter is not one of my interests."
+        )
+
+        self.assertIn(
+            {
+                "key": "interest",
+                "value": "The Mindhunter",
+                "remove": True
+            },
+            memories
+        )
+        self.assertIn(
+            {"key": "interest", "value": "watching the mentalist"},
+            memories
+        )
+
     def test_favourite_music_artist_preserves_name_and_uses_canonical_key(self):
         from memory.detector import MemoryDetector
 
@@ -678,6 +699,35 @@ class UnifiedMemoryPipelineRegressionTests(unittest.TestCase):
             "You mentioned the TV show The Mentalist."
         )
         self.assertEqual(llm.calls, [])
+
+    def test_explicit_negative_interest_removes_old_and_legacy_show_entries(self):
+        from memory.memory_manager import MemoryManager
+
+        self.memory = MemoryManager()
+        self.memory.remember("interest", "The Mindhunter")
+        self.memory.remember("interest", "watching The Mindhunter")
+        self.memory.remember("tv_show", "The Mindhunter")
+        self.memory.remember("interest", "badminton")
+
+        self.assertTrue(self.memory.process_memory(
+            "I enjoy watching The Mentalist. "
+            "The Mindhunter is not one of my interests."
+        ))
+
+        facts = [tuple(row) for row in self.memory.db.get_facts()]
+        self.assertNotIn(("interest", "The Mindhunter"), facts)
+        self.assertNotIn(("interest", "watching The Mindhunter"), facts)
+        self.assertNotIn(("tv_show", "The Mindhunter"), facts)
+        self.assertIn(("interest", "badminton"), facts)
+        self.assertIn(("interest", "watching the mentalist"), facts)
+
+        context = self.memory.adaptive_context(
+            "What do you remember about my hobbies and interests?",
+            max_chars=3200
+        )
+        self.assertNotIn("Mindhunter", context)
+        self.assertIn("badminton", context)
+        self.assertIn("mentalist", context)
 
     def test_tv_show_question_uses_only_explicitly_stored_titles(self):
         from memory.memory_manager import MemoryManager
