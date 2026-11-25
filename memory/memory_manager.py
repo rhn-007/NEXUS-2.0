@@ -955,7 +955,11 @@ class MemoryManager:
         # listing several personal details must never be left to the language
         # model, where unsupported guesses can be presented as memories.
         multi_prefix = re.match(r"^(?:what are|what is|tell me) my (.+)$", question)
-        if multi_prefix and ("," in multi_prefix.group(1) or " and " in multi_prefix.group(1)):
+        if (
+            multi_prefix
+            and ("," in multi_prefix.group(1) or " and " in multi_prefix.group(1))
+            and not _INTEREST_QUESTIONS.fullmatch(question)
+        ):
             raw_items = [
                 item.strip()
                 for item in re.split(r"\s*,\s*|\s+and\s+", multi_prefix.group(1))
