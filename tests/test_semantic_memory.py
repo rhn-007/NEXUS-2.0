@@ -707,8 +707,8 @@ class UnifiedMemoryPipelineRegressionTests(unittest.TestCase):
 
         self.assertEqual(
             self.memory.answer_fact_question("What are my hobbies and interests?"),
-            "You've mentioned enjoying robotics and artificial intelligence, "
-            "drawing. You also mentioned the TV show The Mentalist."
+            "You've mentioned enjoying robotics and artificial intelligence "
+            "and drawing. You also mentioned the TV show The Mentalist."
         )
         self.assertEqual(llm.calls, [])
 
