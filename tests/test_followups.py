@@ -222,6 +222,23 @@ class ConversationContextRouting(unittest.TestCase):
         runner.router.execute.assert_called_once_with("spotify search the weeknd")
         runner.planner.plan.assert_not_called()
 
+    def test_also_search_him_on_spotify_resolves_subject_and_destination(self):
+        from tools.router import ToolResult
+
+        runner, _ = build()
+        runner.router.execute = MagicMock(
+            return_value=ToolResult(True, "Searching Spotify for The Weeknd.")
+        )
+        recent = [
+            {"role": "assistant", "content": "Your favourite singer is The Weeknd."}
+        ]
+
+        result = runner.resolve("also search him up on spotify", recent)
+
+        self.assertTrue(result.success)
+        runner.router.execute.assert_called_once_with("spotify search the weeknd")
+        runner.planner.plan.assert_not_called()
+
     def test_contextual_search_without_destination_keeps_previous_destination(self):
         from tools.router import ToolResult
 
