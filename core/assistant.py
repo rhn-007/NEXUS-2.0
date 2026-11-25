@@ -897,6 +897,12 @@ class NexusAssistant:
             "what were we just discussing",
             "what did we just discuss",
             "what did we just talk about",
+            "what have we discussed recently",
+            "what have we talked about recently",
+            "what did we discuss recently",
+            "what did we talk about recently",
+            "what did we decide last time",
+            "what did we agree on last time",
         )
         if any(phrase in text for phrase in recent_recall_phrases):
             return self.memory.answer_conversation_recall(user_input)
