@@ -133,8 +133,8 @@ class MemoryDetector:
         # ==========================
 
         tv_show_patterns = (
-            r"\\bi (?:like|love|enjoy) (?:watching\\s+)?(?:the\\s+)?"
-            r"(?:tv\\s+show|television\\s+series)\\s+([^.,!?;]+)",
+            r"\bi (?:like|love|enjoy) (?:watching\s+)?(?:the\s+)?"
+            r"(?:tv\s+show|television\s+series)\s+([^.,!?;]+)",
         )
         for pattern in tv_show_patterns:
             for title in re.findall(pattern, original_text, re.IGNORECASE):
@@ -161,8 +161,8 @@ class MemoryDetector:
 
             # Do not also save explicitly labelled TV shows as generic interests.
             if re.match(
-                r"^(?:(?:watching|following|playing)\\s+)?(?:the\\s+)?"
-                r"(?:tv\\s+show|television\\s+series)\\s+",
+                r"^(?:(?:watching|following|playing)\s+)?(?:the\s+)?"
+                r"(?:tv\s+show|television\s+series)\s+",
                 item.strip(),
                 re.IGNORECASE
             ):
