@@ -9,7 +9,7 @@ from memory.semantic_processor import SemanticMemoryProcessor
 
 
 # Facts that can hold several values; every other key keeps its latest.
-MULTI_VALUE_KEYS = {"preference", "interest", "coding"}
+MULTI_VALUE_KEYS = {"preference", "interest", "coding", "tv_show"}
 
 _FILLERS = re.compile(
     r"^(?:(?:hey|ok|okay|so|and|nexus|please|tell me|"
@@ -98,6 +98,28 @@ def _clean_interest_value(value):
         return None
 
     return cleaned or None
+
+
+def _clean_tv_show_value(value):
+    """Extract a TV-show title only when the saved wording labels it explicitly."""
+    original = " ".join(str(value or "").split()).strip(" .,!?:;")
+    if not original:
+        return None
+
+    match = re.match(
+        r"^(?:(?:watching|playing|following|enjoying|liking)\\s+)?"
+        r"(?:the\\s+)?(?:tv\\s+show|television\\s+series)\\s+(.+)$",
+        original,
+        flags=re.IGNORECASE
+    )
+    if match:
+        return match.group(1).strip(" .,!?:;") or None
+    return None
+
+
+def _clean_tv_show_title(value):
+    """Clean a title already stored under the dedicated tv_show key."""
+    return " ".join(str(value or "").split()).strip(" .,!?:;") or None
 
 
 class MemoryManager:
@@ -1015,9 +1037,19 @@ class MemoryManager:
 
             raw_values = grouped.get("interest", []) + grouped.get("hobby", [])
             values = []
+            tv_shows = []
             seen_values = set()
+            seen_shows = set()
 
             for raw_value in raw_values:
+                show = _clean_tv_show_value(raw_value)
+                if show:
+                    marker = _norm(show)
+                    if marker not in seen_shows:
+                        seen_shows.add(marker)
+                        tv_shows.append(show)
+                    continue
+
                 value = _clean_interest_value(raw_value)
                 if not value:
                     continue
@@ -1029,10 +1061,31 @@ class MemoryManager:
                 seen_values.add(marker)
                 values.append(value)
 
-            if not values:
+            for raw_show in grouped.get("tv_show", []):
+                show = _clean_tv_show_title(raw_show)
+                if not show:
+                    continue
+                marker = _norm(show)
+                if marker not in seen_shows:
+                    seen_shows.add(marker)
+                    tv_shows.append(show)
+
+            if not values and not tv_shows:
                 return "You haven't told me about your hobbies or interests yet."
 
-            return "You've mentioned enjoying " + _join(values) + "."
+            response = (
+                "You've mentioned enjoying " + _join(values) + "."
+                if values else ""
+            )
+            if tv_shows:
+                show_sentence = (
+                    "You also mentioned the TV show " + _join(tv_shows) + "."
+                    if values else
+                    "You mentioned the TV show " + _join(tv_shows) + "."
+                )
+                response = (response + " " + show_sentence).strip()
+
+            return response
 
         # Correct a common speech/typing variant before matching saved favourites.
         question = re.sub(r"\bfavoraite\b", "favourite", question)
