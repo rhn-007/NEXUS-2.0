@@ -619,6 +619,23 @@ class UnifiedMemoryPipelineRegressionTests(unittest.TestCase):
         self.assertIn("study time:", context.lower())
         self.assertIn("interest:", context.lower())
 
+    def test_learning_preference_recall_is_not_misclassified_as_a_favourite(self):
+        from memory.memory_manager import MemoryManager
+
+        self.memory = MemoryManager()
+        self.memory.remember(
+            "learning_preference",
+            "understands concepts better by building practical projects"
+        )
+
+        self.assertEqual(
+            self.memory.answer_fact_question(
+                "What do you know about my learning preferences?"
+            ),
+            "You said you understand concepts much better by building "
+            "practical projects rather than just reading about them."
+        )
+
     def test_remembered_favourite_question_uses_saved_fact(self):
         from memory.memory_manager import MemoryManager
 
