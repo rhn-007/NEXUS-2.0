@@ -467,33 +467,22 @@ class NexusAssistant:
                 return response
 
             # ======================
-            # MEMORY CHECK
+            # UNIFIED MEMORY UPDATE + RETRIEVAL
             # ======================
 
-            memory_response = self.check_memory(
-                canonical
-            )
+            # Update SQLite before retrieval so a newly stated fact or
+            # correction is available to the very same response.
+            self.memory.process_memory(user_input)
 
-            # SQLite is authoritative for direct personal-fact lookups.
-            # Return those exact answers immediately instead of asking Ollama
-            # to restate them and risking a contradiction. Broad profile and
-            # recent-conversation requests still go through Ollama for synthesis.
-            if memory_response and (
-                canonical.lower().strip().startswith("forget ")
-                or not self._is_synthesized_memory_request(canonical)
-            ):
-
+            # Deterministic SQLite answers are evidence for Ollama, never a
+            # competing response pathway. Forget commands remain deterministic.
+            memory_response = self.check_memory(canonical)
+            if memory_response and canonical.lower().strip().startswith("forget "):
                 self.conversation.add_assistant_message(memory_response)
                 self.speaker.speak(memory_response)
                 return memory_response
 
-            # ======================
-            # MEMORY SAVE
-            # ======================
-
-            self.memory.process_memory(
-                user_input
-            )
+            is_memory_request = self.memory.is_memory_request(user_input)
 
             # ======================
             # TOOLS
@@ -501,7 +490,7 @@ class NexusAssistant:
 
             tool_result = (
                 None
-                if memory_response
+                if memory_response or is_memory_request
                 else self.intent.resolve(
                     user_input,
                     self.conversation.get_context()
@@ -542,7 +531,10 @@ class NexusAssistant:
             # conversation is already in context; retrieve only matching older
             # episodes plus the cached personal facts that matter to this request.
             try:
-                transcript = self.conversation.get_recent_transcript(limit=60)
+                # Retrieve a wider persistent window across sessions. The
+                # memory manager ranks relevant episodes before adding them
+                # to the bounded Ollama prompt.
+                transcript = self.conversation.get_recent_transcript(limit=500)
             except Exception as error:
                 logger.warning("Could not load episodic memory: %s", error)
                 transcript = []
@@ -561,7 +553,8 @@ class NexusAssistant:
                     user_input,
                     recent_messages=context,
                     transcript=transcript,
-                    summary=conversation_summary
+                    summary=conversation_summary,
+                    max_chars=3200 if is_memory_request else 1600
                 )
             except Exception as error:
                 logger.warning("Could not load personal memory context: %s", error)
@@ -611,16 +604,21 @@ class NexusAssistant:
                         )
                     }
                 )
-            elif self.memory.semantic_processor.is_memory_query(user_input):
+            elif is_memory_request:
                 context.insert(
                     0,
                     {
                         "role": "system",
                         "content": (
-                            "The user is asking about their personal memories. "
-                            "Use only the relevant user-provided facts in the "
-                            "SQLite memory context. If the needed fact is absent, "
-                            "say you do not know; never guess or invent a personal fact."
+                            "This is a personal-memory request. You are NEXUS's "
+                            "single conversational intelligence: reason over the "
+                            "authoritative SQLite facts and relevant current and "
+                            "earlier conversation excerpts supplied in the shared "
+                            "context. Use the latest corrected fact when values "
+                            "differ. Synthesize a natural answer; do not claim a "
+                            "conversation or fact is unknown when it appears in "
+                            "the supplied context. If evidence is genuinely absent, "
+                            "say so rather than guessing."
                         )
                     }
                 )
