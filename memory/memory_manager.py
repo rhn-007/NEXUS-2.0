@@ -138,7 +138,7 @@ def _clean_tv_show_value(value):
     # Normalize a known legacy speech-recognition variant confirmed by the user.
     if _norm(title) in {"the met list", "met list"}:
         return "The Mentalist"
-    return title or None
+    return title.title() if title else None
 
 
 def _clean_tv_show_title(value):
@@ -146,7 +146,7 @@ def _clean_tv_show_title(value):
     title = " ".join(str(value or "").split()).strip(" .,!?:;") or None
     if title and _norm(title) in {"the met list", "met list"}:
         return "The Mentalist"
-    return title
+    return title.title() if title else None
 
 
 def _matches_interest_retraction(existing_value, title):
