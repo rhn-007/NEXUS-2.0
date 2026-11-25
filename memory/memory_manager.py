@@ -132,6 +132,26 @@ def _clean_tv_show_title(value):
     return " ".join(str(value or "").split()).strip(" .,!?:;") or None
 
 
+def _matches_interest_retraction(existing_value, title):
+    """Match a retracted title against current and legacy interest wording."""
+    existing = _norm(existing_value)
+    target = _norm(title)
+    prefixes = (
+        "watching the tv show ",
+        "watching tv show ",
+        "watching ",
+        "following the tv show ",
+        "following ",
+        "the tv show ",
+        "tv show ",
+    )
+    for prefix in prefixes:
+        if existing.startswith(prefix):
+            existing = existing[len(prefix):].strip()
+            break
+    return existing == target
+
+
 class MemoryManager:
 
     @staticmethod
@@ -271,6 +291,22 @@ class MemoryManager:
             value = str(memory["value"]).strip()
             current_values = known.get(key, [])
             replaces = str(memory.get("replaces", "")).strip()
+
+            # An explicit "not one of my interests" statement removes only
+            # the named item. Check dedicated TV-show rows and legacy interest
+            # fragments so old representations cannot leak back into recall.
+            if memory.get("remove") and key == "interest":
+                for existing_key, existing_value in self.db.get_facts():
+                    if existing_key not in {"interest", "tv_show"}:
+                        continue
+                    if _matches_interest_retraction(existing_value, value):
+                        deleted = self.db.delete_memories(
+                            key=existing_key,
+                            value=existing_value,
+                            memory_type="fact"
+                        )
+                        stored = stored or bool(deleted)
+                continue
 
             # Apply explicit corrections before duplicate checks. The new value
             # may already exist as an older preference; the correction must
