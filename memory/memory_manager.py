@@ -777,7 +777,7 @@ class MemoryManager:
         # fact as a direct "who/what is my favourite ..." question.
         remembered_favourite = re.fullmatch(
             r"(?:what do you (?:remember|know) about|what have i told you about) "
-            r"my (?:favourite |favorite )?([a-z ]+)",
+            r"my (?:favourite |favorite )([a-z ]+)",
             question
         )
         if remembered_favourite:
