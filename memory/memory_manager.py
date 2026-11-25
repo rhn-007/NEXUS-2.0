@@ -66,7 +66,7 @@ def _clean_interest_value(value):
         return None
 
     cleaned = re.sub(
-        r"\\s+as (?:my |the )?favou?rite sport$",
+        r"\s+as (?:my |the )?favou?rite sport$",
         "",
         original,
         flags=re.IGNORECASE
