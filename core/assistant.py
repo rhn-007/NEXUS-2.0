@@ -50,6 +50,43 @@ logger = setup_logger(__name__)
 
 class NexusAssistant:
 
+    @staticmethod
+    def _is_synthesized_memory_request(user_input):
+        """
+        Return True when a memory answer needs conversational synthesis.
+
+        Direct personal-fact lookups are already resolved deterministically
+        from SQLite and should not be sent through Ollama, where a model could
+        ignore or contradict the stored answer. Broad profile summaries and
+        recent-conversation summaries still benefit from natural-language
+        synthesis.
+        """
+        text = " ".join(
+            re.sub(r"[?.!,]", " ", str(user_input or "").lower()).split()
+        )
+
+        profile_phrases = (
+            "what do you know about me",
+            "what do u know about me",
+            "tell me about myself",
+            "who am i",
+            "my profile",
+            "my details",
+        )
+        recent_recall_phrases = (
+            "what were we talking about",
+            "what were we discussing",
+            "what were we just talking about",
+            "what were we just discussing",
+            "what did we just discuss",
+            "what did we just talk about",
+        )
+
+        return any(
+            phrase in text
+            for phrase in profile_phrases + recent_recall_phrases
+        )
+
     def __init__(self):
 
         logger.info("Initializing NEXUS...")
@@ -437,10 +474,14 @@ class NexusAssistant:
                 canonical
             )
 
-            # Memory-changing commands remain deterministic and immediate.
-            # Memory answers, however, are passed to Ollama as authoritative
-            # SQLite context so there is only one final response voice.
-            if memory_response and canonical.lower().strip().startswith("forget "):
+            # SQLite is authoritative for direct personal-fact lookups.
+            # Return those exact answers immediately instead of asking Ollama
+            # to restate them and risking a contradiction. Broad profile and
+            # recent-conversation requests still go through Ollama for synthesis.
+            if memory_response and (
+                canonical.lower().strip().startswith("forget ")
+                or not self._is_synthesized_memory_request(canonical)
+            ):
 
                 self.conversation.add_assistant_message(memory_response)
                 self.speaker.speak(memory_response)
