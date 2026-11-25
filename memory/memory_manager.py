@@ -107,8 +107,8 @@ def _clean_tv_show_value(value):
         return None
 
     match = re.match(
-        r"^(?:(?:watching|playing|following|enjoying|liking)\\s+)?"
-        r"(?:the\\s+)?(?:tv\\s+show|television\\s+series)\\s+(.+)$",
+        r"^(?:(?:watching|playing|following|enjoying|liking)\s+)?"
+        r"(?:the\s+)?(?:tv\s+show|television\s+series)\s+(.+)$",
         original,
         flags=re.IGNORECASE
     )
