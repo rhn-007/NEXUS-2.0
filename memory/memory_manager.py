@@ -59,6 +59,46 @@ def _join(values):
 
     return ", ".join(values[:-1]) + " and " + values[-1]
 
+def _clean_interest_value(value):
+    """Normalize legacy interest fragments for display without changing SQLite."""
+    original = " ".join(str(value or "").split()).strip(" .,!?:;")
+    if not original:
+        return None
+
+    cleaned = re.sub(
+        r"\\s+as (?:my |the )?favou?rite sport$",
+        "",
+        original,
+        flags=re.IGNORECASE
+    )
+    cleaned = re.sub(
+        r"^(?:to\\s+)?play(?:ing)?\\s+",
+        "",
+        cleaned,
+        flags=re.IGNORECASE
+    )
+    cleaned = re.sub(
+        r"^(?:playing\\s+)?(?:the\\s+)?tv\\s+show\\s+",
+        "",
+        cleaned,
+        flags=re.IGNORECASE
+    ).strip(" .,!?:;")
+
+    tokens = re.findall(r"[a-z0-9]+", cleaned.lower())
+    if not tokens:
+        return None
+
+    # These are incomplete conversational fragments, not interests.
+    fragment_only = {
+        "sometimes", "occasionally", "often", "usually", "rarely",
+        "sometimes", "something", "anything", "everything", "stuff",
+        "things", "whatever", "it", "this", "that", "them", "there"
+    }
+    if all(token in fragment_only for token in tokens):
+        return None
+
+    return cleaned or None
+
 
 class MemoryManager:
 
@@ -973,8 +1013,21 @@ class MemoryManager:
 
         if _INTEREST_QUESTIONS.match(question):
 
-            values = grouped.get("interest", []) + grouped.get("hobby", [])
-            values = list(dict.fromkeys(value.strip() for value in values if value.strip()))
+            raw_values = grouped.get("interest", []) + grouped.get("hobby", [])
+            values = []
+            seen_values = set()
+
+            for raw_value in raw_values:
+                value = _clean_interest_value(raw_value)
+                if not value:
+                    continue
+
+                marker = _norm(value)
+                if marker in seen_values:
+                    continue
+
+                seen_values.add(marker)
+                values.append(value)
 
             if not values:
                 return "You haven't told me about your hobbies or interests yet."
