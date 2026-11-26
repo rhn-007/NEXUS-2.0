@@ -63,7 +63,7 @@ _TOPIC_ACTIVITY_QUESTION = re.compile(
 
 def _tv_show_identity(title):
     """Deduplicate show titles regardless of a leading article."""
-    return re.sub(r"^(?:the|a|an)\\s+", "", _norm(title))
+    return re.sub(r"^(?:the|a|an)\s+", "", _norm(title))
 
 
 def _norm(word):
@@ -971,7 +971,7 @@ class MemoryManager:
         return bool(
             re.search(
                 r"^what (?:personal )?(?:interests and hobbies|hobbies and interests) "
-                r"have i (?:explicitly )?told you about\\b",
+                r"have i (?:explicitly )?told you about\b",
                 question
             )
             or _TOPIC_ACTIVITY_QUESTION.fullmatch(question)
