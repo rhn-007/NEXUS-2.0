@@ -69,8 +69,8 @@ class AssociativeMemoryTests(unittest.TestCase):
         ))
 
     def test_shared_descriptive_terms_create_cautious_association(self):
-        self.memory.remember("interest", "robotics")
-        self.memory.remember("project", "robotics engineering")
+        self.memory.remember("interest", "robotics engineering")
+        self.memory.remember("project", "robotics engineering design")
 
         links = self.memory.get_memory_relationships()
         self.assertTrue(any(
@@ -78,6 +78,12 @@ class AssociativeMemoryTests(unittest.TestCase):
             and item["origin"] == "inferred"
             for item in links
         ))
+
+    def test_single_shared_word_does_not_create_a_relationship(self):
+        self.memory.remember("interest", "robotics")
+        self.memory.remember("project", "robotics")
+
+        self.assertEqual(self.memory.get_memory_relationships(), [])
 
     def test_negative_mentions_do_not_create_relationships(self):
         self.memory.remember("tv_show", "The Mindhunter")
@@ -139,11 +145,11 @@ class AssociativeMemoryTests(unittest.TestCase):
         self.assertEqual(self.associative.get_patterns(), [])
         self.assertEqual(self.memory.get_memory_relationships(), [])
 
-    def test_associations_and_patterns_enter_relevant_context(self):
-        self.memory.remember("interest", "robotics")
-        self.memory.remember("project", "robotics engineering")
+    def test_only_strong_associations_and_patterns_enter_context(self):
+        self.memory.remember("interest", "robotics engineering")
+        self.memory.remember("project", "robotics engineering design")
 
-        context = self.memory.adaptive_context("Tell me about robotics")
+        context = self.memory.adaptive_context("Tell me about robotics engineering")
 
         self.assertIn("Connected personal memories", context)
         self.assertIn("Recurring memory patterns", context)
