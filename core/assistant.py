@@ -475,10 +475,13 @@ class NexusAssistant:
             normalized_memory_question = " ".join(
                 re.sub(r"[?.!]", " ", str(user_input or "").lower()).split()
             )
-            if normalized_memory_question in {
-                "what do you remember about my hobbies and interests",
-                "what are my hobbies and interests",
-            }:
+            if (
+                normalized_memory_question in {
+                    "what do you remember about my hobbies and interests",
+                    "what are my hobbies and interests",
+                }
+                or self.memory.is_associative_insight_question(user_input)
+            ):
                 deterministic_fact_answer = self.memory.answer_fact_question(user_input)
                 if deterministic_fact_answer:
                     self.conversation.add_assistant_message(deterministic_fact_answer)
