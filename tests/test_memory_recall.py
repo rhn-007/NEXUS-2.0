@@ -623,6 +623,18 @@ class Answers(WithMemory):
         ]:
             self.assertEqual(self.ask(question), expected, question)
 
+    def test_multiple_hobby_values_are_preserved(self):
+        self.memory.remember("hobby", "drawing")
+        self.memory.remember("hobby", "cubing")
+        answer = self.ask("what are my hobbies?")
+        self.assertIn("drawing", answer)
+        self.assertIn("cubing", answer)
+
+    def test_cubing_statement_is_saved_and_recalled_end_to_end(self):
+        self.memory.process_memory("I do cubing almost every day.")
+        answer = self.ask("what are my hobbies and interests?")
+        self.assertIn("cubing almost every day", answer)
+
     def test_broad_personal_interests_question_uses_deterministic_memory(self):
         self.memory.remember("interest", "drawing and sculpting with clay")
         self.memory.remember("interest", "cubing almost every day")
