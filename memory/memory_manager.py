@@ -303,7 +303,16 @@ class MemoryManager:
         memories = unique_memories
 
         if not memories:
-            return False
+            # An explicit relationship can be stated after both endpoint facts
+            # already exist, without introducing a new fact of its own.
+            try:
+                linked = self.associative_memory.discover_from_statement(
+                    text,
+                    explicit_only=True
+                )
+                return bool(linked)
+            except Exception:
+                return False
     
     
     
