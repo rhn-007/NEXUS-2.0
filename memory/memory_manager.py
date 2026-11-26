@@ -1524,8 +1524,8 @@ class MemoryManager:
         # pattern, and relationship questions may include several memories;
         # narrow fact questions expand only their lexical matches.
         association_request = bool(re.search(
-            r"\\b(?:patterns?|themes?|connections?|profile|about me|"
-            r"hobbies|interests|goals|projects)\\b",
+            r"\b(?:patterns?|themes?|connections?|profile|about me|"
+            r"hobbies|interests|goals|projects)\b",
             str(query or ""),
             re.IGNORECASE
         ))
