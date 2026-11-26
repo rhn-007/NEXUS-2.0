@@ -924,6 +924,7 @@ class UnifiedMemoryPipelineRegressionTests(unittest.TestCase):
 
         self.assertIn("Earlier exchange", context)
         self.assertIn("The Weeknd", context)
+        self.assertIn("historical, not user-provided evidence", context)
 
 
 if __name__ == "__main__":
