@@ -129,7 +129,7 @@ def _clean_tv_show_value(value):
         title = match.group(1).strip(" .,!?:;")
     else:
         viewing = re.match(
-            r"^watching\s+(?:the\s+)?(.+)$",
+            r"^watching\s+(.+)$",
             original,
             flags=re.IGNORECASE
         )
