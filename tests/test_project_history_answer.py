@@ -90,7 +90,7 @@ class ProjectHistoryAnswerTests(unittest.TestCase):
                 (
                     "user",
                     "I have been working on a project called NEXUS which is you. "
-                    "You are my personal AI assistant."
+                    "You are my personal AI assisstant."
                 ),
                 (
                     "user",
@@ -105,6 +105,13 @@ class ProjectHistoryAnswerTests(unittest.TestCase):
         self.assertIn("NEXUS", answer)
         self.assertIn("Purpose: Personal AI assistant.", answer)
         self.assertNotIn("Purpose and additional features: not established", answer)
+
+    def test_detailed_project_question_uses_memory_context_not_short_project_list(self):
+        question = (
+            "What do you remember about my NEXUS project? Include its purpose, "
+            "features, and important development decisions."
+        )
+        self.assertFalse(self.memory.is_project_history_question(question))
 
     def test_non_project_question_is_not_handled(self):
         self.assertIsNone(
