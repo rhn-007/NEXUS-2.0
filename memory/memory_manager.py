@@ -957,8 +957,15 @@ class MemoryManager:
         value = " ".join(
             re.sub(r"[?.!,]", " ", str(text or "").lower()).split()
         )
-        # Detailed project questions use full memory-context retrieval.
-        if re.search(
+        # Broad project-history questions remain deterministic even when
+        # they also ask for purpose, features, or connected goals. Only a
+        # targeted "tell me about my <named> project" query uses rich context.
+        broad_project_list = bool(re.search(
+            r"\bwhat projects have i\b|"
+            r"\bwhat projects did i\b",
+            value
+        ))
+        if not broad_project_list and re.search(
             r"\b(?:features?|purpose|development decisions?|important decisions?|"
             r"details?|how it works|what it can do)\b",
             value
@@ -972,9 +979,44 @@ class MemoryManager:
             value
         ))
 
+    def is_project_history_followup(self, text):
+        """Recognize a short project-name follow-up to a project-history query."""
+        value = " ".join(
+            re.sub(r"[?.!,]", " ", str(text or "").lower()).split()
+        )
+        match = re.fullmatch(
+            r"(?:what about|tell me more about|and) ([a-z0-9_-]{2,40})",
+            value
+        )
+        if not match:
+            return False
+
+        messages = self._recent_conversation_messages(limit=30)
+        if messages and messages[-1][0] == "user" and _norm(messages[-1][1]) == _norm(text):
+            messages = messages[:-1]
+        previous_user_queries = [
+            content for role, content in messages
+            if role == "user" and str(content).strip()
+        ]
+        if not previous_user_queries or not self.is_project_history_question(
+            previous_user_queries[-1]
+        ):
+            return False
+
+        alias = match.group(1)
+        known_projects = [
+            str(item).strip().lower()
+            for item in (self._facts_by_key().get("project", []) or [])
+        ]
+        return alias in known_projects
+
+
     def answer_project_history(self, query):
         """Answer project-history questions from user-authored SQLite transcript only."""
-        if not self.is_project_history_question(query):
+        if not (
+            self.is_project_history_question(query)
+            or self.is_project_history_followup(query)
+        ):
             return None
 
         messages = self._recent_conversation_messages(limit=1000)
