@@ -957,6 +957,13 @@ class MemoryManager:
         value = " ".join(
             re.sub(r"[?.!,]", " ", str(text or "").lower()).split()
         )
+        # Detailed project questions use full memory-context retrieval.
+        if re.search(
+            r"\b(?:features?|purpose|development decisions?|important decisions?|"
+            r"details?|how it works|what it can do)\b",
+            value
+        ):
+            return False
         return bool(re.search(
             r"\bwhat projects have i (?:actually )?(?:told you|built|worked on|developed)\b|"
             r"\bwhat (?:projects|project) have i (?:built|worked on|developed)\b|"
@@ -1025,8 +1032,8 @@ class MemoryManager:
                 # purpose; unrelated interests and assistant-generated text do not.
                 if re.search(
                     r"\b(?:you are|you're)\s+(?:my\s+)?personal\s+"
-                    r"(?:ai\s+)?assistant\b|"
-                    r"\bmy\s+personal\s+(?:ai\s+)?assistant\b",
+                    r"(?:ai\s+)?assis{1,2}tant\b|"
+                    r"\bmy\s+personal\s+(?:ai\s+)?assis{1,2}tant\b",
                     content,
                     re.IGNORECASE
                 ):
@@ -1064,8 +1071,9 @@ class MemoryManager:
     def is_associative_insight_question(text):
         """Identify questions that must be answered from SQLite evidence only."""
         question = " ".join(
-            re.sub(r"[?.!]", " ", str(text or "").lower()).split()
+            re.sub(r"[?,.!]", " ", str(text or "").lower()).split()
         )
+        question = re.sub(r"\\s+only mention connections supported by things.*$", "", question)
         return bool(re.fullmatch(
             r"(?:what patterns have you noticed(?: about me| about my interests)?|"
             r"what patterns do you see(?: in my interests)?|"
@@ -1093,8 +1101,9 @@ class MemoryManager:
         """
 
         question = " ".join(
-            re.sub(r"[?.!]", " ", str(text or "").lower()).split()
+            re.sub(r"[?,.!]", " ", str(text or "").lower()).split()
         )
+        question = re.sub(r"\s+only mention connections supported by things.*$", "", question)
 
         question = _FILLERS.sub("", question)
 
