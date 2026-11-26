@@ -958,10 +958,10 @@ class MemoryManager:
             re.sub(r"[?.!,]", " ", str(text or "").lower()).split()
         )
         return bool(re.search(
-            r"\bwhat projects have i (?:actually )?(?:told you|built|worked on|developed)\\b|"
-            r"\bwhat (?:projects|project) have i (?:built|worked on|developed)\\b|"
-            r"\bwhat do you remember about my .{0,50}project\\b|"
-            r"\bwhat have i told you about my .{0,50}project\\b",
+            r"\bwhat projects have i (?:actually )?(?:told you|built|worked on|developed)\b|"
+            r"\bwhat (?:projects|project) have i (?:built|worked on|developed)\b|"
+            r"\bwhat do you remember about my .{0,50}project\b|"
+            r"\bwhat have i told you about my .{0,50}project\b",
             value
         ))
 
@@ -992,7 +992,7 @@ class MemoryManager:
                     continue
                 if not re.search(
                     r"\b(?:project|working on|worked on|building|built|"
-                    r"developing|developed|creating|created)\\b",
+                    r"developing|developed|creating|created)\b",
                     content,
                     re.IGNORECASE
                 ):
