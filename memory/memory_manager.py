@@ -1101,7 +1101,7 @@ class MemoryManager:
         """
 
         question = " ".join(
-            re.sub(r"[?,.!]", " ", str(text or "").lower()).split()
+            re.sub(r"[?.!]", " ", str(text or "").lower()).split()
         )
         question = re.sub(r"\s+only mention connections supported by things.*$", "", question)
 
