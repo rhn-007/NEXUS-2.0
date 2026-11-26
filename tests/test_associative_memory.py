@@ -72,6 +72,9 @@ class AssociativeMemoryTests(unittest.TestCase):
         self.associative.discover_from_statement(
             "The Mindhunter is not one of my interests; I enjoy robotics."
         )
+        self.associative.discover_from_statement(
+            "I enjoy robotics, but The Mindhunter isn't one of my interests."
+        )
 
         self.assertEqual(self.memory.get_memory_relationships(), [])
 
