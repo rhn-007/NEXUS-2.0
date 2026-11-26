@@ -961,7 +961,7 @@ class MemoryManager:
         return bool(
             re.search(
                 r"^what (?:personal )?(?:interests and hobbies|hobbies and interests) "
-                r"have i (?:explicitly )?told you about\\b",
+                r"have i (?:explicitly )?told you about\b",
                 question
             )
             or re.fullmatch(
@@ -1180,7 +1180,7 @@ class MemoryManager:
         # same deterministic SQLite answer as the shorter hobby questions.
         if re.match(
             r"^what (?:personal )?(?:interests and hobbies|hobbies and interests) "
-            r"have i (?:explicitly )?told you about\\b",
+            r"have i (?:explicitly )?told you about\b",
             question
         ):
             question = "what are my hobbies and interests"
@@ -1194,13 +1194,9 @@ class MemoryManager:
         if topic_activity:
             topics = [
                 item.strip()
-                for item in re.split(r"\\s*,\\s*|\\s+and\\s+", topic_activity.group("topics"))
+                for item in re.split(r"\s*,\s*|\s+and\s+", topic_activity.group("topics"))
                 if item.strip() and item.strip() != "and"
             ]
-            raw_values = (
-                grouped_values
-                if False else []
-            )
             stored_values = (
                 self._facts_by_key().get("interest", [])
                 + self._facts_by_key().get("hobby", [])
@@ -1210,7 +1206,7 @@ class MemoryManager:
             for topic in topics:
                 matches = [
                     value for value in stored_values
-                    if re.search(r"\\b" + re.escape(topic) + r"\\b", str(value), re.IGNORECASE)
+                    if re.search(r"\b" + re.escape(topic) + r"\b", str(value), re.IGNORECASE)
                 ]
                 if matches:
                     for value in matches:
