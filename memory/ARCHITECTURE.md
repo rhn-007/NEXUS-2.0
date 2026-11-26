@@ -137,22 +137,66 @@ as "increase it a bit more" only when a recent media/volume action establishes
 the context. This remains a small deterministic extension; no new dependency
 or extra model call is required.
 
-## Stage 4.1 — Persistent memory relationships
+## Stage 4 — Associative and evidence-backed memory
 
-Stage 4.1 introduces a separate relationship layer over existing personal facts.
-The original memories rows remain authoritative; relationship records refer to
-their stable SQLite IDs and never rewrite fact values.
+Stage 4 builds an associative layer over the existing personal facts. It does
+not replace the original facts or copy the transcript into another store.
 
-Each relationship stores source and target fact IDs, a typed relationship
-label, confidence between 0 and 1, origin (explicit or inferred), optional
-supporting evidence, and creation/update timestamps. Both endpoints must be
-existing personal facts. Self-links are rejected, duplicate links are
-consolidated, and an explicit relationship cannot be downgraded by a later
-inferred link. Foreign-key cascades remove links when either endpoint fact is
-deleted or replaced.
+### Relationship graph
 
-This stage provides persistence and query APIs only. It does not yet
-automatically infer relationships, make personality judgements, or add model
-calls to ordinary conversation. Relationship discovery and contextual use
-will be implemented separately and must validate every proposed endpoint
-against stored facts before saving.
+- `memory_relationships` stores typed edges between stable personal-fact IDs.
+- Edges retain confidence, origin (`explicit` or `inferred`), supporting
+  evidence, and timestamps.
+- A clear user statement such as "my NEXUS project is related to robotics"
+  creates an explicit `related_to` edge only when both endpoint facts already
+  exist and the connecting wording is present between their literal mentions.
+- Facts positively mentioned together may receive a lower-confidence
+  `co_mentioned` association. Obvious negative/retracted mentions are excluded.
+- Distinct fact descriptions that share a distinctive descriptive term can
+  receive a cautious `shares_topic` edge. This is a topical association, not
+  proof of a causal or personal relationship.
+- Endpoints are validated against the personal-facts table. Self-links and
+  invalid confidence values are rejected. Duplicate edges are consolidated.
+- Foreign-key cascades remove relationships when either supporting fact is
+  deleted or replaced.
+
+### Pattern recognition
+
+- `memory_patterns` stores derived summaries with confidence, evidence count,
+  and the IDs of the source facts.
+- Shared themes are identified only when a distinctive term appears across
+  multiple facts in different categories.
+- Interest, goal/project, and learning clusters require multiple distinct
+  saved facts; one isolated statement is not treated as a recurring pattern.
+- Pattern summaries are regenerated after personal-memory writes, corrections,
+  and forgetting. Stale patterns are marked inactive rather than presented as
+  current insight.
+- Derived patterns are summaries, not new user-provided facts.
+
+### Contextual retrieval and reasoning
+
+- Request-time retrieval starts with facts relevant to the current query.
+- The graph expands those seeds with a small number of connected memories.
+- Matching recurring patterns are added to the same bounded context packet.
+- For explicit personal-memory questions, NEXUS can also report supported
+  patterns and memory connections directly from SQLite.
+- Ollama receives these records as evidence and produces the natural response.
+  It may synthesize the evidence, but must not present an inferred association
+  as a user-stated fact or claim causation without evidence.
+
+### Performance and privacy
+
+- Association discovery and pattern generation use local deterministic rules;
+  they add no extra Ollama calls to ordinary conversations.
+- The existing single response-generation call remains responsible for
+  conversational synthesis.
+- No new third-party service, vector database, embedding model, or dependency
+  is introduced.
+- Personal facts remain the source of truth. Forgetting a fact removes its
+  graph edges and refreshes derived patterns.
+- The graph is bounded to a finite number of fact records and relationship
+  candidates so it remains suitable for the local SQLite architecture.
+
+Stage 4 therefore adds persistent associative memory, cautious automatic
+relationship discovery, recurring-pattern summaries, graph-aware retrieval,
+and memory evolution while preserving the Stage 3 unified response flow.
