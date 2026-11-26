@@ -10,7 +10,7 @@ from memory.semantic_processor import SemanticMemoryProcessor
 
 
 # Facts that can hold several values; every other key keeps its latest.
-MULTI_VALUE_KEYS = {"preference", "interest", "coding", "tv_show"}
+MULTI_VALUE_KEYS = {"preference", "interest", "hobby", "activity", "coding", "tv_show"}
 
 _FILLERS = re.compile(
     r"^(?:(?:hey|ok|okay|so|and|nexus|please|tell me|"
@@ -1204,6 +1204,7 @@ class MemoryManager:
             stored_values = (
                 self._facts_by_key().get("interest", [])
                 + self._facts_by_key().get("hobby", [])
+                + self._facts_by_key().get("activity", [])
             )
             matched_values = []
             missing_topics = []
@@ -1596,7 +1597,7 @@ class MemoryManager:
             # Older versions sometimes stored explicitly labelled show titles
             # in the general-interest category. Read those without treating
             # arbitrary interests or model-generated guesses as TV shows.
-            for raw_value in grouped.get("interest", []) + grouped.get("hobby", []):
+            for raw_value in grouped.get("interest", []) + grouped.get("hobby", []) + grouped.get("activity", []):
                 show = _clean_tv_show_value(raw_value)
                 if show and _tv_show_identity(show) not in seen:
                     seen.add(_tv_show_identity(show))
@@ -1609,7 +1610,7 @@ class MemoryManager:
 
         if _INTEREST_QUESTIONS.match(question):
 
-            raw_values = grouped.get("interest", []) + grouped.get("hobby", [])
+            raw_values = grouped.get("interest", []) + grouped.get("hobby", []) + grouped.get("activity", [])
             values = []
             tv_shows = []
             seen_values = set()
