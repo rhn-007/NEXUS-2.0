@@ -1688,6 +1688,22 @@ class MemoryManager:
             for value in grouped.get("project", [])
             if len(str(value).strip()) >= 3
         ]
+        # A project-history request may refer to decisions made in the same
+        # project discussion without repeating the project name (for example,
+        # choosing SQLite or a local model). Only enable this expansion when
+        # the transcript contains an explicit user-authored project-name anchor.
+        project_anchor_found = project_recall_request and any(
+            item.get("role") == "user"
+            and any(
+                re.search(
+                    r"(?<![a-z0-9])" + re.escape(alias) + r"(?![a-z0-9])",
+                    str(item.get("content", "")),
+                    re.IGNORECASE
+                )
+                for alias in project_aliases
+            )
+            for item in (transcript or [])
+        )
 
         if memory_request:
             # For personal-memory questions, only USER-authored transcript
@@ -1711,13 +1727,27 @@ class MemoryManager:
                     )
                     for alias in project_aliases
                 )
-                if not overlap and not project_matches:
+                project_decision = project_anchor_found and bool(re.search(
+                    r"\\b(?:i (?:chose|choose|selected|decided|use|am using|"
+                    r"want|need|built|developed|implemented|added|created|"
+                    r"designed)|we (?:chose|selected|decided|use|are using)|"
+                    r"(?:the )?(?:memory storage|database|local model|"
+                    r"browser automation|voice input|speech output|"
+                    r"research system|computer control))\\b",
+                    user_text,
+                    re.IGNORECASE
+                ))
+                if not overlap and not project_matches and not project_decision:
                     continue
 
-                # A known project-name match is a strong retrieval signal even
-                # when the user's question uses different words from the
-                # earlier project discussion.
-                score = len(overlap) + (12 if project_matches else 0)
+                # Project decisions can omit the project name. Include them
+                # only in a transcript that has a user-authored project anchor;
+                # ordinary unrelated interests and assistant suggestions stay out.
+                score = (
+                    len(overlap)
+                    + (12 if project_matches else 0)
+                    + (6 if project_decision else 0)
+                )
                 message_id = int(item.get("id") or 0)
                 episodes.append((score, message_id, user_text))
 
@@ -1750,6 +1780,55 @@ class MemoryManager:
                     "(assistant replies are not evidence of user facts): "
                 )
                 sections.append(heading + " ".join(episode_lines))
+
+            # A relevant prior exchange may contain a useful assistant reply
+            # (for example, the answer to a remembered question). Preserve it
+            # as conversation history, explicitly not as independent evidence
+            # of a user fact. Project-history retrieval remains user-only.
+            if not project_recall_request:
+                paired_exchanges = []
+                pending_user = None
+                for item in transcript or []:
+                    role = item.get("role")
+                    content = str(item.get("content", "")).strip()
+                    if role == "user":
+                        pending_user = content
+                    elif role == "assistant" and pending_user:
+                        user_text = pending_user
+                        pending_user = None
+                        if not user_text or user_text.casefold() in active_user_messages:
+                            continue
+                        overlap = query_tokens.intersection(
+                            self._context_tokens(user_text)
+                        )
+                        if overlap:
+                            paired_exchanges.append((
+                                len(overlap), user_text, content
+                            ))
+                paired_exchanges.sort(key=lambda item: -item[0])
+                exchange_lines = []
+                seen_exchange_users = set()
+                for _score, user_text, assistant_text in paired_exchanges:
+                    marker = user_text.casefold()
+                    if marker in seen_exchange_users:
+                        continue
+                    seen_exchange_users.add(marker)
+                    line = "Earlier exchange — user: " + self._sentence_excerpt(
+                        user_text, max_chars=220
+                    )
+                    if assistant_text:
+                        line += " | NEXUS response (historical, not user-provided evidence): " + self._sentence_excerpt(
+                            assistant_text, max_chars=220
+                        )
+                    exchange_lines.append(line)
+                    if len(exchange_lines) == 2:
+                        break
+                if exchange_lines:
+                    sections.append(
+                        "Relevant earlier exchange (assistant replies are "
+                        "historical conversation context, not independent user facts): "
+                        + " ".join(exchange_lines)
+                    )
         else:
             # For ordinary conversation, retain the paired exchange behaviour
             # so relevant assistant context remains available for continuity.
