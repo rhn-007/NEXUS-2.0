@@ -224,5 +224,49 @@ class TaskManager:
         """).fetchall()
         return [self.get_task(row["task_id"]) for row in rows]
 
+    def answer(self, text):
+        """Answer explicit task-status questions without calling the language model."""
+        query = " ".join(str(text or "").lower().strip(" .!?").split())
+
+        active_queries = {
+            "show active tasks",
+            "show my active tasks",
+            "what tasks are you working on",
+            "what are you working on",
+            "what is currently running",
+            "show current tasks"
+        }
+        recent_queries = {
+            "show recent tasks",
+            "show task history",
+            "task history",
+            "what tasks have you completed",
+            "what tasks have you done"
+        }
+
+        if query in active_queries:
+            tasks = self.get_active_tasks()
+            if not tasks:
+                return "There are no active multi-step tasks recorded."
+            lines = [
+                f"- {task['request']} ({task['status']})"
+                for task in tasks
+            ]
+            return "Here are the tasks still recorded as active:\\n" + "\\n".join(lines)
+
+        if query in recent_queries:
+            tasks = self.list_tasks(8)
+            if not tasks:
+                return "I haven't recorded any multi-step tasks yet."
+            lines = []
+            for task in tasks:
+                result = task.get("result") or "No final result recorded."
+                lines.append(
+                    f"- {task['request']} — {task['status']}: {result}"
+                )
+            return "Recent task history, newest first:\\n" + "\\n".join(lines)
+
+        return None
+
     def close(self):
         self.connection.close()
