@@ -1767,7 +1767,7 @@ class MemoryManager:
             episode_lines = []
             seen_episodes = set()
             episode_limit = 6 if project_recall_request else 4
-            excerpt_limit = 420 if project_recall_request else 300
+            excerpt_limit = 360 if project_recall_request else 300
 
             for _, _message_id, user_text in episodes:
                 marker = user_text.casefold()
