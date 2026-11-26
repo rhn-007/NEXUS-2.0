@@ -43,6 +43,14 @@ class NotStatements(unittest.TestCase):
     def test_forget_stores_nothing(self):
         self.assertEqual(facts("forget that i like pizza"), [])
 
+    def test_facts_inside_a_forget_request_are_not_saved(self):
+        for text in [
+            "Please forget that I like pizza.",
+            "I want you to forget that I like pizza.",
+            "Can you forget that I enjoy chess?",
+        ]:
+            self.assertEqual(facts(text), [], text)
+
     def test_python_is_only_stored_when_it_is_about_him(self):
         self.assertEqual(facts("what is the best python library"), [])
         self.assertEqual(facts("python is a snake"), [])
