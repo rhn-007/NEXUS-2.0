@@ -34,6 +34,30 @@ class ProjectHistoryAnswerTests(unittest.TestCase):
         self.assertNotIn("Windows computer", answer)
         self.assertNotIn("WhatsApp", answer)
 
+
+    def test_project_name_is_recovered_from_explicit_transcript_when_fact_row_is_missing(self):
+        with patch.object(
+            self.memory,
+            "_facts_by_key",
+            return_value={}
+        ), patch.object(
+            self.memory,
+            "_recent_conversation_messages",
+            return_value=[
+                ("user", "NEXUS is a project I was working on."),
+                ("assistant", "NEXUS is your Windows computer."),
+                ("user", "What projects have I actually told you about?"),
+            ]
+        ):
+            answer = self.memory.answer_project_history(
+                "What projects have I actually told you about?"
+            )
+
+        self.assertIn("NEXUS", answer)
+        self.assertIn("NEXUS is a project I was working on.", answer)
+        self.assertIn("Purpose and additional features: not established", answer)
+        self.assertNotIn("Windows computer", answer)
+
     def test_project_history_does_not_infer_from_assistant_messages(self):
         with patch.object(
             self.memory,
