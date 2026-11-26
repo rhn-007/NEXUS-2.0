@@ -829,6 +829,7 @@ class AssistantWiring(unittest.TestCase):
     def test_a_fact_question_supplies_authoritative_evidence_to_the_model(self):
         a = self.assistant()
         a.memory.answer_fact_question.return_value = "Your name is Rohan."
+        a.memory.is_associative_insight_question.return_value = False
         with patch.dict("os.environ", {"NEXUS_STREAM": "0"}):
             result = a._process_input("what is my name")
 
