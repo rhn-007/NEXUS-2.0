@@ -918,7 +918,3 @@ class MemoryRecallMixin:
 
         return None
 
-
-    # =====================================
-    # ADAPTIVE MEMORY RETRIEVAL
-    # =====================================
