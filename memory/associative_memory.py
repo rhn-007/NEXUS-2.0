@@ -46,7 +46,7 @@ class AssociativeMemory:
 
     @classmethod
     def _tokens(cls, text):
-        tokens = re.findall(r"[a-z0-9+#.-]+", str(text or "").casefold())
+        tokens = re.findall(r"[a-z0-9]+", str(text or "").casefold())
         return {
             token for token in tokens
             if len(token) >= 5 and token not in cls._STOPWORDS
