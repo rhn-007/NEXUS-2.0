@@ -1035,7 +1035,9 @@ class MemoryManager:
             for edge in relationships[:5]:
                 left = f'{edge["source_key"].replace("_", " ")}: {edge["source_value"]}'
                 right = f'{edge["target_key"].replace("_", " ")}: {edge["target_value"]}'
-                if edge["relation_type"] == "co_mentioned":
+                if edge["origin"] == "explicit" and edge["relation_type"] == "related_to":
+                    descriptions.append(f"you explicitly connected {left} with {right}")
+                elif edge["relation_type"] == "co_mentioned":
                     descriptions.append(f"{left} and {right} were mentioned together")
                 else:
                     descriptions.append(f"{left} and {right} share a descriptive topic")
@@ -1518,14 +1520,20 @@ class MemoryManager:
                 + "; ".join(selected) + "."
             )
 
-        # Expand relevant facts through the associative graph. This is local
-        # SQLite retrieval only; the final response still uses the single
-        # normal Ollama generation call.
-        if memory_request or scored_facts:
+        # Expand relevant facts through the associative graph. Broad profile,
+        # pattern, and relationship questions may include several memories;
+        # narrow fact questions expand only their lexical matches.
+        association_request = bool(re.search(
+            r"\\b(?:patterns?|themes?|connections?|profile|about me|"
+            r"hobbies|interests|goals|projects)\\b",
+            str(query or ""),
+            re.IGNORECASE
+        ))
+        if association_request or scored_facts:
             try:
                 associative_context = self.associative_memory.build_context(
                     query,
-                    memory_request=memory_request
+                    memory_request=association_request
                 )
             except Exception:
                 associative_context = None
