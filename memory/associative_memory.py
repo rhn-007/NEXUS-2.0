@@ -181,10 +181,13 @@ class AssociativeMemory:
         created = 0
         by_id = {int(item["id"]): item for item in records}
         for (first_id, second_id), shared in candidates.items():
+            # A single shared word is often coincidental. Require at least two
+            # distinctive terms before persisting an inferred topical edge.
+            if len(shared) < 2:
+                continue
+
             first = by_id[first_id]
             second = by_id[second_id]
-            # One distinctive shared word is enough for a cautious topical
-            # association; two or more provide stronger evidence.
             confidence = min(0.88, 0.70 + 0.07 * min(len(shared), 2))
             evidence = "Shared descriptive term(s): " + ", ".join(sorted(shared))
             self.db.create_memory_relationship(
@@ -364,7 +367,19 @@ class AssociativeMemory:
             edges.values(),
             key=lambda item: (-float(item["confidence"]), -int(item["id"]))
         ):
-            if edge["origin"] == "explicit" and edge["relation_type"] == "related_to":
+            explicit_link = (
+                edge["origin"] == "explicit"
+                and edge["relation_type"] == "related_to"
+            )
+            strong_topic = (
+                edge["origin"] == "inferred"
+                and edge["relation_type"] == "shares_topic"
+                and float(edge["confidence"]) >= 0.84
+            )
+            if not explicit_link and not strong_topic:
+                continue
+
+            if explicit_link:
                 description = "were explicitly connected by the user"
                 evidence_label = "explicit user-stated link"
             elif edge["relation_type"] == "co_mentioned":
