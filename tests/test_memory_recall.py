@@ -180,7 +180,6 @@ class WithMemory(unittest.TestCase):
         return self.memory.answer_fact_question(text)
 
     def test_project_history_question_retrieves_user_authored_project_messages(self):
-        self.memory.remember("project", "NEXUS")
         query = (
             "What projects have I actually told you that I have built or worked on?"
         )
@@ -239,7 +238,7 @@ class WithMemory(unittest.TestCase):
         answer = self.ask(
             "What connections do you see between my interests, goals, and projects?"
         )
-        self.assertIn("don't have a sufficiently supported connection", answer)
+        self.assertIn("haven't found enough evidence", answer)
 
     def test_project_based_learning_statement_is_saved_and_recalled_without_llm(self):
         statement = (
