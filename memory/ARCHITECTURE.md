@@ -175,6 +175,8 @@ not replace the original facts or copy the transcript into another store.
   responses for the user's interests. These patterns cite message IDs.
 - Interest, goal/project, and learning clusters require multiple distinct
   saved facts; one isolated statement is not treated as a recurring pattern.
+- Television-show records are kept separate from interest clusters, so a
+  favourite show is not misreported as a sport, hobby, or personal interest.
 - Pattern summaries are regenerated after personal-memory writes, corrections,
   and forgetting. Stale patterns are marked inactive rather than presented as
   current insight.
@@ -183,8 +185,15 @@ not replace the original facts or copy the transcript into another store.
 ### Contextual retrieval and reasoning
 
 - Request-time retrieval starts with facts relevant to the current query.
-- The graph expands those seeds with a small number of connected memories.
+- Project-history questions use the saved project name as an anchor and also
+  retrieve user-authored feature/decision statements that omit the name (such
+  as SQLite, Ollama, voice, research, and computer-control decisions).
+- Project-history excerpts are prioritized within the context budget. Assistant
+  suggestions are excluded and cannot become evidence of projects or features.
+- The graph expands relevant seeds with a small number of connected memories.
 - Matching recurring patterns are added to the same bounded context packet.
+- For other memory questions, a relevant assistant reply may be included only
+  as explicitly labelled historical conversation context, never as a user fact.
 - For explicit personal-memory questions, NEXUS can also report supported
   patterns and memory connections directly from SQLite.
 - Ollama receives these records as evidence and produces the natural response.
