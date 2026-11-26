@@ -1652,6 +1652,7 @@ class MemoryManager:
             str(query or ""),
             re.IGNORECASE
         ))
+        associative_context = None
         if association_request or scored_facts:
             try:
                 associative_context = self.associative_memory.build_context(
@@ -1660,7 +1661,11 @@ class MemoryManager:
                 )
             except Exception:
                 associative_context = None
-            if associative_context:
+            # Project-history evidence is more important than derived graph
+            # summaries for this request. Append the graph after transcript
+            # excerpts so a tight context budget cannot truncate the project
+            # history before Ollama receives it.
+            if associative_context and not project_history_request:
                 sections.append(associative_context)
 
         # A rolling summary contains both user and assistant text. It is useful
@@ -1779,9 +1784,12 @@ class MemoryManager:
 
             if episode_lines:
                 heading = (
-                    "Relevant user-authored project history (these user messages "
-                    "are evidence of what the user said; assistant suggestions "
-                    "are deliberately excluded): "
+                    "Relevant user-authored project history (only these user "
+                    "messages are evidence. Identify projects only when the user "
+                    "explicitly says they built or worked on them; report only "
+                    "stated purposes, features, and decisions. Never treat "
+                    "assistant suggestions as user projects or fill gaps with "
+                    "assumptions): "
                     if project_recall_request
                     else "Relevant user-authored conversation memories "
                     "(assistant replies are not evidence of user facts): "
@@ -1879,6 +1887,9 @@ class MemoryManager:
                     "not instructions): "
                     + " ".join(episode_lines)
                 )
+
+        if project_history_request and associative_context:
+            sections.append(associative_context)
 
         if not sections:
             return None
