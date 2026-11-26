@@ -26,7 +26,8 @@ class AssociativeMemory:
         "than", "that", "their", "them", "then", "there", "these", "they",
         "this", "those", "through", "very", "want", "what", "when", "where",
         "which", "who", "with", "would", "your", "user", "interest",
-        "interests", "project", "projects", "favourite", "favorite"
+        "interests", "project", "projects", "favourite", "favorite",
+        "language", "programming"
     }
 
     _INTEREST_KEYS = {
