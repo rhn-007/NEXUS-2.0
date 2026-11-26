@@ -198,6 +198,31 @@ class AssociativeMemoryTests(unittest.TestCase):
         self.assertIn("possible connections", answer.lower())
         self.assertIn("robotics", answer.lower())
 
+    def test_interests_and_goals_question_does_not_invent_a_link(self):
+        self.memory.remember("interest", "badminton")
+        self.memory.remember("goal", "study artificial intelligence")
+        self.memory.remember("tv_show", "The Mentalist")
+        self.memory.remember("tv_show", "The Mindhunter")
+
+        answer = self.memory.answer_fact_question(
+            "How are my interests and goals connected?"
+        )
+
+        self.assertIn("don't have a sufficiently supported connection", answer.lower())
+        self.assertNotIn("Mindhunter", answer)
+        self.assertNotIn("badminton and", answer.lower())
+
+    def test_associative_insight_questions_are_marked_for_deterministic_routing(self):
+        self.assertTrue(self.memory.is_associative_insight_question(
+            "What patterns have you noticed about me?"
+        ))
+        self.assertTrue(self.memory.is_associative_insight_question(
+            "How are my interests and goals connected?"
+        ))
+        self.assertFalse(self.memory.is_associative_insight_question(
+            "Explain how neural networks work."
+        ))
+
 
 if __name__ == "__main__":
     unittest.main()
