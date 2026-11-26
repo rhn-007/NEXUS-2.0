@@ -72,6 +72,7 @@ class MemoryDatabase:
                 confidence REAL NOT NULL CHECK (confidence >= 0.0 AND confidence <= 1.0),
                 evidence_count INTEGER NOT NULL DEFAULT 0,
                 evidence_memory_ids TEXT NOT NULL DEFAULT '[]',
+                evidence_message_ids TEXT NOT NULL DEFAULT '[]',
                 active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
@@ -286,8 +287,9 @@ class MemoryDatabase:
                 cursor.execute("""
                     INSERT INTO memory_patterns (
                         pattern_key, pattern_type, label, summary, confidence,
-                        evidence_count, evidence_memory_ids, active, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+                        evidence_count, evidence_memory_ids, evidence_message_ids,
+                        active, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
                     ON CONFLICT(pattern_key) DO UPDATE SET
                         pattern_type = excluded.pattern_type,
                         label = excluded.label,
@@ -299,7 +301,8 @@ class MemoryDatabase:
                         updated_at = excluded.updated_at
                 """, (
                     pattern_key, pattern_type, label, summary, confidence,
-                    evidence_count, json.dumps(evidence_ids), now, now
+                    evidence_count, json.dumps(evidence_ids),
+                    json.dumps(item.get("evidence_message_ids") or []), now, now
                 ))
             self.connection.commit()
         except Exception:
@@ -317,10 +320,11 @@ class MemoryDatabase:
         results = []
         for row in cursor.fetchall():
             item = dict(row)
-            try:
-                item["evidence_memory_ids"] = json.loads(item.get("evidence_memory_ids") or "[]")
-            except (TypeError, ValueError):
-                item["evidence_memory_ids"] = []
+            for field in ("evidence_memory_ids", "evidence_message_ids"):
+                try:
+                    item[field] = json.loads(item.get(field) or "[]")
+                except (TypeError, ValueError):
+                    item[field] = []
             results.append(item)
         return results
 
