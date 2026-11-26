@@ -78,6 +78,34 @@ class ProjectHistoryAnswerTests(unittest.TestCase):
         self.assertIn("don't have enough user-authored evidence", answer)
         self.assertNotIn("badminton", answer)
 
+    def test_explicit_personal_ai_assistant_statement_establishes_project_purpose(self):
+        with patch.object(
+            self.memory,
+            "_facts_by_key",
+            return_value={"project": ["NEXUS"]}
+        ), patch.object(
+            self.memory,
+            "_recent_conversation_messages",
+            return_value=[
+                (
+                    "user",
+                    "I have been working on a project called NEXUS which is you. "
+                    "You are my personal AI assistant."
+                ),
+                (
+                    "user",
+                    "What projects have I actually told you that I have built?"
+                ),
+            ]
+        ):
+            answer = self.memory.answer_project_history(
+                "What projects have I actually told you that I have built?"
+            )
+
+        self.assertIn("NEXUS", answer)
+        self.assertIn("Purpose: Personal AI assistant.", answer)
+        self.assertNotIn("Purpose and additional features: not established", answer)
+
     def test_non_project_question_is_not_handled(self):
         self.assertIsNone(
             self.memory.answer_project_history("What do you know about me?")
