@@ -1551,6 +1551,12 @@ class MemoryManager:
                 )
 
         preferences = grouped.get("preference", [])[-4:]
+        project_history_request = memory_request and bool(re.search(
+            r"\\b(?:project|projects|built|building|developed|developing|"
+            r"worked on|working on)\\b",
+            str(query or ""),
+            re.IGNORECASE
+        ))
 
         candidate_facts = [
             {"key": key, "value": value}
@@ -1563,11 +1569,29 @@ class MemoryManager:
         # Keep retrieval local and fast. Ollama is already going to receive
         # this context for the final answer, so asking it for a second ranking
         # call would add latency without adding another source of truth.
-        ranked_memories = (
-            [(item["key"], item["value"]) for item in candidate_facts]
-            if memory_request
-            else [(key, value) for _, key, value in scored_facts[:4]]
-        )
+        if project_history_request:
+            # Project questions need the project identity plus a few directly
+            # relevant facts, not the entire profile. Leave room for the
+            # user-authored project decisions retrieved from the transcript.
+            ranked_memories = [
+                (item["key"], item["value"])
+                for item in candidate_facts
+                if item["key"] in {"goal", "career_goal", "education_goal"}
+            ][:2]
+            ranked_memories.extend(
+                (key, value) for _, key, value in scored_facts[:4]
+            )
+        elif memory_request:
+            # A bounded profile slice prevents a large personal database from
+            # crowding out the episodic evidence needed for memory questions.
+            ranked_memories = [
+                (item["key"], item["value"])
+                for item in candidate_facts[:10]
+            ]
+        else:
+            ranked_memories = [
+                (key, value) for _, key, value in scored_facts[:4]
+            ]
 
         # A paraphrased personal-memory question may have no shared keywords
         # with its saved fact. In that case, provide a small bounded candidate
@@ -1588,7 +1612,8 @@ class MemoryManager:
                 f"{key.replace('_', ' ')}: {self._show(key, value)}"
             )
 
-        for _, key, value in scored_facts:
+        relevant_fact_limit = 4 if project_history_request else len(scored_facts)
+        for _, key, value in scored_facts[:relevant_fact_limit]:
             marker = (key, value.casefold())
             if marker in seen_facts:
                 continue
@@ -1651,12 +1676,7 @@ class MemoryManager:
         }
 
         episodes = []
-        project_recall_request = memory_request and bool(re.search(
-            r"\\b(?:project|projects|built|building|developed|developing|"
-            r"worked on|working on)\\b",
-            str(query or ""),
-            re.IGNORECASE
-        ))
+        project_recall_request = project_history_request
         project_aliases = [
             str(value).strip()
             for value in grouped.get("project", [])
