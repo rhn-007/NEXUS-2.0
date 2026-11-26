@@ -60,7 +60,11 @@ class MemoryDetector:
         # Questions and explicit forget commands are not facts to save.
         if (
             text.endswith("?")
-            or re.match(r"^(?:(?:please|can you|could you)\s+)?forget\b", text)
+            or re.match(
+                r"^(?:(?:please|can you|could you)\s+)?forget\b|"
+                r"^i (?:want|need) you to forget\b",
+                text
+            )
             or _NOT_A_STATEMENT.match(text)
         ):
             return []
