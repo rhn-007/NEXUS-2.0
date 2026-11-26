@@ -639,13 +639,19 @@ class NexusAssistant:
                         "content": (
                             "This is a personal-memory request. You are NEXUS's "
                             "single conversational intelligence: reason over the "
-                            "authoritative SQLite facts and relevant current and "
-                            "earlier conversation excerpts supplied in the shared "
-                            "context. Use the latest corrected fact when values "
-                            "differ. Synthesize a natural answer; do not claim a "
-                            "conversation or fact is unknown when it appears in "
-                            "the supplied context. If evidence is genuinely absent, "
-                            "say so rather than guessing."
+                            "authoritative SQLite facts and user-authored historical "
+                            "messages supplied in the shared context. Treat those "
+                            "user messages as evidence of what the user said. "
+                            "Assistant messages, assistant suggestions, and model-"
+                            "generated summaries are not evidence of the user's "
+                            "interests, goals, projects, preferences, decisions, or "
+                            "relationships. Never turn a hypothetical suggestion "
+                            "into a user-owned project or requirement. Use the latest "
+                            "corrected fact when values differ. Synthesize a natural "
+                            "answer; do not claim a conversation or fact is unknown "
+                            "when it appears in the supplied context. Separate "
+                            "confirmed statements from cautious inferences. If "
+                            "evidence is genuinely absent, say so rather than guessing."
                         )
                     }
                 )

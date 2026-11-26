@@ -223,6 +223,88 @@ class AssociativeMemoryTests(unittest.TestCase):
             "Explain how neural networks work."
         ))
 
+    def test_project_history_questions_are_recognized_as_memory_requests(self):
+        self.assertTrue(self.memory.is_memory_request(
+            "What projects have I actually told you that I have built or worked on?"
+        ))
+        self.assertTrue(self.memory.is_memory_request(
+            "What do you remember about my NEXUS project?"
+        ))
+
+    def test_project_recall_uses_user_messages_matching_the_saved_project_name(self):
+        self.memory.remember("project", "NEXUS")
+        transcript = [
+            {
+                "id": 1,
+                "role": "user",
+                "content": "I built NEXUS as a personal AI assistant inspired by JARVIS."
+            },
+            {
+                "id": 2,
+                "role": "assistant",
+                "content": "You could turn NEXUS into a badminton training application."
+            },
+            {
+                "id": 3,
+                "role": "user",
+                "content": "I want NEXUS to have persistent memory for personal facts and earlier conversations."
+            },
+            {
+                "id": 4,
+                "role": "assistant",
+                "content": "You should add badminton equipment integration and player analytics."
+            },
+            {
+                "id": 5,
+                "role": "user",
+                "content": "I chose SQLite for memory storage and a local Ollama model for responses."
+            },
+            {
+                "id": 6,
+                "role": "user",
+                "content": "I enjoy playing badminton."
+            },
+        ]
+
+        context = self.memory.adaptive_context(
+            "What projects have I actually told you that I have built or worked on?",
+            transcript=transcript,
+            summary="NEXUS might be a badminton training application.",
+            max_chars=3200
+        )
+
+        self.assertIn("personal AI assistant inspired by JARVIS", context)
+        self.assertIn("persistent memory for personal facts", context)
+        self.assertIn("SQLite for memory storage", context)
+        self.assertNotIn("badminton training application", context)
+        self.assertNotIn("badminton equipment integration", context)
+        self.assertNotIn("Previous conversation summary", context)
+        self.assertIn("user-authored project history", context.lower())
+
+    def test_project_recall_matches_the_saved_project_alias_without_query_overlap(self):
+        self.memory.remember("project", "NEXUS")
+        transcript = [
+            {
+                "id": 10,
+                "role": "user",
+                "content": "NEXUS should learn from my previous conversations and corrections."
+            },
+            {
+                "id": 11,
+                "role": "assistant",
+                "content": "Perhaps build a sports prediction feature."
+            }
+        ]
+
+        context = self.memory.adaptive_context(
+            "What projects have I actually built or worked on?",
+            transcript=transcript,
+            max_chars=3200
+        )
+
+        self.assertIn("learn from my previous conversations and corrections", context)
+        self.assertNotIn("sports prediction feature", context)
+
 
 if __name__ == "__main__":
     unittest.main()

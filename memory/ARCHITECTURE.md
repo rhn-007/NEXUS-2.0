@@ -30,12 +30,16 @@ does not write duplicate transcript rows.
 2. Load personal facts into a compact in-process index at startup.
 3. Keep identity, active project, and communication preferences available.
 4. Rank remaining personal facts by lexical overlap with the current request.
-5. Search the recent persistent transcript and include at most two relevant
-   exchanges, excluding turns already present in the active conversation window.
-6. Include the bounded rolling digest for older archived exchanges.
+5. Search the persistent transcript for relevant user-authored messages,
+   excluding turns already present in the active conversation window. For project
+   questions, use the saved project name as an entity anchor so earlier decisions
+   and feature discussions can be retrieved even when the current wording differs.
+6. Include the rolling digest for ordinary continuity only; do not use mixed
+   user/assistant summaries as evidence in explicit personal-memory requests.
 7. Retrieve matching semantic/research knowledge through the existing knowledge
    and research retrieval paths.
-8. Add the selected context as system reference material for Ollama.
+8. Add the selected context as system reference material for Ollama. In memory
+   requests, assistant replies and suggestions are never evidence of user facts.
 
 The context builder has a character budget. If a memory source is unavailable,
 NEXUS continues with the remaining context rather than failing the response.
