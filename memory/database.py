@@ -1,5 +1,6 @@
 import sqlite3
 import hashlib
+import json
 from datetime import datetime
 
 from utils.sqlite import connect_database
@@ -57,6 +58,28 @@ class MemoryDatabase:
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_memory_relationships_target
             ON memory_relationships(target_memory_id)
+        """)
+
+        # Evidence-backed patterns are derived from personal facts. They are
+        # disposable summaries; the source facts remain authoritative.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS memory_patterns (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                pattern_key TEXT NOT NULL UNIQUE,
+                pattern_type TEXT NOT NULL,
+                label TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                confidence REAL NOT NULL CHECK (confidence >= 0.0 AND confidence <= 1.0),
+                evidence_count INTEGER NOT NULL DEFAULT 0,
+                evidence_memory_ids TEXT NOT NULL DEFAULT '[]',
+                active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_memory_patterns_active
+            ON memory_patterns(active, confidence DESC)
         """)
 
         # Stores information NEXUS learns
@@ -240,6 +263,66 @@ class MemoryDatabase:
         except Exception:
             self.connection.rollback()
             raise
+
+    def replace_memory_patterns(self, patterns):
+        """Replace the active derived-pattern snapshot without changing facts."""
+        now = datetime.now().isoformat()
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute("UPDATE memory_patterns SET active = 0, updated_at = ?", (now,))
+            for item in patterns or []:
+                pattern_key = str(item.get("pattern_key") or "").strip()
+                pattern_type = str(item.get("pattern_type") or "").strip()
+                label = str(item.get("label") or "").strip()
+                summary = str(item.get("summary") or "").strip()
+                confidence = float(item.get("confidence", 0.0))
+                evidence_count = max(0, int(item.get("evidence_count", 0)))
+                evidence_ids = item.get("evidence_memory_ids") or []
+                if (
+                    not pattern_key or not pattern_type or not label or not summary
+                    or not 0.0 <= confidence <= 1.0 or not evidence_count
+                ):
+                    continue
+                cursor.execute("""
+                    INSERT INTO memory_patterns (
+                        pattern_key, pattern_type, label, summary, confidence,
+                        evidence_count, evidence_memory_ids, active, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+                    ON CONFLICT(pattern_key) DO UPDATE SET
+                        pattern_type = excluded.pattern_type,
+                        label = excluded.label,
+                        summary = excluded.summary,
+                        confidence = excluded.confidence,
+                        evidence_count = excluded.evidence_count,
+                        evidence_memory_ids = excluded.evidence_memory_ids,
+                        active = 1,
+                        updated_at = excluded.updated_at
+                """, (
+                    pattern_key, pattern_type, label, summary, confidence,
+                    evidence_count, json.dumps(evidence_ids), now, now
+                ))
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            raise
+
+    def get_memory_patterns(self, active_only=True, limit=20):
+        """Return derived memory patterns with their supporting fact IDs."""
+        cursor = self.connection.cursor()
+        query = "SELECT * FROM memory_patterns"
+        if active_only:
+            query += " WHERE active = 1"
+        query += " ORDER BY confidence DESC, evidence_count DESC, updated_at DESC LIMIT ?"
+        cursor.execute(query, (max(1, min(int(limit), 100)),))
+        results = []
+        for row in cursor.fetchall():
+            item = dict(row)
+            try:
+                item["evidence_memory_ids"] = json.loads(item.get("evidence_memory_ids") or "[]")
+            except (TypeError, ValueError):
+                item["evidence_memory_ids"] = []
+            results.append(item)
+        return results
 
     def get_memory_relationships(self, memory_id=None, min_confidence=0.0, limit=100):
         """Return relationship edges together with their original fact records."""
