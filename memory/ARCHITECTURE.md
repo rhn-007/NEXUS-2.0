@@ -9,7 +9,8 @@ them as context when generating a response.
 | Component | Responsibility |
 |---|---|
 | `memory_manager.py` | Coordinates memory writes, forgetting, and the memory components |
-| `recall.py` | Recognises personal-memory questions and answers them deterministically from stored evidence |
+| `recall.py` | Recognises memory questions and retrieves user-authored project history |
+| `fact_recall.py` | Answers direct fact questions from the matching saved category |
 | `context.py` | Builds bounded, locally ranked personal-memory and conversation context |
 | `detector.py` | Extracts clear personal facts and corrections with inexpensive rules |
 | `semantic_processor.py` | Handles uncertain personal-fact extraction through the existing local model; validates structured output |
