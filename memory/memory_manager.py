@@ -1059,7 +1059,10 @@ class MemoryManager:
                     continue
                 if not re.search(
                     r"\b(?:project|working on|worked on|building|built|"
-                    r"developing|developed|creating|created)\b",
+                    r"developing|developed|creating|created|want|wants|"
+                    r"should|need|needs|chose|chosen|decided|selected|"
+                    r"has|have|includes|supports|provides|allows|"
+                    r"prefer|preferred|planning)\b",
                     content,
                     re.IGNORECASE
                 ):
