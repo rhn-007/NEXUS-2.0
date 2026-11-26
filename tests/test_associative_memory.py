@@ -188,8 +188,8 @@ class AssociativeMemoryTests(unittest.TestCase):
         self.assertIn("robotics", answer.lower())
 
     def test_connection_questions_do_not_claim_causation(self):
-        self.memory.remember("interest", "robotics")
-        self.memory.remember("project", "robotics engineering")
+        self.memory.remember("interest", "robotics engineering")
+        self.memory.remember("project", "robotics engineering design")
 
         answer = self.memory.answer_fact_question(
             "What connections have you found between my memories?"
