@@ -56,6 +56,15 @@ class TaskManagerTests(unittest.TestCase):
         self.manager = TaskManager(self.path)
         self.assertIsNotNone(self.manager.get_task(task_id))
 
+    def test_task_status_questions_are_answered_locally(self):
+        task_id = self.manager.create_task("open notepad then research robotics", self.make_steps())
+        self.assertIn("open notepad then research robotics", self.manager.answer("show active tasks"))
+        self.manager.set_task_status(task_id, "completed", "Finished both steps")
+        self.assertIn("Finished both steps", self.manager.answer("show task history"))
+
+    def test_unrelated_messages_are_not_claimed_as_task_queries(self):
+        self.assertIsNone(self.manager.answer("tell me about robotics"))
+
     def test_meeting_codes_are_redacted(self):
         task_id = self.manager.create_task(
             "join abc-defg-hij",
