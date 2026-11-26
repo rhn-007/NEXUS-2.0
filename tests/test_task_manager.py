@@ -67,9 +67,5 @@ class TaskManagerTests(unittest.TestCase):
         self.assertIn("[meeting code]", str(task))
 
 
-if __test__ if False else False:
-    pass
-
-
 if __name__ == "__main__":
     unittest.main()
