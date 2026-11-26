@@ -34,6 +34,7 @@ from tools.media import MediaTool
 from tools.system_info import SystemInfoTool
 from ai.ollama import is_failure, streaming_enabled
 from core.action_history import ActionHistory
+from core.task_manager import TaskManager
 from core.stream_output import StreamPresenter
 from tools.research import ResearchTool
 
@@ -202,6 +203,7 @@ class NexusAssistant:
             ("observer", lambda: self.observer.close()),
             ("language learner", lambda: self.language_learner.close()),
             ("action history", lambda: self.action_history.close()),
+            ("task manager", lambda: self.task_manager.close()),
             ("research", lambda: self.tool_registry.get(
                 "research"
             ).research_pipeline.close()),
@@ -669,13 +671,22 @@ class NexusAssistant:
             logger.warning(f"Action history is unavailable: {error}")
             self.action_history = None
 
+        # Persistent progress for multi-step requests. This uses the same
+        # SQLite database as NEXUS memory and conversation history.
+        try:
+            self.task_manager = TaskManager()
+        except Exception as error:
+            logger.warning(f"Persistent task tracking is unavailable: {error}")
+            self.task_manager = None
+
         return IntentRunner(
             router=self.tool_router,
             fast=self.intent_fast,
             planner=planner,
             run_builtin=self._run_builtin,
             observer=self.observer,
-            history=self.action_history
+            history=self.action_history,
+            task_manager=self.task_manager
         )
 
     def _run_builtin(self, action, value=""):
