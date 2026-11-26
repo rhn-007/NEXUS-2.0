@@ -185,13 +185,13 @@ class MemoryManager:
         # when their wording does not match the older generic memory-query
         # patterns (for example, "what projects have I actually built?").
         project_history_question = re.search(
-            r"\bwhat projects have i (?:actually )?(?:told you|built|worked on|developed)\\b|"
-            r"\bwhat do you remember about my .{0,50}project\\b|"
-            r"\bwhat have i told you about my .{0,50}project\\b",
+            r"\bwhat projects have i (?:actually )?(?:told you|built|worked on|developed)\b|"
+            r"\bwhat do you remember about my .{0,50}project\b|"
+            r"\bwhat have i told you about my .{0,50}project\b",
             value
         )
         if project_history_question or re.search(
-            r"\\bwhat connections (?:do you see|have you found) between my\\b",
+            r"\bwhat connections (?:do you see|have you found) between my\b",
             value
         ):
             return True
@@ -969,8 +969,8 @@ class MemoryManager:
             r"how are my goals and interests connected|"
             r"what connections have you found between my memories|"
             r"what connections (?:do you see|have you found) between my "
-            r"(?:interests(?:,?\\s*goals?)?(?:,?\\s*and projects?)?|"
-            r"goals?(?:,?\\s*and projects?)?|projects?)|"
+            r"(?:interests(?:,?\s*goals?)?(?:,?\s*and projects?)?|"
+            r"goals?(?:,?\s*and projects?)?|projects?)|"
             r"what is the relationship between my interests and goals|"
             r"show my memory connections|connect my memories)",
             question
@@ -1067,8 +1067,8 @@ class MemoryManager:
         connection_question = re.fullmatch(
             r"(?:what connections have you found between my memories|"
             r"what connections (?:do you see|have you found) between my "
-            r"(?:interests(?:,?\\s*goals?)?(?:,?\\s*and projects?)?|"
-            r"goals?(?:,?\\s*and projects?)?|projects?)|"
+            r"(?:interests(?:,?\s*goals?)?(?:,?\s*and projects?)?|"
+            r"goals?(?:,?\s*and projects?)?|projects?)|"
             r"how are my interests connected|"
             r"how are my interests and goals connected|"
             r"how are my goals and interests connected|"
@@ -1559,7 +1559,7 @@ class MemoryManager:
         preferences = grouped.get("preference", [])[-4:]
         project_history_request = memory_request and bool(re.search(
             r"\b(?:project|projects|built|building|developed|developing|"
-            r"worked on|working on)\\b",
+            r"worked on|working on)\b",
             str(query or ""),
             re.IGNORECASE
         ))
