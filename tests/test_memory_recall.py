@@ -210,6 +210,16 @@ class WithMemory(unittest.TestCase):
             {
                 "id": 14,
                 "role": "user",
+                "content": "I want it to ask follow-up questions and give proactive low-battery alerts.",
+            },
+            {
+                "id": 15,
+                "role": "user",
+                "content": "NEXUS should start automatically when I log in to Windows.",
+            },
+            {
+                "id": 16,
+                "role": "user",
                 "content": "I want to learn Japanese and enjoy watching The Mentalist.",
             },
         ]
@@ -225,6 +235,9 @@ class WithMemory(unittest.TestCase):
         self.assertIn("SQLite for memory storage", context)
         self.assertIn("Ollama as the local AI model", context)
         self.assertIn("healthcare voice assistant", context)
+        self.assertIn("follow-up questions", context)
+        self.assertIn("low-battery alerts", context)
+        self.assertIn("start automatically", context)
         self.assertNotIn("badminton training application", context)
         self.assertNotIn("learn Japanese", context)
         self.assertNotIn("The Mentalist", context)
