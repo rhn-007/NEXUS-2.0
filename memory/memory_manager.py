@@ -392,6 +392,17 @@ class MemoryManager:
                 # Memory extraction must remain reliable even if the derived
                 # association layer is temporarily unavailable.
                 pass
+        else:
+            # A relationship can be explicitly clarified using facts already
+            # in SQLite, even when the statement adds no new personal fact.
+            try:
+                linked = self.associative_memory.discover_from_statement(
+                    text,
+                    explicit_only=True
+                )
+                stored = bool(linked)
+            except Exception:
+                pass
 
         return stored
 
