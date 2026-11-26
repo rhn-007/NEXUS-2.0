@@ -31,6 +31,16 @@ class Detector(unittest.TestCase):
             found("I am interested in robotics and artificial intelligence.")
         )
 
+    def test_cubing_activity_is_saved_as_an_interest(self):
+        self.assertIn(
+            ("interest", "cubing almost every day"),
+            found("I do cubing almost every day.")
+        )
+        self.assertIn(
+            ("interest", "cubing regularly"),
+            found("I cube regularly.")
+        )
+
     def test_preferences_are_saved(self):
         for text, value in [("remember that i prefer concise explanations", "concise explanations"),
                             ("i prefer short answers", "short answers"),
@@ -631,6 +641,25 @@ class Answers(WithMemory):
         )
         self.assertIn("drawing and sculpting with clay", answer)
         self.assertIn("cubing almost every day", answer)
+
+    def test_topic_specific_hobby_question_accepts_a_clarifying_suffix(self):
+        self.memory.remember("interest", "drawing and sculpting with clay")
+        self.memory.remember("interest", "cubing almost every day")
+        query = (
+            "What have I told you about my drawing, sculpting, and cubing activities? "
+            "Separate what you know from what you don't know."
+        )
+        self.assertTrue(self.memory.is_interest_recall_question(query))
+        answer = self.ask(query)
+        self.assertIn("drawing and sculpting with clay", answer)
+        self.assertIn("cubing almost every day", answer)
+
+    def test_interest_recall_deduplicates_legacy_tv_show_titles(self):
+        self.memory.remember("interest", "watching The Mentalist")
+        self.memory.remember("tv_show", "The Mentalist")
+        self.memory.remember("tv_show", "Mentalist")
+        answer = self.ask("What personal interests and hobbies have I explicitly told you about?")
+        self.assertEqual(answer.count("Mentalist"), 1)
 
     def test_common_favourite_typo_still_uses_direct_memory(self):
         self.memory.process_memory("my favorite anime is one piece")
