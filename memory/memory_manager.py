@@ -1073,7 +1073,7 @@ class MemoryManager:
         question = " ".join(
             re.sub(r"[?,.!]", " ", str(text or "").lower()).split()
         )
-        question = re.sub(r"\\s+only mention connections supported by things.*$", "", question)
+        question = re.sub(r"\s+only mention connections supported by things.*$", "", question)
         return bool(re.fullmatch(
             r"(?:what patterns have you noticed(?: about me| about my interests)?|"
             r"what patterns do you see(?: in my interests)?|"
