@@ -957,20 +957,10 @@ class MemoryManager:
         value = " ".join(
             re.sub(r"[?.!,]", " ", str(text or "").lower()).split()
         )
-        # Broad project-history questions remain deterministic even when
-        # they also ask for purpose, features, or connected goals. Only a
-        # targeted "tell me about my <named> project" query uses rich context.
-        broad_project_list = bool(re.search(
-            r"\bwhat projects have i\b|"
-            r"\bwhat projects did i\b",
-            value
-        ))
-        if not broad_project_list and re.search(
-            r"\b(?:features?|purpose|development decisions?|important decisions?|"
-            r"details?|how it works|what it can do)\b",
-            value
-        ):
-            return False
+        # Both broad project lists and detailed questions about a named
+        # project must use evidence-grounded SQLite recall. The full question
+        # patterns below are specific enough that words such as "purpose",
+        # "features", or "development decisions" must not disable routing.
         return bool(re.search(
             r"\bwhat projects have i (?:actually )?(?:told you|built|worked on|developed)\b|"
             r"\bwhat (?:projects|project) have i (?:built|worked on|developed)\b|"
@@ -1057,6 +1047,15 @@ class MemoryManager:
             )
             for role, content in messages:
                 if role != "user" or not alias_pattern.search(content):
+                    continue
+                # Questions about a project are requests for recall, not
+                # evidence that establishes its purpose or features.
+                if re.match(
+                    r"\s*(?:what|how|why|when|where|which|who|can you|could you|"
+                    r"would you|do you|did you|is|are|was|were)\b",
+                    content,
+                    re.IGNORECASE
+                ):
                     continue
                 if not re.search(
                     r"\b(?:project|working on|worked on|building|built|"
