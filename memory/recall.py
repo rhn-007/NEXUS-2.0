@@ -1,4 +1,4 @@
-"""Deterministic personal-memory question recognition and answers."""
+"""Recognise personal-memory questions and retrieve user-authored project history."""
 
 import re
 
