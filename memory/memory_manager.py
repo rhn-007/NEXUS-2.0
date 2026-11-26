@@ -655,6 +655,27 @@ class MemoryManager:
     # SEARCH CONTEXT FOR AI
     # =====================================
 
+    def get_memory_records(self, limit=500):
+        """Expose stable IDs for personal facts used by the memory graph."""
+        return self.db.get_fact_records(limit=limit)
+
+    def link_memories(
+        self, source_memory_id, target_memory_id, relation_type,
+        confidence=1.0, origin="inferred", evidence=None
+    ):
+        """Persist a typed relationship without modifying either fact."""
+        return self.db.create_memory_relationship(
+            source_memory_id, target_memory_id, relation_type,
+            confidence=confidence, origin=origin, evidence=evidence
+        )
+
+    def get_memory_relationships(
+        self, memory_id=None, min_confidence=0.0, limit=100
+    ):
+        return self.db.get_memory_relationships(
+            memory_id=memory_id, min_confidence=min_confidence, limit=limit
+        )
+
     def get_context(
         self
     ):
