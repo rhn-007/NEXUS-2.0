@@ -6,6 +6,7 @@ import sqlite3
 from memory.detector import MemoryDetector, _looks_like_name
 from memory.semantic_processor import SemanticMemoryProcessor
 from memory.context import MemoryContextMixin
+from memory.fact_recall import FactRecallMixin
 from memory.recall import (
     MemoryRecallMixin,
     _join,
@@ -18,7 +19,7 @@ from memory.recall import (
 # Facts that can hold several values; every other key keeps its latest.
 MULTI_VALUE_KEYS = {"preference", "interest", "hobby", "activity", "coding", "tv_show"}
 
-class MemoryManager(MemoryRecallMixin, MemoryContextMixin):
+class MemoryManager(MemoryRecallMixin, FactRecallMixin, MemoryContextMixin):
 
     @staticmethod
     def is_memory_request(text):
