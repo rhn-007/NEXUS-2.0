@@ -613,6 +613,25 @@ class Answers(WithMemory):
         ]:
             self.assertEqual(self.ask(question), expected, question)
 
+    def test_broad_personal_interests_question_uses_deterministic_memory(self):
+        self.memory.remember("interest", "drawing and sculpting with clay")
+        self.memory.remember("interest", "cubing almost every day")
+        answer = self.ask(
+            "What personal interests and hobbies have I explicitly told you about? "
+            "List only confirmed information from stored memories. Don't make assumptions."
+        )
+        self.assertIn("drawing and sculpting with clay", answer)
+        self.assertIn("cubing almost every day", answer)
+
+    def test_topic_specific_hobby_question_uses_only_matching_saved_facts(self):
+        self.memory.remember("interest", "drawing and sculpting with clay")
+        self.memory.remember("interest", "cubing almost every day")
+        answer = self.ask(
+            "What have I told you about my drawing, sculpting, and cubing activities?"
+        )
+        self.assertIn("drawing and sculpting with clay", answer)
+        self.assertIn("cubing almost every day", answer)
+
     def test_common_favourite_typo_still_uses_direct_memory(self):
         self.memory.process_memory("my favorite anime is one piece")
         self.assertEqual(
