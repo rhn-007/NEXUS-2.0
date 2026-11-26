@@ -498,11 +498,12 @@ class NexusAssistant:
             # Project-history recall is answered deterministically from
             # user-authored transcript evidence. Do not let the language model
             # substitute computer metadata or unrelated conversation details.
-            project_history_answer = self.memory.answer_project_history(user_input)
-            if project_history_answer is not None:
-                self.conversation.add_assistant_message(project_history_answer)
-                self.speaker.speak(project_history_answer)
-                return project_history_answer
+            if self.memory.is_project_history_question(user_input) is True:
+                project_history_answer = self.memory.answer_project_history(user_input)
+                if project_history_answer is not None:
+                    self.conversation.add_assistant_message(project_history_answer)
+                    self.speaker.speak(project_history_answer)
+                    return project_history_answer
 
 
             # ======================
