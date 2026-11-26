@@ -57,10 +57,10 @@ class MemoryDetector:
         original_text = str(text).strip()
         text = original_text.lower().strip()
 
-        # Questions and "forget ..." are not things to remember.
+        # Questions and explicit forget commands are not facts to save.
         if (
             text.endswith("?")
-            or "forget" in text
+            or re.match(r"^(?:(?:please|can you|could you)\\s+)?forget\\b", text)
             or _NOT_A_STATEMENT.match(text)
         ):
             return []
@@ -174,6 +174,28 @@ class MemoryDetector:
         for pattern in interest_patterns:
             interests.extend(re.findall(pattern, text))
 
+        # "I do cubing almost every day" is a clear hobby statement, but it
+        # does not use the usual like/love/enjoy wording above.
+        cubing = re.search(
+            r"\\bi (?:do|practice)\\s+(?P<activity>cubing|speedcubing)"
+            r"(?P<detail>\\s+(?:almost|nearly|every|daily|regularly|often)"
+            r"[^.,!?;]*)?",
+            text
+        )
+        if cubing:
+            interests.append(
+                cubing.group("activity") + (cubing.group("detail") or "")
+            )
+        else:
+            cubing = re.search(
+                r"\\bi (?:cube|speedcube)"
+                r"(?P<detail>\\s+(?:almost|nearly|every|daily|regularly|often)"
+                r"[^.,!?;]*)?",
+                text
+            )
+            if cubing:
+                activity = "speedcubing" if "speedcube" in cubing.group(0) else "cubing"
+                interests.append(activity + (cubing.group("detail") or ""))
 
         for item in interests:
 
