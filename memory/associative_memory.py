@@ -68,7 +68,7 @@ class AssociativeMemory:
             if re.search(
                 r"\b(?:not|never|don't|do not|doesn't|does not|"
                 r"didn't|did not|no longer|not interested in|"
-                r"not one of)\s+(?:(?:really|particularly)\s+)?"
+                r"not one of my interests)\s*(?:(?:really|particularly)\s+)?"
                 r"(?:like|love|enjoy|watch|watching|follow|following|"
                 r"interested in|into)?\s*$",
                 before,
@@ -76,8 +76,8 @@ class AssociativeMemory:
             ):
                 continue
             if re.match(
-                r"\s+(?:is|was|are)\s+not\s+(?:one of|an? interest|"
-                r"something i|something that i)",
+                r"\s+(?:(?:is|was|are)\s+not|isn't|aren't|wasn't)\s+"
+                r"(?:one of|an? interest|something i|something that i|for me)",
                 after,
                 re.IGNORECASE
             ):
