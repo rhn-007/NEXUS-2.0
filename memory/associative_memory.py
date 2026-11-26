@@ -52,11 +52,11 @@ class AssociativeMemory:
         }
 
     @staticmethod
-    def _positive_mention(text, value):
-        """Find a literal fact mention while excluding obvious negation."""
+    def _positive_span(text, value):
+        """Return a positive literal mention span, excluding obvious negation."""
         value = " ".join(str(value or "").split()).strip()
         if len(value) < 3:
-            return False
+            return None
         pattern = re.compile(
             r"(?<![a-z0-9])" + re.escape(value) + r"(?![a-z0-9])",
             re.IGNORECASE
@@ -81,33 +81,67 @@ class AssociativeMemory:
                 re.IGNORECASE
             ):
                 continue
-            return True
-        return False
+            return match.span()
+        return None
 
-    def discover_from_statement(self, statement):
-        """Record only that two currently stored facts were co-mentioned."""
+    @classmethod
+    def _positive_mention(cls, text, value):
+        return cls._positive_span(text, value) is not None
+
+    @staticmethod
+    def _explicit_connector(text, first_span, second_span):
+        """Check whether the user explicitly described a relationship."""
+        left, right = sorted((first_span, second_span), key=lambda span: span[0])
+        between = text[left[1]:right[0]]
+        return bool(re.search(
+            r"\b(?:is|are|was|were|has been|have been)?\s*"
+            r"(?:closely\s+)?(?:related to|connected to|associated with|"
+            r"linked to|part of|built around|based on|focused on|"
+            r"focuses on|centred on|centered on|supports|involves)\b|"
+            r"\bconnects?\s+(?:it|this|that|them)?\s*(?:to|with)\b",
+            between,
+            re.IGNORECASE
+        ))
+
+    def discover_from_statement(self, statement, explicit_only=False):
+        """Persist explicit links or cautious co-mentions grounded in one statement."""
         text = " ".join(str(statement or "").split()).strip()
         if not text:
             return 0
 
         records = self.db.get_fact_records(limit=self.MAX_FACTS)
-        mentioned = [
-            item for item in records
-            if self._positive_mention(text, item.get("value", ""))
-        ]
+        mentioned = []
+        for item in records:
+            span = self._positive_span(text, item.get("value", ""))
+            if span:
+                mentioned.append((item, span))
+
         created = 0
-        for first, second in combinations(mentioned, 2):
+        for (first, first_span), (second, second_span) in combinations(mentioned, 2):
             if created >= 30:
                 break
             if first["id"] == second["id"]:
                 continue
+            if str(first["value"]).casefold().strip() == str(second["value"]).casefold().strip():
+                continue
+
+            explicit = self._explicit_connector(text, first_span, second_span)
+            if explicit:
+                relation_type = "related_to"
+                confidence = 0.92
+                origin = "explicit"
+                evidence = "The user explicitly connected these facts in: " + text[:300]
+            elif explicit_only:
+                continue
+            else:
+                relation_type = "co_mentioned"
+                confidence = 0.72
+                origin = "inferred"
+                evidence = "Both stored facts were positively mentioned in: " + text[:300]
+
             self.db.create_memory_relationship(
-                first["id"],
-                second["id"],
-                "co_mentioned",
-                confidence=0.72,
-                origin="inferred",
-                evidence="Both stored facts were positively mentioned in: " + text[:300]
+                first["id"], second["id"], relation_type,
+                confidence=confidence, origin=origin, evidence=evidence
             )
             created += 1
         return created
