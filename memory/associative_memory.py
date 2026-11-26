@@ -1,0 +1,323 @@
+"""Evidence-grounded associative memory and recurring-pattern discovery.
+
+This module deliberately uses deterministic local rules. It never invents
+facts, never edits source memories, and does not call Ollama during ordinary
+conversation. The response model can reason over the bounded graph context
+that this module supplies.
+"""
+
+from collections import defaultdict
+from itertools import combinations
+import re
+
+
+class AssociativeMemory:
+    MAX_FACTS = 500
+    MAX_DISCOVERED_PAIRS = 1200
+    MAX_CONTEXT_RELATIONSHIPS = 5
+    MAX_CONTEXT_PATTERNS = 4
+
+    _STOPWORDS = {
+        "about", "after", "again", "also", "and", "are", "because", "been",
+        "being", "can", "could", "did", "does", "doing", "for", "from",
+        "have", "into", "just", "like", "make", "more", "most", "much",
+        "need", "not", "only", "other", "our", "really", "some", "such",
+        "than", "that", "their", "them", "then", "there", "these", "they",
+        "this", "those", "through", "very", "want", "what", "when", "where",
+        "which", "who", "with", "would", "your", "user", "interest",
+        "interests", "project", "projects", "favourite", "favorite"
+    }
+
+    _INTEREST_KEYS = {
+        "interest", "hobby", "sport", "coding", "programming_language",
+        "tv_show", "activity"
+    }
+    _GOAL_PROJECT_KEYS = {
+        "project", "goal", "career_goal", "education_goal", "plan"
+    }
+    _LEARNING_KEYS = {
+        "learning_preference", "learning_approach", "learning_style",
+        "study_method"
+    }
+
+    def __init__(self, database):
+        self.db = database
+
+    @classmethod
+    def _tokens(cls, text):
+        tokens = re.findall(r"[a-z0-9+#.-]+", str(text or "").casefold())
+        return {
+            token for token in tokens
+            if len(token) >= 5 and token not in cls._STOPWORDS
+        }
+
+    @staticmethod
+    def _positive_mention(text, value):
+        """Find a literal fact mention while excluding obvious negation."""
+        value = " ".join(str(value or "").split()).strip()
+        if len(value) < 3:
+            return False
+        pattern = re.compile(
+            r"(?<![a-z0-9])" + re.escape(value) + r"(?![a-z0-9])",
+            re.IGNORECASE
+        )
+        for match in pattern.finditer(text):
+            before = text[max(0, match.start() - 55):match.start()]
+            after = text[match.end():match.end() + 55]
+            if re.search(
+                r"\b(?:not|never|don't|do not|doesn't|does not|"
+                r"didn't|did not|no longer|not interested in|"
+                r"not one of)\s+(?:(?:really|particularly)\s+)?"
+                r"(?:like|love|enjoy|watch|watching|follow|following|"
+                r"interested in|into)?\s*$",
+                before,
+                re.IGNORECASE
+            ):
+                continue
+            if re.match(
+                r"\s+(?:is|was|are)\s+not\s+(?:one of|an? interest|"
+                r"something i|something that i)",
+                after,
+                re.IGNORECASE
+            ):
+                continue
+            return True
+        return False
+
+    def discover_from_statement(self, statement):
+        """Record only that two currently stored facts were co-mentioned."""
+        text = " ".join(str(statement or "").split()).strip()
+        if not text:
+            return 0
+
+        records = self.db.get_fact_records(limit=self.MAX_FACTS)
+        mentioned = [
+            item for item in records
+            if self._positive_mention(text, item.get("value", ""))
+        ]
+        created = 0
+        for first, second in combinations(mentioned, 2):
+            if created >= 30:
+                break
+            if first["id"] == second["id"]:
+                continue
+            self.db.create_memory_relationship(
+                first["id"],
+                second["id"],
+                "co_mentioned",
+                confidence=0.72,
+                origin="inferred",
+                evidence="Both stored facts were positively mentioned in: " + text[:300]
+            )
+            created += 1
+        return created
+
+    def discover_shared_topics(self):
+        """Link facts only when their stored descriptions share a distinctive term."""
+        records = self.db.get_fact_records(limit=self.MAX_FACTS)
+        token_index = defaultdict(list)
+        for item in records:
+            for token in self._tokens(item.get("value", "")):
+                token_index[token].append(item)
+
+        candidates = {}
+        for token, items in token_index.items():
+            for first, second in combinations(items, 2):
+                if first["id"] == second["id"] or first["key"] == second["key"]:
+                    continue
+                pair = tuple(sorted((int(first["id"]), int(second["id"]))))
+                candidates.setdefault(pair, set()).add(token)
+                if len(candidates) >= self.MAX_DISCOVERED_PAIRS:
+                    break
+            if len(candidates) >= self.MAX_DISCOVERED_PAIRS:
+                break
+
+        created = 0
+        by_id = {int(item["id"]): item for item in records}
+        for (first_id, second_id), shared in candidates.items():
+            first = by_id[first_id]
+            second = by_id[second_id]
+            # One distinctive shared word is enough for a cautious topical
+            # association; two or more provide stronger evidence.
+            confidence = min(0.88, 0.70 + 0.07 * min(len(shared), 2))
+            evidence = "Shared descriptive term(s): " + ", ".join(sorted(shared))
+            self.db.create_memory_relationship(
+                first_id,
+                second_id,
+                "shares_topic",
+                confidence=confidence,
+                origin="inferred",
+                evidence=evidence
+            )
+            created += 1
+        return created
+
+    def rebuild_patterns(self):
+        """Rebuild compact pattern summaries from existing facts only."""
+        records = self.db.get_fact_records(limit=self.MAX_FACTS)
+        patterns = []
+
+        token_records = defaultdict(list)
+        for item in records:
+            for token in self._tokens(item.get("value", "")):
+                token_records[token].append(item)
+
+        for token, items in token_records.items():
+            unique_items = {int(item["id"]): item for item in items}
+            unique_keys = {str(item["key"]) for item in unique_items.values()}
+            if len(unique_items) < 2 or len(unique_keys) < 2:
+                continue
+            ordered = sorted(unique_items.values(), key=lambda item: int(item["id"]))
+            key_names = sorted(unique_keys)
+            label = "Recurring theme: " + token
+            summary = (
+                "The theme '" + token + "' appears in "
+                + str(len(ordered)) + " saved facts across "
+                + ", ".join(key_names) + "."
+            )
+            patterns.append({
+                "pattern_key": "theme:" + token,
+                "pattern_type": "shared_theme",
+                "label": label,
+                "summary": summary,
+                "confidence": min(0.90, 0.68 + 0.05 * (len(ordered) - 1)),
+                "evidence_count": len(ordered),
+                "evidence_memory_ids": [int(item["id"]) for item in ordered]
+            })
+
+        clusters = (
+            ("interest_cluster", self._INTEREST_KEYS, "Interest cluster",
+             "You have explicitly shared several interests: "),
+            ("goal_project_cluster", self._GOAL_PROJECT_KEYS, "Goals and projects",
+             "You have shared several goals or projects: "),
+            ("learning_cluster", self._LEARNING_KEYS, "Learning preferences",
+             "You have shared several details about how you learn: ")
+        )
+        for pattern_key, allowed_keys, label, prefix in clusters:
+            selected = [
+                item for item in records
+                if str(item["key"]).casefold() in allowed_keys
+            ]
+            unique = []
+            seen = set()
+            for item in selected:
+                marker = str(item["value"]).casefold().strip()
+                if marker and marker not in seen:
+                    seen.add(marker)
+                    unique.append(item)
+            if len(unique) < 3:
+                continue
+            shown = [str(item["value"]).strip() for item in unique[:5]]
+            if len(shown) > 1:
+                description = ", ".join(shown[:-1]) + " and " + shown[-1]
+            else:
+                description = shown[0]
+            patterns.append({
+                "pattern_key": pattern_key,
+                "pattern_type": "fact_cluster",
+                "label": label,
+                "summary": prefix + description + ".",
+                "confidence": min(0.90, 0.70 + 0.04 * (len(unique) - 3)),
+                "evidence_count": len(unique),
+                "evidence_memory_ids": [int(item["id"]) for item in unique]
+            })
+
+        patterns.sort(
+            key=lambda item: (
+                -float(item["confidence"]),
+                -int(item["evidence_count"]),
+                item["pattern_key"]
+            )
+        )
+        self.db.replace_memory_patterns(patterns[:30])
+        return patterns[:30]
+
+    def update(self, statement=None):
+        """Refresh associations and derived patterns after a personal-memory write."""
+        if statement:
+            self.discover_from_statement(statement)
+        self.discover_shared_topics()
+        return self.rebuild_patterns()
+
+    def get_patterns(self, limit=20):
+        return self.db.get_memory_patterns(active_only=True, limit=limit)
+
+    def get_relationships(self, min_confidence=0.68, limit=100):
+        return self.db.get_memory_relationships(
+            min_confidence=min_confidence,
+            limit=limit
+        )
+
+    def build_context(self, query, memory_request=False):
+        """Return a bounded graph/pattern context relevant to the current query."""
+        records = self.db.get_fact_records(limit=self.MAX_FACTS)
+        query_tokens = self._tokens(query)
+        scored = []
+        for item in records:
+            value_tokens = self._tokens(
+                str(item.get("key", "")) + " " + str(item.get("value", ""))
+            )
+            overlap = query_tokens.intersection(value_tokens)
+            if overlap:
+                scored.append((len(overlap), int(item["id"])))
+        scored.sort(key=lambda pair: (-pair[0], -pair[1]))
+
+        seed_ids = [memory_id for _, memory_id in scored[:5]]
+        if memory_request and not seed_ids:
+            seed_ids = [int(item["id"]) for item in records[-5:]]
+
+        edges = {}
+        for memory_id in seed_ids:
+            for edge in self.db.get_memory_relationships(
+                memory_id=memory_id,
+                min_confidence=0.68,
+                limit=20
+            ):
+                edges[int(edge["id"])] = edge
+
+        relationship_lines = []
+        for edge in sorted(
+            edges.values(),
+            key=lambda item: (-float(item["confidence"]), -int(item["id"]))
+        ):
+            if edge["relation_type"] == "co_mentioned":
+                description = "were positively mentioned together"
+            else:
+                description = "share a descriptive topic"
+            relationship_lines.append(
+                f'{edge["source_key"]}: {edge["source_value"]} and '
+                f'{edge["target_key"]}: {edge["target_value"]} {description} '
+                f'(inferred association, confidence {float(edge["confidence"]):.2f})'
+            )
+            if len(relationship_lines) >= self.MAX_CONTEXT_RELATIONSHIPS:
+                break
+
+        patterns = self.get_patterns(limit=20)
+        relevant_patterns = []
+        for item in patterns:
+            pattern_tokens = self._tokens(
+                item.get("label", "") + " " + item.get("summary", "")
+            )
+            if memory_request or query_tokens.intersection(pattern_tokens):
+                relevant_patterns.append(item)
+            if len(relevant_patterns) >= self.MAX_CONTEXT_PATTERNS:
+                break
+
+        sections = []
+        if relationship_lines:
+            sections.append(
+                "Connected personal memories (these are evidence-backed associations, "
+                "not proof of causation or additional user-stated facts): "
+                + "; ".join(relationship_lines) + "."
+            )
+        if relevant_patterns:
+            pattern_lines = [
+                f'{item["summary"]} (derived from {item["evidence_count"]} saved facts; '
+                f'confidence {float(item["confidence"]):.2f})'
+                for item in relevant_patterns
+            ]
+            sections.append(
+                "Recurring memory patterns (derived summaries, not verbatim user statements): "
+                + " ".join(pattern_lines)
+            )
+        return "\n".join(sections) if sections else None
