@@ -155,6 +155,12 @@ class AssociativeMemory:
             for token in self._tokens(item.get("value", "")):
                 token_index[token].append(item)
 
+        existing_pairs = {
+            tuple(sorted((int(row["source_memory_id"]), int(row["target_memory_id"]))))
+            for row in self.db.connection.execute(
+                "SELECT source_memory_id, target_memory_id FROM memory_relationships"
+            ).fetchall()
+        }
         candidates = {}
         for token, items in token_index.items():
             for first, second in combinations(items, 2):
@@ -163,6 +169,8 @@ class AssociativeMemory:
                 if str(first["value"]).casefold().strip() == str(second["value"]).casefold().strip():
                     continue
                 pair = tuple(sorted((int(first["id"]), int(second["id"]))))
+                if pair in existing_pairs:
+                    continue
                 candidates.setdefault(pair, set()).add(token)
                 if len(candidates) >= self.MAX_DISCOVERED_PAIRS:
                     break
