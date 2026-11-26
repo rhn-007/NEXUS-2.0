@@ -63,7 +63,10 @@ the ordinary memory request path.
 - Relationships connect existing personal-fact IDs; they do not create facts.
 - Explicit links require literal positive mentions and connecting wording.
 - Inferred co-mentions and shared-topic edges are labelled as inferred and must
-  never be described as something the user explicitly said.
+  never be described as something the user explicitly said. Weak co-mentions
+  are not added to response context.
+- A shared-topic edge requires at least two distinctive shared terms; one
+  coincidental shared word is not enough to establish a connection.
 - Patterns require multiple distinct supporting facts or separate user
   messages. Assistant messages are excluded from recurring-topic evidence.
 - Forgetting or replacing a fact removes its dependent relationships through
