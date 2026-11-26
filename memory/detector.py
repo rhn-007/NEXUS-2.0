@@ -177,7 +177,7 @@ class MemoryDetector:
         # "I do cubing almost every day" is a clear hobby statement, but it
         # does not use the usual like/love/enjoy wording above.
         cubing = re.search(
-            r"\\bi (?:do|practice)\\s+(?P<activity>cubing|speedcubing)"
+            r"\bi (?:do|practice)\\s+(?P<activity>cubing|speedcubing)"
             r"(?P<detail>\\s+(?:almost|nearly|every|daily|regularly|often)"
             r"[^.,!?;]*)?",
             text
@@ -188,7 +188,7 @@ class MemoryDetector:
             )
         else:
             cubing = re.search(
-                r"\\bi (?:cube|speedcube)"
+                r"\bi (?:cube|speedcube)"
                 r"(?P<detail>\\s+(?:almost|nearly|every|daily|regularly|often)"
                 r"[^.,!?;]*)?",
                 text
