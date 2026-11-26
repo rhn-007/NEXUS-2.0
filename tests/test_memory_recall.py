@@ -202,6 +202,16 @@ class WithMemory(unittest.TestCase):
                 "role": "user",
                 "content": "I also worked on a healthcare voice assistant for an exhibition.",
             },
+            {
+                "id": 13,
+                "role": "user",
+                "content": "I chose SQLite for memory storage and Ollama as the local AI model.",
+            },
+            {
+                "id": 14,
+                "role": "user",
+                "content": "I want to learn Japanese and enjoy watching The Mentalist.",
+            },
         ]
         self.assertTrue(self.memory.is_memory_request(query))
         context = self.memory.adaptive_context(
@@ -212,7 +222,12 @@ class WithMemory(unittest.TestCase):
         )
         self.assertIn("Relevant user-authored project history", context)
         self.assertIn("I am building NEXUS", context)
+        self.assertIn("SQLite for memory storage", context)
+        self.assertIn("Ollama as the local AI model", context)
+        self.assertIn("healthcare voice assistant", context)
         self.assertNotIn("badminton training application", context)
+        self.assertNotIn("learn Japanese", context)
+        self.assertNotIn("The Mentalist", context)
 
     def test_cross_category_connection_question_is_recognized(self):
         query = (
