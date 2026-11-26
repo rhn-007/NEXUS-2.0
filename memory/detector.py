@@ -60,7 +60,7 @@ class MemoryDetector:
         # Questions and explicit forget commands are not facts to save.
         if (
             text.endswith("?")
-            or re.match(r"^(?:(?:please|can you|could you)\\s+)?forget\\b", text)
+            or re.match(r"^(?:(?:please|can you|could you)\s+)?forget\b", text)
             or _NOT_A_STATEMENT.match(text)
         ):
             return []
@@ -177,8 +177,8 @@ class MemoryDetector:
         # "I do cubing almost every day" is a clear hobby statement, but it
         # does not use the usual like/love/enjoy wording above.
         cubing = re.search(
-            r"\bi (?:do|practice)\\s+(?P<activity>cubing|speedcubing)"
-            r"(?P<detail>\\s+(?:almost|nearly|every|daily|regularly|often)"
+            r"\bi (?:do|practice)\s+(?P<activity>cubing|speedcubing)"
+            r"(?P<detail>\s+(?:almost|nearly|every|daily|regularly|often)"
             r"[^.,!?;]*)?",
             text
         )
@@ -189,7 +189,7 @@ class MemoryDetector:
         else:
             cubing = re.search(
                 r"\bi (?:cube|speedcube)"
-                r"(?P<detail>\\s+(?:almost|nearly|every|daily|regularly|often)"
+                r"(?P<detail>\s+(?:almost|nearly|every|daily|regularly|often)"
                 r"[^.,!?;]*)?",
                 text
             )
