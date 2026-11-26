@@ -159,6 +159,8 @@ class AssociativeMemory:
             for first, second in combinations(items, 2):
                 if first["id"] == second["id"] or first["key"] == second["key"]:
                     continue
+                if str(first["value"]).casefold().strip() == str(second["value"]).casefold().strip():
+                    continue
                 pair = tuple(sorted((int(first["id"]), int(second["id"]))))
                 candidates.setdefault(pair, set()).add(token)
                 if len(candidates) >= self.MAX_DISCOVERED_PAIRS:
