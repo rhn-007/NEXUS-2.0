@@ -77,7 +77,11 @@ class IntentRunner:
                     return answered
 
             if self.task_manager:
-                task_answer = self.task_manager.answer(text)
+                try:
+                    task_answer = self.task_manager.answer(text)
+                except Exception as error:
+                    logger.warning("Could not read task history: %s", error)
+                    task_answer = None
                 if task_answer:
                     path = "tasks"
                     return ToolResult(True, task_answer)
@@ -267,10 +271,7 @@ class IntentRunner:
                 break
 
             if task_id:
-                try:
-                    self.task_manager.start_step(task_id, position)
-                except Exception as error:
-                    logger.warning("Could not start task step history: %s", error)
+                self._task_call("start_step", task_id, position)
 
             try:
                 if step.action not in BUILTIN_ACTIONS:
@@ -283,12 +284,13 @@ class IntentRunner:
                     if not result.success:
 
                         if task_id:
-                            self.task_manager.finish_step(
-                                task_id, position, "failed", message
+                            self._task_call(
+                                "finish_step", task_id, position, "failed", message
                             )
-                            self.task_manager.skip_remaining(task_id, position)
-                            self.task_manager.set_task_status(
-                                task_id, "failed", message or "A task step failed."
+                            self._task_call("skip_remaining", task_id, position)
+                            self._task_call(
+                                "set_task_status", task_id, "failed",
+                                message or "A task step failed."
                             )
                             task_failed = True
 
@@ -309,8 +311,9 @@ class IntentRunner:
                     spoken = None
 
                 if task_id:
-                    self.task_manager.finish_step(
-                        task_id, position, "completed", message or "Completed."
+                    self._task_call(
+                        "finish_step", task_id, position, "completed",
+                        message or "Completed."
                     )
 
                 if message:
@@ -319,18 +322,11 @@ class IntentRunner:
 
             except Exception as error:
                 if task_id:
-                    try:
-                        self.task_manager.finish_step(
-                            task_id, position, "failed", str(error)
-                        )
-                        self.task_manager.skip_remaining(task_id, position)
-                        self.task_manager.set_task_status(
-                            task_id, "failed", str(error)
-                        )
-                    except Exception as history_error:
-                        logger.warning(
-                            "Could not record task failure: %s", history_error
-                        )
+                    self._task_call(
+                        "finish_step", task_id, position, "failed", str(error)
+                    )
+                    self._task_call("skip_remaining", task_id, position)
+                    self._task_call("set_task_status", task_id, "failed", str(error))
                 raise
 
         shown = "\n".join(messages) or "Done."
@@ -338,7 +334,7 @@ class IntentRunner:
 
         if task_id and not task_failed:
             try:
-                self.task_manager.complete_task(task_id, shown)
+                self._task_call("complete_task", task_id, shown)
             except Exception as error:
                 logger.warning("Could not complete task history: %s", error)
 
@@ -454,6 +450,16 @@ class IntentRunner:
         return ToolResult(
             True, describe_explanation(state["topic"], *reading)
         )
+
+    def _task_call(self, method, *args):
+        """Task-history failures must never prevent the underlying action."""
+        if not self.task_manager:
+            return None
+        try:
+            return getattr(self.task_manager, method)(*args)
+        except Exception as error:
+            logger.warning("Task history operation %s failed: %s", method, error)
+            return None
 
     # ======================================================
     # ACTION HISTORY
