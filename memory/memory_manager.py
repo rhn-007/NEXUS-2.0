@@ -1733,7 +1733,7 @@ class MemoryManager:
                     r"action planning|autonomous learning|daily learning|"
                     r"local model|browser automation|research system|"
                     r"voice assistant|voice input|speech output|push[- ]to[- ]talk|"
-                    r"continuous listening|windows startup|hotkey)\\b",
+                    r"continuous listening|windows startup|hotkey)\b",
                     user_text,
                     re.IGNORECASE
                 ))
