@@ -198,9 +198,14 @@ class MemoryManager:
             "my details",
             "what patterns have you noticed about me",
             "what patterns have you noticed",
+            "what patterns do you see in my interests",
             "what themes keep coming up",
+            "what have you noticed about my interests",
             "what connections have you found between my memories",
+            "what connections do you see between my interests and goals",
+            "what connections have you found between my interests and goals",
             "how are my interests connected",
+            "what is the relationship between my interests and goals",
             "connect my memories",
             "analyse my memories",
             "analyze my memories",
@@ -981,7 +986,8 @@ class MemoryManager:
         # Stage 4 insight questions use only stored facts and persisted graph
         # evidence. They never ask the model to invent a personal pattern.
         pattern_question = re.fullmatch(
-            r"(?:what patterns have you noticed(?: about me)?|"
+            r"(?:what patterns have you noticed(?: about me| about my interests)?|"
+            r"what patterns do you see(?: in my interests)?|"
             r"what themes keep coming up|what recurring themes do you see|"
             r"what have you noticed about my interests|"
             r"analyse my memories|analyze my memories)",
@@ -1000,9 +1006,10 @@ class MemoryManager:
 
         connection_question = re.fullmatch(
             r"(?:what connections have you found between my memories|"
-            r"what connections do you see between my interests and goals|"
-            r"how are my interests connected|show my memory connections|"
-            r"connect my memories)",
+            r"what connections (?:do you see|have you found) between my interests and goals|"
+            r"how are my interests connected|"
+            r"what is the relationship between my interests and goals|"
+            r"show my memory connections|connect my memories)",
             question
         )
         if connection_question:
