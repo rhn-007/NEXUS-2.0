@@ -120,6 +120,45 @@ class AssociativeMemoryTests(unittest.TestCase):
         self.assertIn("Recurring memory patterns", context)
         self.assertIn("robotics", context)
 
+    def test_recurring_topics_use_user_messages_not_assistant_text(self):
+        self.db.connection.execute("""
+            CREATE TABLE conversation_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT ''
+            )
+        """)
+        for message in (
+            "I want to learn more about robotics.",
+            "My robotics project needs better sensors.",
+            "Can we discuss robotics again?",
+        ):
+            self.db.connection.execute(
+                "INSERT INTO conversation_messages (conversation_id, role, content) "
+                "VALUES ('default', 'user', ?)",
+                (message,)
+            )
+        self.db.connection.execute(
+            "INSERT INTO conversation_messages (conversation_id, role, content) "
+            "VALUES ('default', 'assistant', ?)",
+            ("Astronomy astronomy astronomy.",)
+        )
+        self.db.connection.commit()
+
+        patterns = self.associative.rebuild_patterns()
+        topic = next(
+            item for item in patterns
+            if item["pattern_key"] == "conversation_theme:robotics"
+        )
+        self.assertEqual(topic["evidence_count"], 3)
+        self.assertEqual(len(topic["evidence_message_ids"]), 3)
+        self.assertFalse(any(
+            item["pattern_key"] == "conversation_theme:astronomy"
+            for item in patterns
+        ))
+
     def test_pattern_questions_are_answered_from_saved_evidence(self):
         self.memory.remember("interest", "robotics")
         self.memory.remember("project", "robotics engineering")
