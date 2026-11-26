@@ -796,6 +796,3 @@ class MemoryManager(MemoryRecallMixin, MemoryContextMixin):
 
         return note.rstrip("; ") + "."
 
-    # =====================================
-    # DIRECT ANSWERS TO "WHAT IS MY ..."
-    # =====================================
