@@ -309,12 +309,14 @@ class MemoryManager:
 
         if not memories:
             # An explicit relationship can be stated after both endpoint facts
-            # already exist, without introducing a new fact of its own.
+            # already exist, without introducing a new fact of its own. Refresh
+            # transcript-derived patterns on every turn using user messages only.
             try:
                 linked = self.associative_memory.discover_from_statement(
                     text,
                     explicit_only=True
                 )
+                self.associative_memory.rebuild_patterns()
                 return bool(linked)
             except Exception:
                 return False
@@ -400,6 +402,7 @@ class MemoryManager:
                     text,
                     explicit_only=True
                 )
+                self.associative_memory.rebuild_patterns()
                 stored = bool(linked)
             except Exception:
                 pass
