@@ -221,7 +221,7 @@ class AssociativeMemoryTests(unittest.TestCase):
         self.memory.remember("goal", "study artificial intelligence")
         answer = self.memory.answer_fact_question(question)
 
-        self.assertIn("don't have enough evidence", answer.lower())
+        self.assertIn("haven't found enough evidence", answer.lower())
         self.assertNotIn("python", answer.lower())
         self.assertNotIn("coding", answer.lower())
 
