@@ -316,14 +316,19 @@ class AssociativeMemory:
             edges.values(),
             key=lambda item: (-float(item["confidence"]), -int(item["id"]))
         ):
-            if edge["relation_type"] == "co_mentioned":
+            if edge["origin"] == "explicit" and edge["relation_type"] == "related_to":
+                description = "were explicitly connected by the user"
+                evidence_label = "explicit user-stated link"
+            elif edge["relation_type"] == "co_mentioned":
                 description = "were positively mentioned together"
+                evidence_label = "inferred co-mention"
             else:
-                description = "share a descriptive topic"
+                description = "share a distinctive descriptive topic"
+                evidence_label = "inferred topical association"
             relationship_lines.append(
                 f'{edge["source_key"]}: {edge["source_value"]} and '
                 f'{edge["target_key"]}: {edge["target_value"]} {description} '
-                f'(inferred association, confidence {float(edge["confidence"]):.2f})'
+                f'({evidence_label}, confidence {float(edge["confidence"]):.2f})'
             )
             if len(relationship_lines) >= self.MAX_CONTEXT_RELATIONSHIPS:
                 break
