@@ -987,9 +987,9 @@ class MemoryManager:
             if role != "user":
                 continue
             for pattern in (
-                r"\\b([A-Z][A-Z0-9_-]{1,30})\\s+(?:is|was)\\s+(?:a|the)\\s+project\\b",
-                r"\\b(?:my|the)\\s+project\\s+([A-Z][A-Za-z0-9._-]{1,40})\\b",
-                r"\\b([A-Z][A-Z0-9_-]{1,30})\\s+project\\b",
+                r"\b([A-Z][A-Z0-9_-]{1,30})\s+(?:is|was)\s+(?:a|the)\s+project\\b",
+                r"\b(?:my|the)\s+project\s+([A-Z][A-Za-z0-9._-]{1,40})\\b",
+                r"\b([A-Z][A-Z0-9_-]{1,30})\s+project\\b",
             ):
                 for match in re.finditer(pattern, content):
                     candidate = match.group(1).strip()
