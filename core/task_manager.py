@@ -252,7 +252,7 @@ class TaskManager:
                 f"- {task['request']} ({task['status']})"
                 for task in tasks
             ]
-            return "Here are the tasks still recorded as active:\\n" + "\\n".join(lines)
+            return "Here are the tasks still recorded as active:\n" + "\n".join(lines)
 
         if query in recent_queries:
             tasks = self.list_tasks(8)
@@ -264,7 +264,7 @@ class TaskManager:
                 lines.append(
                     f"- {task['request']} — {task['status']}: {result}"
                 )
-            return "Recent task history, newest first:\\n" + "\\n".join(lines)
+            return "Recent task history, newest first:\n" + "\n".join(lines)
 
         return None
 
