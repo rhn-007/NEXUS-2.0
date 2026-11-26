@@ -226,6 +226,12 @@ class MemoryManager:
         # SQLite remains authoritative; writes through this manager refresh it.
         self._session_facts_context = None
         self.load_session_memory()
+        try:
+            # Build the initial graph from existing SQLite facts so older
+            # memories participate immediately after an upgrade.
+            self.associative_memory.update()
+        except Exception:
+            pass
 
     def set_llm(self, llm):
         """Use NEXUS's existing local model for gated semantic memory tasks."""
