@@ -113,6 +113,32 @@ class ProjectHistoryAnswerTests(unittest.TestCase):
         )
         self.assertFalse(self.memory.is_project_history_question(question))
 
+    def test_broad_project_list_stays_deterministic_when_it_asks_for_details(self):
+        question = (
+            "What projects have I actually told you that I have built or worked on? "
+            "For each project, explain its purpose and identify the interests or "
+            "goals I explicitly connected to it."
+        )
+        self.assertTrue(self.memory.is_project_history_question(question))
+
+    def test_project_name_followup_after_project_list_is_deterministic(self):
+        with patch.object(
+            self.memory,
+            "_facts_by_key",
+            return_value={"project": ["NEXUS"]}
+        ), patch.object(
+            self.memory,
+            "_recent_conversation_messages",
+            return_value=[
+                ("user", "What projects have I actually told you that I have built?"),
+                ("assistant", "Projects you explicitly said you were working on: NEXUS"),
+                ("user", "what about Nexus"),
+            ]
+        ):
+            self.assertTrue(
+                self.memory.is_project_history_followup("what about Nexus")
+            )
+
     def test_non_project_question_is_not_handled(self):
         self.assertIsNone(
             self.memory.answer_project_history("What do you know about me?")
