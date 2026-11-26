@@ -159,8 +159,10 @@ class AssociativeMemory:
         existing_pairs = {
             tuple(sorted((int(row["source_memory_id"]), int(row["target_memory_id"]))))
             for row in self.db.connection.execute(
-                "SELECT source_memory_id, target_memory_id FROM memory_relationships"
+                "SELECT source_memory_id, target_memory_id, relation_type "
+                "FROM memory_relationships"
             ).fetchall()
+            if row["relation_type"] in {"related_to", "shares_topic"}
         }
         candidates = {}
         for token, items in token_index.items():
@@ -382,9 +384,6 @@ class AssociativeMemory:
             if explicit_link:
                 description = "were explicitly connected by the user"
                 evidence_label = "explicit user-stated link"
-            elif edge["relation_type"] == "co_mentioned":
-                description = "were positively mentioned together"
-                evidence_label = "inferred co-mention"
             else:
                 description = "share a distinctive descriptive topic"
                 evidence_label = "inferred topical association"
