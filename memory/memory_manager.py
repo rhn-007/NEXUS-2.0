@@ -55,6 +55,16 @@ _INTEREST_QUESTIONS = re.compile(
     r"what have i told you about my (?:hobbies|interests))$"
 )
 
+_TOPIC_ACTIVITY_QUESTION = re.compile(
+    r"^what have i told you about my (?P<topics>[a-z ,and]+?) activities"
+    r"(?: separate what you know from what you don'?t know)?$"
+)
+
+
+def _tv_show_identity(title):
+    """Deduplicate show titles regardless of a leading article."""
+    return re.sub(r"^(?:the|a|an)\\s+", "", _norm(title))
+
 
 def _norm(word):
 
@@ -961,13 +971,10 @@ class MemoryManager:
         return bool(
             re.search(
                 r"^what (?:personal )?(?:interests and hobbies|hobbies and interests) "
-                r"have i (?:explicitly )?told you about\b",
+                r"have i (?:explicitly )?told you about\\b",
                 question
             )
-            or re.fullmatch(
-                r"what have i told you about my [a-z ,and]+ activities",
-                question
-            )
+            or _TOPIC_ACTIVITY_QUESTION.fullmatch(question)
             or _INTEREST_QUESTIONS.fullmatch(question)
         )
 
@@ -1187,10 +1194,7 @@ class MemoryManager:
 
         # Topic-specific hobby questions return only stored interest/hobby
         # values that actually mention the requested topics.
-        topic_activity = re.fullmatch(
-            r"what have i told you about my (?P<topics>[a-z ,and]+) activities",
-            question
-        )
+        topic_activity = _TOPIC_ACTIVITY_QUESTION.fullmatch(question)
         if topic_activity:
             topics = [
                 re.sub(r"^and\s+", "", item.strip())
@@ -1586,16 +1590,16 @@ class MemoryManager:
             seen = set()
             for raw_value in grouped.get("tv_show", []):
                 show = _clean_tv_show_title(raw_value)
-                if show and _norm(show) not in seen:
-                    seen.add(_norm(show))
+                if show and _tv_show_identity(show) not in seen:
+                    seen.add(_tv_show_identity(show))
                     shows.append(show)
             # Older versions sometimes stored explicitly labelled show titles
             # in the general-interest category. Read those without treating
             # arbitrary interests or model-generated guesses as TV shows.
             for raw_value in grouped.get("interest", []) + grouped.get("hobby", []):
                 show = _clean_tv_show_value(raw_value)
-                if show and _norm(show) not in seen:
-                    seen.add(_norm(show))
+                if show and _tv_show_identity(show) not in seen:
+                    seen.add(_tv_show_identity(show))
                     shows.append(show)
             if not shows:
                 return "You haven't told me which TV shows you enjoy yet."
@@ -1614,7 +1618,7 @@ class MemoryManager:
             for raw_value in raw_values:
                 show = _clean_tv_show_value(raw_value)
                 if show:
-                    marker = _norm(show)
+                    marker = _tv_show_identity(show)
                     if marker not in seen_shows:
                         seen_shows.add(marker)
                         tv_shows.append(show)
@@ -1635,7 +1639,7 @@ class MemoryManager:
                 show = _clean_tv_show_title(raw_show)
                 if not show:
                     continue
-                marker = _norm(show)
+                marker = _tv_show_identity(show)
                 if marker not in seen_shows:
                     seen_shows.add(marker)
                     tv_shows.append(show)
