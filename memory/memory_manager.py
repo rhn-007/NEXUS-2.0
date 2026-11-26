@@ -970,15 +970,33 @@ class MemoryManager:
         if not self.is_project_history_question(query):
             return None
 
+        messages = self._recent_conversation_messages(limit=1000)
+        if messages and messages[-1][0] == "user" and _norm(messages[-1][1]) == _norm(query):
+            messages = messages[:-1]
+
+        # A project may be explicitly mentioned in the transcript even when
+        # the fact detector did not create a separate "project" row. Recover
+        # only names directly labelled as projects by the user's own words.
         aliases = [
             str(value).strip()
             for value in (self._facts_by_key().get("project", []) or [])
             if len(str(value).strip()) >= 3
             and _norm(value) not in {"a project", "personal project", "a personal project", "project"}
         ]
-        messages = self._recent_conversation_messages(limit=1000)
-        if messages and messages[-1][0] == "user" and _norm(messages[-1][1]) == _norm(query):
-            messages = messages[:-1]
+        for role, content in messages:
+            if role != "user":
+                continue
+            for pattern in (
+                r"\\b([A-Z][A-Z0-9_-]{1,30})\\s+(?:is|was)\\s+(?:a|the)\\s+project\\b",
+                r"\\b(?:my|the)\\s+project\\s+([A-Z][A-Za-z0-9._-]{1,40})\\b",
+                r"\\b([A-Z][A-Z0-9_-]{1,30})\\s+project\\b",
+            ):
+                for match in re.finditer(pattern, content):
+                    candidate = match.group(1).strip()
+                    if len(candidate) >= 3 and _norm(candidate) not in {
+                        "the", "my", "this", "that", "one"
+                    } and not any(_norm(existing) == _norm(candidate) for existing in aliases):
+                        aliases.append(candidate)
 
         confirmed = []
         for alias in aliases:
