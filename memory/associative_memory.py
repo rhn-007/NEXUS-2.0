@@ -9,6 +9,7 @@ that this module supplies.
 from collections import defaultdict
 from itertools import combinations
 import re
+import sqlite3
 
 
 class AssociativeMemory:
@@ -256,6 +257,44 @@ class AssociativeMemory:
                 "confidence": min(0.90, 0.70 + 0.04 * (len(unique) - 3)),
                 "evidence_count": len(unique),
                 "evidence_memory_ids": [int(item["id"]) for item in unique]
+            })
+
+        # Recurring topics are counted from separate USER messages only.
+        # Assistant responses are excluded so model-generated text cannot
+        # manufacture a supposed user interest.
+        try:
+            message_rows = self.db.connection.execute("""
+                SELECT id, content
+                FROM conversation_messages
+                WHERE conversation_id = 'default' AND role = 'user'
+                ORDER BY id DESC
+                LIMIT 500
+            """).fetchall()
+        except sqlite3.Error:
+            message_rows = []
+
+        token_messages = defaultdict(list)
+        for row in message_rows:
+            message_id = int(row["id"])
+            for token in self._tokens(row["content"]):
+                token_messages[token].append(message_id)
+
+        for token, message_ids in token_messages.items():
+            distinct_ids = sorted(set(message_ids))
+            if len(distinct_ids) < 3:
+                continue
+            patterns.append({
+                "pattern_key": "conversation_theme:" + token,
+                "pattern_type": "recurring_conversation_theme",
+                "label": "Recurring conversation topic: " + token,
+                "summary": (
+                    "You have brought up the topic '" + token + "' in "
+                    + str(len(distinct_ids)) + " separate user messages."
+                ),
+                "confidence": min(0.88, 0.68 + 0.04 * (len(distinct_ids) - 3)),
+                "evidence_count": len(distinct_ids),
+                "evidence_memory_ids": [],
+                "evidence_message_ids": distinct_ids[:50]
             })
 
         patterns.sort(
