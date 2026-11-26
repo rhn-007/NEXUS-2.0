@@ -276,7 +276,8 @@ class NexusAssistant:
             return "feedback"
 
         if text in (
-            "show performance report",            "show nexus performance",
+            "show performance report",
+            "show nexus performance",
             "nexus performance report",
             "self observation report"
         ):
@@ -657,7 +658,8 @@ class NexusAssistant:
                     {
                         "role": "system",
                         "content": facts_context
-                    }                )
+                    }
+                )
 
             # Deterministic SQLite answers are evidence for Ollama, not a
             # competing response. This keeps personal facts consistent while
@@ -1036,3 +1038,181 @@ class NexusAssistant:
     # ==========================
 
     def check_memory(self, user_input):
+
+        text = " ".join(
+            re.sub(r"[?.!,]", " ", str(user_input or "").lower()).split()
+        )
+
+        # Recent-conversation recall is handled directly from the transcript,
+        # rather than asking the general model to guess what happened.
+        recent_recall_phrases = (
+            "what were we talking about",
+            "what were we discussing",
+            "what were we just talking about",
+            "what were we just discussing",
+            "what did we just discuss",
+            "what did we just talk about",
+            "what have we discussed recently",
+            "what have we talked about recently",
+            "what did we discuss recently",
+            "what did we talk about recently",
+            "what did we decide last time",
+            "what did we agree on last time",
+        )
+        if any(phrase in text for phrase in recent_recall_phrases):
+            return self.memory.answer_conversation_recall(user_input)
+
+        # Forgetting is limited to personal facts. Conversation transcripts,
+        # researched knowledge, and action history remain intact.
+        forget_all_phrases = {
+            "forget everything you know about me",
+            "forget all my personal memories",
+            "forget all personal facts",
+            "clear my personal memories"
+        }
+        if text in forget_all_phrases:
+            deleted = self.memory.forget()
+            return (
+                "I've cleared your stored personal facts."
+                if deleted
+                else "I don't have any stored personal facts to clear."
+            )
+
+        value_match = re.fullmatch(
+            r"forget (?:that )?i (?:like|love|enjoy|prefer) (.+)",
+            text
+        )
+        if value_match:
+            value = value_match.group(1).strip()
+            deleted = self.memory.forget(value=value)
+            return (
+                f"I've forgotten that personal detail."
+                if deleted
+                else "I couldn't find that exact personal detail in memory."
+            )
+
+        key_match = re.fullmatch(
+            r"forget my (?:(?:favourite|favorite) )?([a-z][a-z ]*)",
+            text
+        )
+        if key_match:
+            key = key_match.group(1).strip().replace(" ", "_")
+            deleted = self.memory.forget(key=key)
+            return (
+                f"I've forgotten your stored {key.replace('_', ' ')} detail."
+                if deleted
+                else f"I couldn't find a stored {key.replace('_', ' ')} detail."
+            )
+
+        profile_keywords = [
+            "what do you know about me",
+            "what do u know about me",
+            "tell me about myself",
+            "who am i",
+            "my profile",
+            "my details"
+        ]
+
+        if any(
+            keyword in text
+            for keyword in profile_keywords
+        ):
+
+            memories = self.memory.get_memory_context()
+
+            if not memories:
+
+                return (
+                    "I don't have any stored information about you yet."
+                )
+
+            # Turn stored facts into a short recollection rather than
+            # reading database fields aloud. Keep claims grounded in saved facts.
+            grouped = {}
+            for item in memories:
+                try:
+                    key = str(item[0]).strip().lower()
+                    value = str(item[1]).strip()
+                    category = item[2]
+                    if category == "conversation" or not key or not value:
+                        continue
+                    values = grouped.setdefault(key, [])
+                    if not any(existing.casefold() == value.casefold() for existing in values):
+                        values.append(value)
+                except Exception:
+                    continue
+
+            if not grouped:
+                return "I have some memories stored, but no reliable personal details to share yet."
+
+            parts = []
+            seen_profile_values = set()
+
+            def unique_profile_values(values):
+                unique = []
+                for value in values:
+                    marker = str(value).strip().casefold()
+                    if marker and marker not in seen_profile_values:
+                        seen_profile_values.add(marker)
+                        unique.append(value)
+                return unique
+
+            names = grouped.get("name", [])
+            if names:
+                parts.append(f"I remember your name is {names[-1].title()}.")
+
+            interests = grouped.get("interest", [])
+            if interests:
+                readable = unique_profile_values(
+                    [value for value in interests if value.casefold() != "coding"]
+                )
+                if readable:
+                    parts.append("You've mentioned enjoying " + self._join_recollection(readable) + ".")
+
+            coding = grouped.get("coding", [])
+            languages = grouped.get("programming_language", [])
+            coding_values = unique_profile_values(list(dict.fromkeys(coding + languages)))
+            if coding_values:
+                parts.append(
+                    "Python is one of the programming languages you've mentioned using."
+                    if any(value.casefold() == "python" for value in coding_values)
+                    else "You've mentioned working with " + self._join_recollection(coding_values) + "."
+                )
+
+            projects = grouped.get("project", [])
+            named_projects = unique_profile_values([
+                value for value in projects
+                if value.casefold() not in {"a personal project", "personal project", "a project", "project"}
+            ])
+            if named_projects:
+                parts.append(
+                    "You're also working on " + self._join_recollection(named_projects) + "."
+                )
+
+            preferences = unique_profile_values(grouped.get("preference", []))
+            if preferences:
+                parts.append("And you've told me you prefer " + self._join_recollection(preferences) + ".")
+
+            for key, values in grouped.items():
+                if key in {
+                    "name", "interest", "coding", "programming_language",
+                    "project", "preference"
+                }:
+                    continue
+                values = unique_profile_values(values)
+                if not values:
+                    continue
+                label = key.replace("_", " ")
+                parts.append(
+                    f"You've also mentioned {self._join_recollection(values)} when talking about {label}."
+                )
+
+            if not parts:
+                return "I remember a few things you've shared, but I don't have enough reliable detail to summarise them yet."
+
+            return "Here's what I remember about you.\n\n" + "\n\n".join(parts)
+
+        # "what is my name", "what's my favourite language", "what do I prefer"
+        return self.memory.answer_fact_question(
+            user_input
+        )
