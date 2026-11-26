@@ -136,3 +136,23 @@ IntentRunner routing. Volume adjustments accept longer natural phrases such
 as "increase it a bit more" only when a recent media/volume action establishes
 the context. This remains a small deterministic extension; no new dependency
 or extra model call is required.
+
+## Stage 4.1 — Persistent memory relationships
+
+Stage 4.1 introduces a separate relationship layer over existing personal facts.
+The original memories rows remain authoritative; relationship records refer to
+their stable SQLite IDs and never rewrite fact values.
+
+Each relationship stores source and target fact IDs, a typed relationship
+label, confidence between 0 and 1, origin (explicit or inferred), optional
+supporting evidence, and creation/update timestamps. Both endpoints must be
+existing personal facts. Self-links are rejected, duplicate links are
+consolidated, and an explicit relationship cannot be downgraded by a later
+inferred link. Foreign-key cascades remove links when either endpoint fact is
+deleted or replaced.
+
+This stage provides persistence and query APIs only. It does not yet
+automatically infer relationships, make personality judgements, or add model
+calls to ordinary conversation. Relationship discovery and contextual use
+will be implemented separately and must validate every proposed endpoint
+against stored facts before saving.
