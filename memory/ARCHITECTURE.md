@@ -8,7 +8,9 @@ them as context when generating a response.
 
 | Component | Responsibility |
 |---|---|
-| `memory_manager.py` | Coordinates memory writes, deterministic recall, forgetting, and context assembly |
+| `memory_manager.py` | Coordinates memory writes, forgetting, and the memory components |
+| `recall.py` | Recognises personal-memory questions and answers them deterministically from stored evidence |
+| `context.py` | Builds bounded, locally ranked personal-memory and conversation context |
 | `detector.py` | Extracts clear personal facts and corrections with inexpensive rules |
 | `semantic_processor.py` | Handles uncertain personal-fact extraction through the existing local model; validates structured output |
 | `database.py` | Provides SQLite persistence for personal facts, relationships, patterns, and the knowledge tables shared with `learning/knowledge_engine.py` |
