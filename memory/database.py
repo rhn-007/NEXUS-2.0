@@ -83,6 +83,17 @@ class MemoryDatabase:
             ON memory_patterns(active, confidence DESC)
         """)
 
+        # Upgrade databases created by an earlier Stage 4 development snapshot.
+        pattern_columns = {
+            row["name"]
+            for row in cursor.execute("PRAGMA table_info(memory_patterns)").fetchall()
+        }
+        if "evidence_message_ids" not in pattern_columns:
+            cursor.execute("""
+                ALTER TABLE memory_patterns
+                ADD COLUMN evidence_message_ids TEXT NOT NULL DEFAULT '[]'
+            """)
+
         # Stores information NEXUS learns
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS knowledge (
