@@ -1117,7 +1117,7 @@ class MemoryManager:
                         f"{left} and {right} share a possible topical overlap"
                     )
             return (
-                "The supported connections I found are: "
+                "The possible connections supported by your saved evidence are: "
                 + "; ".join(descriptions)
                 + ". These associations do not establish causation."
             )
