@@ -1729,11 +1729,18 @@ class MemoryManager:
                 )
                 project_decision = project_anchor_found and bool(re.search(
                     r"\b(?:sqlite|ollama|qwen(?:2\.5)?|playwright|opera|"
-                    r"persistent memory|computer control|screen vision|"
-                    r"action planning|autonomous learning|daily learning|"
+                    r"persistent memory|computer control|screen vision|image recognition|"
+                    r"action planning|autonomous learning|automated learning|daily learning|"
                     r"local model|browser automation|research system|"
-                    r"voice assistant|voice input|speech output|push[- ]to[- ]talk|"
-                    r"continuous listening|windows startup|hotkey)\b",
+                    r"voice assistant|voice input|voice output|speech output|"
+                    r"pronunciation|accent|vocabulary|push[- ]to[- ]talk|"
+                    r"continuous listening|windows startup|start automatically|"
+                    r"log in to windows|desktop launch|follow[- ]up questions|"
+                    r"proactive|low[- ]battery|speak unprompted|"
+                    r"app control|file management|folder management|"
+                    r"volume control|brightness control|screenshots|"
+                    r"automatically at startup|computer vision|"
+                    r"memory storage)\b",
                     user_text,
                     re.IGNORECASE
                 ))
