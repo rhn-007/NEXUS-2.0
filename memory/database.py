@@ -9,6 +9,7 @@ class MemoryDatabase:
     def __init__(self, path="nexus_memory.db"):
         self.connection = connect_database(path)
         self.connection.row_factory = sqlite3.Row
+        self.connection.execute("PRAGMA foreign_keys = ON")
         self.create_tables()
 
     def create_tables(self):
@@ -23,6 +24,39 @@ class MemoryDatabase:
                 type TEXT NOT NULL,
                 created_at TEXT
             )
+        """)
+
+        # Explicit and inferred links between personal-memory records.
+        # Original facts remain authoritative and are never rewritten.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS memory_relationships (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_memory_id INTEGER NOT NULL,
+                target_memory_id INTEGER NOT NULL,
+                relation_type TEXT NOT NULL,
+                confidence REAL NOT NULL DEFAULT 1.0
+                    CHECK (confidence >= 0.0 AND confidence <= 1.0),
+                origin TEXT NOT NULL DEFAULT 'inferred'
+                    CHECK (origin IN ('explicit', 'inferred')),
+                evidence TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                CHECK (source_memory_id <> target_memory_id),
+                UNIQUE (source_memory_id, target_memory_id, relation_type),
+                FOREIGN KEY (source_memory_id) REFERENCES memories(id)
+                    ON DELETE CASCADE,
+                FOREIGN KEY (target_memory_id) REFERENCES memories(id)
+                    ON DELETE CASCADE
+            )
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_memory_relationships_source
+            ON memory_relationships(source_memory_id)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_memory_relationships_target
+            ON memory_relationships(target_memory_id)
         """)
 
         # Stores information NEXUS learns
@@ -108,6 +142,136 @@ class MemoryDatabase:
             ORDER BY id ASC
         """)
         return cursor.fetchall()
+
+    def get_fact_records(self, limit=500):
+        """Return personal facts with stable SQLite IDs for relationship links."""
+        cursor = self.connection.cursor()
+        cursor.execute("""
+            SELECT id, key, value, created_at
+            FROM memories
+            WHERE type = 'fact'
+            ORDER BY id ASC
+            LIMIT ?
+        """, (max(1, min(int(limit), 5000)),))
+        return [dict(row) for row in cursor.fetchall()]
+
+    def create_memory_relationship(
+        self, source_memory_id, target_memory_id, relation_type,
+        confidence=1.0, origin="inferred", evidence=None
+    ):
+        """Create or strengthen a validated link between two personal facts."""
+        import math
+        import re
+
+        try:
+            source_id = int(source_memory_id)
+            target_id = int(target_memory_id)
+            score = float(confidence)
+        except (TypeError, ValueError, OverflowError):
+            raise ValueError("Memory IDs and confidence must be valid numbers.")
+
+        if source_id == target_id:
+            raise ValueError("A memory cannot be related to itself.")
+        if not math.isfinite(score) or not 0.0 <= score <= 1.0:
+            raise ValueError("Relationship confidence must be between 0 and 1.")
+
+        relation = str(relation_type or "").strip().lower()
+        if not re.fullmatch(r"[a-z][a-z0-9_]{1,39}", relation):
+            raise ValueError("Relationship type must be a short snake_case label.")
+        relationship_origin = str(origin or "").strip().lower()
+        if relationship_origin not in {"explicit", "inferred"}:
+            raise ValueError("Relationship origin must be 'explicit' or 'inferred'.")
+        evidence_text = str(evidence).strip() if evidence is not None else None
+        if evidence_text and len(evidence_text) > 500:
+            raise ValueError("Relationship evidence cannot exceed 500 characters.")
+
+        cursor = self.connection.cursor()
+        now = datetime.now().isoformat()
+        try:
+            cursor.execute("""
+                SELECT id FROM memories
+                WHERE type = 'fact' AND id IN (?, ?)
+            """, (source_id, target_id))
+            valid_ids = {int(row["id"]) for row in cursor.fetchall()}
+            if valid_ids != {source_id, target_id}:
+                raise ValueError("Both relationship endpoints must be existing personal facts.")
+
+            cursor.execute("""
+                SELECT id, confidence, origin, evidence
+                FROM memory_relationships
+                WHERE source_memory_id = ? AND target_memory_id = ?
+                  AND relation_type = ?
+            """, (source_id, target_id, relation))
+            existing = cursor.fetchone()
+            if existing:
+                next_origin = (
+                    "explicit" if relationship_origin == "explicit"
+                    or existing["origin"] == "explicit" else "inferred"
+                )
+                next_confidence = max(float(existing["confidence"]), score)
+                next_evidence = (
+                    evidence_text if relationship_origin == "explicit" and evidence_text
+                    else existing["evidence"] if existing["origin"] == "explicit"
+                    else evidence_text or existing["evidence"]
+                )
+                cursor.execute("""
+                    UPDATE memory_relationships
+                    SET confidence = ?, origin = ?, evidence = ?, updated_at = ?
+                    WHERE id = ?
+                """, (
+                    next_confidence, next_origin, next_evidence,
+                    now, int(existing["id"])
+                ))
+                self.connection.commit()
+                return int(existing["id"])
+
+            cursor.execute("""
+                INSERT INTO memory_relationships (
+                    source_memory_id, target_memory_id, relation_type,
+                    confidence, origin, evidence, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                source_id, target_id, relation, score,
+                relationship_origin, evidence_text, now, now
+            ))
+            relationship_id = int(cursor.lastrowid)
+            self.connection.commit()
+            return relationship_id
+        except Exception:
+            self.connection.rollback()
+            raise
+
+    def get_memory_relationships(self, memory_id=None, min_confidence=0.0, limit=100):
+        """Return relationship edges together with their original fact records."""
+        try:
+            threshold = float(min_confidence)
+            row_limit = max(1, min(int(limit), 500))
+            selected_id = int(memory_id) if memory_id is not None else None
+        except (TypeError, ValueError, OverflowError):
+            raise ValueError("Invalid relationship filter.")
+        if not 0.0 <= threshold <= 1.0:
+            raise ValueError("Minimum confidence must be between 0 and 1.")
+
+        query = """
+            SELECT r.id, r.source_memory_id, r.target_memory_id,
+                   r.relation_type, r.confidence, r.origin, r.evidence,
+                   r.created_at, r.updated_at,
+                   s.key AS source_key, s.value AS source_value,
+                   t.key AS target_key, t.value AS target_value
+            FROM memory_relationships AS r
+            JOIN memories AS s ON s.id = r.source_memory_id
+            JOIN memories AS t ON t.id = r.target_memory_id
+            WHERE r.confidence >= ?
+        """
+        params = [threshold]
+        if selected_id is not None:
+            query += " AND (r.source_memory_id = ? OR r.target_memory_id = ?)"
+            params.extend([selected_id, selected_id])
+        query += " ORDER BY r.confidence DESC, r.updated_at DESC, r.id DESC LIMIT ?"
+        params.append(row_limit)
+        cursor = self.connection.cursor()
+        cursor.execute(query, tuple(params))
+        return [dict(row) for row in cursor.fetchall()]
 
     def get_conversations(self, limit=10):
         cursor = self.connection.cursor()
