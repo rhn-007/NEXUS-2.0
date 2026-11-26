@@ -1728,12 +1728,12 @@ class MemoryManager:
                     for alias in project_aliases
                 )
                 project_decision = project_anchor_found and bool(re.search(
-                    r"\\b(?:i (?:chose|choose|selected|decided|use|am using|"
-                    r"want|need|built|developed|implemented|added|created|"
-                    r"designed)|we (?:chose|selected|decided|use|are using)|"
-                    r"(?:the )?(?:memory storage|database|local model|"
-                    r"browser automation|voice input|speech output|"
-                    r"research system|computer control))\\b",
+                    r"\\b(?:sqlite|ollama|qwen(?:2\\.5)?|playwright|opera|"
+                    r"persistent memory|computer control|screen vision|"
+                    r"action planning|autonomous learning|daily learning|"
+                    r"local model|browser automation|research system|"
+                    r"voice assistant|voice input|speech output|push[- ]to[- ]talk|"
+                    r"continuous listening|windows startup|hotkey)\\b",
                     user_text,
                     re.IGNORECASE
                 ))
