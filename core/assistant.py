@@ -480,6 +480,7 @@ class NexusAssistant:
                     "what do you remember about my hobbies and interests",
                     "what are my hobbies and interests",
                 }
+                or self.memory.is_interest_recall_question(user_input) is True
                 or self.memory.is_associative_insight_question(user_input) is True
             ):
                 deterministic_fact_answer = self.memory.answer_fact_question(user_input)
