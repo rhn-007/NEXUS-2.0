@@ -185,12 +185,15 @@ class MemoryManager:
         # when their wording does not match the older generic memory-query
         # patterns (for example, "what projects have I actually built?").
         project_history_question = re.search(
-            r"\\bwhat projects have i (?:actually )?(?:told you|built|worked on|developed)\\b|"
-            r"\\bwhat do you remember about my .{0,50}project\\b|"
-            r"\\bwhat have i told you about my .{0,50}project\\b",
+            r"\bwhat projects have i (?:actually )?(?:told you|built|worked on|developed)\\b|"
+            r"\bwhat do you remember about my .{0,50}project\\b|"
+            r"\bwhat have i told you about my .{0,50}project\\b",
             value
         )
-        if project_history_question:
+        if project_history_question or re.search(
+            r"\\bwhat connections (?:do you see|have you found) between my\\b",
+            value
+        ):
             return True
 
         explicit = (
@@ -965,7 +968,9 @@ class MemoryManager:
             r"how are my interests and goals connected|"
             r"how are my goals and interests connected|"
             r"what connections have you found between my memories|"
-            r"what connections (?:do you see|have you found) between my interests and goals|"
+            r"what connections (?:do you see|have you found) between my "
+            r"(?:interests(?:,?\\s*goals?)?(?:,?\\s*and projects?)?|"
+            r"goals?(?:,?\\s*and projects?)?|projects?)|"
             r"what is the relationship between my interests and goals|"
             r"show my memory connections|connect my memories)",
             question
@@ -1061,7 +1066,9 @@ class MemoryManager:
 
         connection_question = re.fullmatch(
             r"(?:what connections have you found between my memories|"
-            r"what connections (?:do you see|have you found) between my interests and goals|"
+            r"what connections (?:do you see|have you found) between my "
+            r"(?:interests(?:,?\\s*goals?)?(?:,?\\s*and projects?)?|"
+            r"goals?(?:,?\\s*and projects?)?|projects?)|"
             r"how are my interests connected|"
             r"how are my interests and goals connected|"
             r"how are my goals and interests connected|"
@@ -1076,18 +1083,17 @@ class MemoryManager:
             # A question specifically about interests and goals needs a
             # relationship between those categories, not arbitrary co-mentions
             # such as a sport and a television show.
-            if "interests and goals" in question or "goals and interests" in question:
-                interest_keys = self.associative_memory._INTEREST_KEYS
-                goal_keys = self.associative_memory._GOAL_PROJECT_KEYS
+            requested_categories = set()
+            if "interest" in question or "hobb" in question:
+                requested_categories.update(self.associative_memory._INTEREST_KEYS)
+            if "goal" in question or "project" in question:
+                requested_categories.update(self.associative_memory._GOAL_PROJECT_KEYS)
+            if requested_categories:
                 relationships = [
                     edge for edge in relationships
-                    if (
-                        edge["source_key"] in interest_keys
-                        and edge["target_key"] in goal_keys
-                    ) or (
-                        edge["target_key"] in interest_keys
-                        and edge["source_key"] in goal_keys
-                    )
+                    if edge["source_key"] in requested_categories
+                    and edge["target_key"] in requested_categories
+                    and edge["source_key"] != edge["target_key"]
                 ]
 
             # Only explicit links and distinctive topical overlaps are useful
@@ -1100,7 +1106,7 @@ class MemoryManager:
                 ) or (
                     edge["origin"] == "inferred"
                     and edge["relation_type"] == "shares_topic"
-                    and float(edge["confidence"]) >= 0.77
+                    and float(edge["confidence"]) >= 0.84
                 )
             ]
 
@@ -1552,7 +1558,7 @@ class MemoryManager:
 
         preferences = grouped.get("preference", [])[-4:]
         project_history_request = memory_request and bool(re.search(
-            r"\\b(?:project|projects|built|building|developed|developing|"
+            r"\b(?:project|projects|built|building|developed|developing|"
             r"worked on|working on)\\b",
             str(query or ""),
             re.IGNORECASE
