@@ -32,7 +32,8 @@ class IntentRunner:
         planner,
         run_builtin,
         observer=None,
-        history=None
+        history=None,
+        task_manager=None
     ):
 
         self.router = router
@@ -41,6 +42,7 @@ class IntentRunner:
         self.run_builtin = run_builtin
         self.observer = observer
         self.history = history
+        self.task_manager = task_manager
 
         # Set after NEXUS asks for a meeting code, so the next message
         # is read as the code.
@@ -233,8 +235,22 @@ class IntentRunner:
 
         messages = []
         spoken_parts = []
+        task_id = None
+        task_failed = False
 
-        for step in steps:
+        # Keep the current fast path and planner. Only multi-step requests
+        # need a durable task record; one-step commands remain lightweight.
+        has_missing_meeting_code = any(
+            step.action == "join_meeting" and not step.value
+            for step in steps
+        )
+        if self.task_manager and len(steps) > 1 and not has_missing_meeting_code:
+            try:
+                task_id = self.task_manager.create_task(request, steps)
+            except Exception as error:
+                logger.warning("Could not create task history: %s", error)
+
+        for position, step in enumerate(steps):
 
             if step.action == "join_meeting" and not step.value:
 
@@ -244,39 +260,81 @@ class IntentRunner:
 
                 break
 
-            if step.action not in BUILTIN_ACTIONS:
+            if task_id:
+                try:
+                    self.task_manager.start_step(task_id, position)
+                except Exception as error:
+                    logger.warning("Could not start task step history: %s", error)
 
-                result = self.router.execute(step.command)
+            try:
+                if step.action not in BUILTIN_ACTIONS:
 
-                message = result.message or ""
+                    result = self.router.execute(step.command)
+                    message = result.message or ""
 
-                self._remember(request, step.action, step.command, result)
+                    self._remember(request, step.action, step.command, result)
 
-                if not result.success:
+                    if not result.success:
 
-                    messages.append(
-                        message
-                        or f"I couldn't do that ({step.action.replace('_', ' ')})."
+                        if task_id:
+                            self.task_manager.finish_step(
+                                task_id, position, "failed", message
+                            )
+                            self.task_manager.skip_remaining(task_id, position)
+                            self.task_manager.set_task_status(
+                                task_id, "failed", message or "A task step failed."
+                            )
+                            task_failed = True
+
+                        messages.append(
+                            message
+                            or f"I couldn't do that ({step.action.replace('_', ' ')})."
+                        )
+                        spoken_parts.append(messages[-1])
+
+                        break
+
+                    spoken = getattr(result, "spoken", None)
+                    self.followups.note_step(step)
+
+                else:
+
+                    message = self.run_builtin(step.action, step.value)
+                    spoken = None
+
+                if task_id:
+                    self.task_manager.finish_step(
+                        task_id, position, "completed", message or "Completed."
                     )
-                    spoken_parts.append(messages[-1])
 
-                    break
+                if message:
+                    messages.append(message)
+                    spoken_parts.append(spoken or message)
 
-                spoken = getattr(result, "spoken", None)
-
-                self.followups.note_step(step)
-
-            else:
-
-                message = self.run_builtin(step.action, step.value)
-                spoken = None
-
-            if message:
-                messages.append(message)
-                spoken_parts.append(spoken or message)
+            except Exception as error:
+                if task_id:
+                    try:
+                        self.task_manager.finish_step(
+                            task_id, position, "failed", str(error)
+                        )
+                        self.task_manager.skip_remaining(task_id, position)
+                        self.task_manager.set_task_status(
+                            task_id, "failed", str(error)
+                        )
+                    except Exception as history_error:
+                        logger.warning(
+                            "Could not record task failure: %s", history_error
+                        )
+                raise
 
         shown = "\n".join(messages) or "Done."
         said = "\n".join(spoken_parts) or "Done."
+
+        if task_id and not task_failed:
+            try:
+                self.task_manager.complete_task(task_id, shown)
+            except Exception as error:
+                logger.warning("Could not complete task history: %s", error)
 
         return ToolResult(True, shown, said if said != shown else None)
 
