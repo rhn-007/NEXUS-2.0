@@ -1338,6 +1338,36 @@ class MemoryManager:
                 return "Your AI project name is " + _join(values) + "."
             return f"Your {label} is " + _join(values) + "."
 
+        # Canonical combined recall: parse each named fact independently.
+        # This avoids treating the comma-separated labels as one unknown key.
+        if re.fullmatch(
+            r"what are my (?:favourite|favorite) sport, "
+            r"(?:favourite|favorite) programming language, and "
+            r"(?:ai )?project name",
+            question,
+        ):
+            sport = grouped.get("sport", [])
+            language = grouped.get("programming_language", [])
+            project = grouped.get("project", [])
+            parts = []
+            if sport:
+                parts.append("your favourite sport is " + _join(sport))
+            else:
+                parts.append("you haven't told me your favourite sport yet")
+            if language:
+                parts.append(
+                    "your favourite programming language is " + _join(language)
+                )
+            else:
+                parts.append(
+                    "you haven't told me your favourite programming language yet"
+                )
+            if project:
+                parts.append("your AI project name is " + _join(project))
+            else:
+                parts.append("you haven't told me your AI project name yet")
+            return "; ".join(parts[:-1]) + "; and " + parts[-1] + "."
+
         # Handle explicit multi-fact questions deterministically. A request
         # listing several personal details must never be left to the language
         # model, where unsupported guesses can be presented as memories.
