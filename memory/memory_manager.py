@@ -1193,7 +1193,7 @@ class MemoryManager:
         )
         if topic_activity:
             topics = [
-                item.strip()
+                re.sub(r"^and\s+", "", item.strip())
                 for item in re.split(r"\s*,\s*|\s+and\s+", topic_activity.group("topics"))
                 if item.strip() and item.strip() != "and"
             ]
