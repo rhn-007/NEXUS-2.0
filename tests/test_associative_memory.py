@@ -210,6 +210,21 @@ class AssociativeMemoryTests(unittest.TestCase):
         self.assertIn("possible connections", answer.lower())
         self.assertIn("robotics", answer.lower())
 
+    def test_explicitly_qualified_interests_goals_and_projects_question_is_deterministic(self):
+        question = (
+            "What connections do you see between my interests, goals, and projects? "
+            "Only mention connections supported by things I've told you."
+        )
+        self.assertTrue(self.memory.is_associative_insight_question(question))
+
+        self.memory.remember("interest", "badminton")
+        self.memory.remember("goal", "study artificial intelligence")
+        answer = self.memory.answer_fact_question(question)
+
+        self.assertIn("don't have enough evidence", answer.lower())
+        self.assertNotIn("python", answer.lower())
+        self.assertNotIn("coding", answer.lower())
+
     def test_interests_and_goals_question_does_not_invent_a_link(self):
         self.memory.remember("interest", "badminton")
         self.memory.remember("goal", "study artificial intelligence")
