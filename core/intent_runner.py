@@ -76,6 +76,12 @@ class IntentRunner:
 
                     return answered
 
+            if self.task_manager:
+                task_answer = self.task_manager.answer(text)
+                if task_answer:
+                    path = "tasks"
+                    return ToolResult(True, task_answer)
+
             about_me = capability_answer(text)
 
             if about_me:
