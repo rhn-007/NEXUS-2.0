@@ -953,6 +953,25 @@ class MemoryManager:
     # =====================================
 
     @staticmethod
+    def is_interest_recall_question(text):
+        """Recognize broad and topic-specific personal-interest recall questions."""
+        question = " ".join(
+            re.sub(r"[?.!]", " ", str(text or "").lower()).split()
+        )
+        return bool(
+            re.search(
+                r"^what (?:personal )?(?:interests and hobbies|hobbies and interests) "
+                r"have i (?:explicitly )?told you about\\b",
+                question
+            )
+            or re.fullmatch(
+                r"what have i told you about my [a-z ,and]+ activities",
+                question
+            )
+            or _INTEREST_QUESTIONS.fullmatch(question)
+        )
+
+    @staticmethod
     def is_project_history_question(text):
         value = " ".join(
             re.sub(r"[?.!,]", " ", str(text or "").lower()).split()
@@ -1156,6 +1175,62 @@ class MemoryManager:
         # than falling through to the language model.
         if question == "what do you remember about my hobbies and interests":
             question = "what are my hobbies and interests"
+
+        # Broadly phrased requests for confirmed interests should use the
+        # same deterministic SQLite answer as the shorter hobby questions.
+        if re.match(
+            r"^what (?:personal )?(?:interests and hobbies|hobbies and interests) "
+            r"have i (?:explicitly )?told you about\\b",
+            question
+        ):
+            question = "what are my hobbies and interests"
+
+        # Topic-specific hobby questions return only stored interest/hobby
+        # values that actually mention the requested topics.
+        topic_activity = re.fullmatch(
+            r"what have i told you about my (?P<topics>[a-z ,and]+) activities",
+            question
+        )
+        if topic_activity:
+            topics = [
+                item.strip()
+                for item in re.split(r"\\s*,\\s*|\\s+and\\s+", topic_activity.group("topics"))
+                if item.strip() and item.strip() != "and"
+            ]
+            raw_values = (
+                grouped_values
+                if False else []
+            )
+            stored_values = (
+                self._facts_by_key().get("interest", [])
+                + self._facts_by_key().get("hobby", [])
+            )
+            matched_values = []
+            missing_topics = []
+            for topic in topics:
+                matches = [
+                    value for value in stored_values
+                    if re.search(r"\\b" + re.escape(topic) + r"\\b", str(value), re.IGNORECASE)
+                ]
+                if matches:
+                    for value in matches:
+                        if value not in matched_values:
+                            matched_values.append(value)
+                else:
+                    missing_topics.append(topic)
+            if not matched_values and not missing_topics:
+                return None
+            response = (
+                "You told me: " + _join(matched_values) + "."
+                if matched_values else
+                "I couldn't find those activities in your stored interests."
+            )
+            if missing_topics:
+                response += (
+                    " I don't have a separate stored detail about "
+                    + _join(missing_topics) + "."
+                )
+            return response
 
         # Normalize common natural-language paraphrases into the same
         # deterministic fact questions handled below. Keep these patterns
