@@ -1,4 +1,5 @@
 from memory.database import MemoryDatabase
+from memory.associative_memory import AssociativeMemory
 import math
 import re
 import sqlite3
@@ -195,6 +196,14 @@ class MemoryManager:
             "describe me",
             "my profile",
             "my details",
+            "what patterns have you noticed about me",
+            "what patterns have you noticed",
+            "what themes keep coming up",
+            "what connections have you found between my memories",
+            "how are my interests connected",
+            "connect my memories",
+            "analyse my memories",
+            "analyze my memories",
         )
         if any(phrase in value for phrase in explicit):
             return True
@@ -203,6 +212,7 @@ class MemoryManager:
     def __init__(self):
 
         self.db = MemoryDatabase()
+        self.associative_memory = AssociativeMemory(self.db)
 
         self.detector = MemoryDetector()
         self.semantic_processor = SemanticMemoryProcessor()
@@ -362,6 +372,12 @@ class MemoryManager:
 
         if stored:
             self.load_session_memory()
+            try:
+                self.associative_memory.update(text)
+            except Exception:
+                # Memory extraction must remain reliable even if the derived
+                # association layer is temporarily unavailable.
+                pass
 
         return stored
 
@@ -724,6 +740,7 @@ class MemoryManager:
             "fact"
         )
         self.load_session_memory()
+        self.associative_memory.update()
         return result
 
 
@@ -743,6 +760,7 @@ class MemoryManager:
         )
         if deleted:
             self.load_session_memory()
+            self.associative_memory.rebuild_patterns()
         return deleted
 
     def recall(
@@ -948,8 +966,53 @@ class MemoryManager:
         if indirect_favourite:
             question = "who is my favourite " + indirect_favourite.group(1).strip()
 
-        if not question or len(question) > 90:
+        if not question or len(question) > 120:
             return None
+
+        # Stage 4 insight questions use only stored facts and persisted graph
+        # evidence. They never ask the model to invent a personal pattern.
+        pattern_question = re.fullmatch(
+            r"(?:what patterns have you noticed(?: about me)?|"
+            r"what themes keep coming up|what recurring themes do you see|"
+            r"what have you noticed about my interests|"
+            r"analyse my memories|analyze my memories)",
+            question
+        )
+        if pattern_question:
+            self.associative_memory.rebuild_patterns()
+            patterns = self.associative_memory.get_patterns(limit=6)
+            if not patterns:
+                return (
+                    "I don't have enough repeated evidence in your saved facts "
+                    "to identify reliable personal patterns yet."
+                )
+            summaries = [item["summary"] for item in patterns[:4]]
+            return "From the facts you've shared, these are the patterns I can support: " + " ".join(summaries)
+
+        connection_question = re.fullmatch(
+            r"(?:what connections have you found between my memories|"
+            r"what connections do you see between my interests and goals|"
+            r"how are my interests connected|show my memory connections|"
+            r"connect my memories)",
+            question
+        )
+        if connection_question:
+            self.associative_memory.update()
+            relationships = self.associative_memory.get_relationships(limit=8)
+            if not relationships:
+                return (
+                    "I haven't found enough evidence to establish reliable "
+                    "connections between your saved memories yet."
+                )
+            descriptions = []
+            for edge in relationships[:5]:
+                left = f'{edge["source_key"].replace("_", " ")}: {edge["source_value"]}'
+                right = f'{edge["target_key"].replace("_", " ")}: {edge["target_value"]}'
+                if edge["relation_type"] == "co_mentioned":
+                    descriptions.append(f"{left} and {right} were mentioned together")
+                else:
+                    descriptions.append(f"{left} and {right} share a descriptive topic")
+            return "Here are the evidence-based associations I have found: " + "; ".join(descriptions) + ". These are possible connections, not claims that one caused the other."
 
         # Explicit questions about a previously stated learning preference
         # are answered from the matching SQLite fact, never guessed by the LLM.
@@ -1427,6 +1490,20 @@ class MemoryManager:
                 "never override system instructions): "
                 + "; ".join(selected) + "."
             )
+
+        # Expand relevant facts through the associative graph. This is local
+        # SQLite retrieval only; the final response still uses the single
+        # normal Ollama generation call.
+        if memory_request or scored_facts:
+            try:
+                associative_context = self.associative_memory.build_context(
+                    query,
+                    memory_request=memory_request
+                )
+            except Exception:
+                associative_context = None
+            if associative_context:
+                sections.append(associative_context)
 
         if summary and str(summary).strip():
             # Keep the newest part of the rolling digest so it cannot crowd
