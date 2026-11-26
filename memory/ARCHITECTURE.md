@@ -166,6 +166,9 @@ not replace the original facts or copy the transcript into another store.
   and the IDs of the source facts.
 - Shared themes are identified only when a distinctive term appears across
   multiple facts in different categories.
+- Repeated topics are also counted across separate persisted USER messages;
+  assistant-generated text is excluded so NEXUS cannot mistake its own
+  responses for the user's interests. These patterns cite message IDs.
 - Interest, goal/project, and learning clusters require multiple distinct
   saved facts; one isolated statement is not treated as a recurring pattern.
 - Pattern summaries are regenerated after personal-memory writes, corrections,
