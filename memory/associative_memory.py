@@ -32,7 +32,7 @@ class AssociativeMemory:
 
     _INTEREST_KEYS = {
         "interest", "hobby", "sport", "coding", "programming_language",
-        "tv_show", "activity"
+        "activity"
     }
     _GOAL_PROJECT_KEYS = {
         "project", "goal", "career_goal", "education_goal", "plan"
