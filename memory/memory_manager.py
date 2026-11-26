@@ -1728,7 +1728,7 @@ class MemoryManager:
                     for alias in project_aliases
                 )
                 project_decision = project_anchor_found and bool(re.search(
-                    r"\\b(?:sqlite|ollama|qwen(?:2\\.5)?|playwright|opera|"
+                    r"\b(?:sqlite|ollama|qwen(?:2\.5)?|playwright|opera|"
                     r"persistent memory|computer control|screen vision|"
                     r"action planning|autonomous learning|daily learning|"
                     r"local model|browser automation|research system|"
