@@ -103,10 +103,10 @@ class AssociativeMemoryTests(unittest.TestCase):
         self.assertEqual(robotics[0]["evidence_count"], 2)
         self.assertEqual(len(robotics[0]["evidence_memory_ids"]), 2)
 
-    def test_interest_cluster_is_created_only_after_multiple_facts(self):
+    def test_interest_cluster_is_created_only_after_multiple_interest_facts(self):
         self.memory.remember("interest", "badminton")
         self.memory.remember("coding", "Python")
-        self.memory.remember("tv_show", "The Mentalist")
+        self.memory.remember("interest", "drawing")
 
         patterns = self.associative.get_patterns()
         cluster = next(
@@ -116,6 +116,18 @@ class AssociativeMemoryTests(unittest.TestCase):
         self.assertEqual(cluster["evidence_count"], 3)
         self.assertIn("badminton", cluster["summary"])
         self.assertIn("Python", cluster["summary"])
+        self.assertIn("drawing", cluster["summary"])
+
+    def test_television_shows_are_not_misclassified_as_interests(self):
+        self.memory.remember("interest", "badminton")
+        self.memory.remember("tv_show", "The Mentalist")
+        self.memory.remember("tv_show", "The Mindhunter")
+
+        patterns = self.associative.get_patterns()
+        self.assertFalse(any(
+            item["pattern_key"] == "interest_cluster"
+            for item in patterns
+        ))
 
     def test_patterns_are_retired_when_supporting_facts_are_forgotten(self):
         self.memory.remember("interest", "robotics")
