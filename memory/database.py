@@ -308,6 +308,7 @@ class MemoryDatabase:
                         confidence = excluded.confidence,
                         evidence_count = excluded.evidence_count,
                         evidence_memory_ids = excluded.evidence_memory_ids,
+                        evidence_message_ids = excluded.evidence_message_ids,
                         active = 1,
                         updated_at = excluded.updated_at
                 """, (
