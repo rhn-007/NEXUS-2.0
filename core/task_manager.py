@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime
 
 
-_MEETING_CODE = re.compile(r"\\b[a-z]{3}-[a-z]{4}-[a-z]{3}\\b", re.IGNORECASE)
+_MEETING_CODE = re.compile(r"\b[a-z]{3}-[a-z]{4}-[a-z]{3}\b", re.IGNORECASE)
 _ALLOWED_TASK_STATUSES = {
     "queued", "running", "waiting_input", "completed", "failed", "cancelled"
 }
