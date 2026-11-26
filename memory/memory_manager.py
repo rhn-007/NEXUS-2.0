@@ -1001,6 +1001,7 @@ class MemoryManager:
         confirmed = []
         for alias in aliases:
             matching = []
+            purposes = []
             alias_pattern = re.compile(
                 r"(?<![a-z0-9])" + re.escape(alias) + r"(?![a-z0-9])",
                 re.IGNORECASE
@@ -1015,9 +1016,28 @@ class MemoryManager:
                     re.IGNORECASE
                 ):
                     continue
+
                 matching.append(self._sentence_excerpt(content, max_chars=420))
+
+                # Extract a purpose only from the same user-authored statement
+                # that explicitly anchors this project. In particular, phrases
+                # such as "You are my personal AI assistant" establish NEXUS's
+                # purpose; unrelated interests and assistant-generated text do not.
+                if re.search(
+                    r"\b(?:you are|you're)\s+(?:my\s+)?personal\s+"
+                    r"(?:ai\s+)?assistant\b|"
+                    r"\bmy\s+personal\s+(?:ai\s+)?assistant\b",
+                    content,
+                    re.IGNORECASE
+                ):
+                    purposes.append("Personal AI assistant")
+
             if matching:
-                confirmed.append((alias, list(dict.fromkeys(matching))[-5:]))
+                confirmed.append((
+                    alias,
+                    list(dict.fromkeys(matching))[-5:],
+                    list(dict.fromkeys(purposes))
+                ))
 
         if not confirmed:
             return (
@@ -1028,14 +1048,16 @@ class MemoryManager:
             )
 
         sections = ["Projects you explicitly said you were working on:"]
-        for alias, evidence in confirmed:
+        for alias, evidence, purposes in confirmed:
             sections.append(f"\n{alias}")
             sections.extend(f"- You said: {item}" for item in evidence)
-            sections.append(
-                "- Purpose and additional features: not established by the "
-                "user-authored statements retrieved here unless explicitly "
-                "described in the statements above."
-            )
+            if purposes:
+                sections.append("- Purpose: " + "; ".join(purposes) + ".")
+            else:
+                sections.append(
+                    "- Purpose and additional features: not established by "
+                    "the user-authored statements retrieved here."
+                )
         return "\n".join(sections)
 
     @staticmethod
