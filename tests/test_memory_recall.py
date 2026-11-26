@@ -179,6 +179,68 @@ class WithMemory(unittest.TestCase):
     def ask(self, text):
         return self.memory.answer_fact_question(text)
 
+    def test_project_history_question_retrieves_user_authored_project_messages(self):
+        self.memory.remember("project", "NEXUS")
+        query = (
+            "What projects have I actually told you that I have built or worked on?"
+        )
+        transcript = [
+            {
+                "id": 10,
+                "role": "user",
+                "content": (
+                    "I am building NEXUS, a personal AI assistant inspired by JARVIS. "
+                    "I want it to have persistent memory and computer control."
+                ),
+            },
+            {
+                "id": 11,
+                "role": "assistant",
+                "content": "You could also build a badminton training application.",
+            },
+            {
+                "id": 12,
+                "role": "user",
+                "content": "I also worked on a healthcare voice assistant for an exhibition.",
+            },
+        ]
+        self.assertTrue(self.memory.is_memory_request(query))
+        context = self.memory.adaptive_context(
+            query,
+            recent_messages=[],
+            transcript=transcript,
+            max_chars=3200,
+        )
+        self.assertIn("Relevant user-authored project history", context)
+        self.assertIn("I am building NEXUS", context)
+        self.assertNotIn("badminton training application", context)
+
+    def test_cross_category_connection_question_is_recognized(self):
+        query = (
+            "What connections do you see between my interests, goals, and projects?"
+        )
+        self.assertTrue(self.memory.is_memory_request(query))
+        self.assertTrue(self.memory.is_associative_insight_question(query))
+
+    def test_single_shared_word_is_not_reported_as_a_supported_connection(self):
+        first = self.memory.remember("interest", "robotics")
+        second = self.memory.remember("project", "robotics application")
+        records = self.memory.get_memory_records()
+        robotics = next(item for item in records if item["key"] == "interest")
+        project = next(item for item in records if item["key"] == "project")
+        self.memory.link_memories(
+            robotics["id"],
+            project["id"],
+            "shares_topic",
+            confidence=0.77,
+            origin="inferred",
+            evidence="Shared descriptive term: robotics",
+        )
+        answer = self.ask(
+            "What connections do you see between my interests, goals, and projects?"
+        )
+        self.assertIn("don't have a sufficiently supported connection", answer)
+
     def test_project_based_learning_statement_is_saved_and_recalled_without_llm(self):
         statement = (
             "I understand concepts much better when I build practical projects "
