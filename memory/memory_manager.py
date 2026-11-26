@@ -358,159 +358,64 @@ class MemoryManager(MemoryRecallMixin, FactRecallMixin, MemoryContextMixin):
         shortened = text[:max_chars].rsplit(" ", 1)[0].rstrip(" ,;:")
         return shortened + "…"
 
-    def handle_memory_query(
-        self,
-        text
-    ):
+    def handle_memory_query(self, text):
+        """Compatibility handler for older profile and conversation-recall callers."""
+        text = str(text or "").lower()
 
-
-        text = text.lower()
-
-
-
-        # -----------------------------
-        # USER PROFILE
-        # -----------------------------
-
-        profile_words = [
-
+        profile_words = (
             "what do you know about me",
-
             "what do u know about me",
-
             "tell me about myself",
-
             "tell me about me",
-
             "who am i",
-
             "what can you remember about me",
-
             "what do you remember about me",
-
             "describe me",
-
             "my profile",
-
-            "my details"
-
-        ]
-
-
-
-        if any(
-
-            word in text
-
-            for word in profile_words
-
-        ):
-
-
+            "my details",
+        )
+        if any(phrase in text for phrase in profile_words):
             facts = self._facts_by_key()
-
-
-
             if not facts:
+                return "I haven't learned much about you yet."
 
-
-                return (
-
-                    "I haven't learned much about you yet."
-
-                )
-
-
-
-            response = (
-
-                "From what you've shared with me, "
-
-                "here is what I know about you:\n\n"
-
+            lines = [
+                f"• Your {key.replace('_', ' ')} is "
+                f"{_join(self._show(key, value) for value in values)}."
+                for key, values in facts.items()
+            ]
+            return (
+                "From what you've shared with me, here is what I know about you:\n\n"
+                + "\n".join(lines)
             )
 
-
-
-            for key, values in facts.items():
-                shown = _join(self._show(key, value) for value in values)
-                response += f"• Your {key.replace('_', ' ')} is {shown}.\n"
-
-
-            return response.strip()
-
-
-
-
-
-
-        # -----------------------------
-        # CONVERSATION RECALL
-        # -----------------------------
-
-
-        recall_words = [
-
+        recall_words = (
             "what did we talk about",
-
             "what did we discuss",
-
             "previous conversation",
-
             "previous conversations",
-
             "our last conversation",
-
             "what do you recall",
-
             "what do u recall",
-
             "remember our chat",
-
             "summarize our conversation",
-
-            "what have i told you"
-
-        ]
-
-
-
-        if any(
-
-            word in text
-
-            for word in recall_words
-
-        ):
-
-
+            "what have i told you",
+        )
+        if any(phrase in text for phrase in recall_words):
             chats = self._recent_conversation_messages(limit=10)
             summary = self._recent_conversation_summary()
-
             if not chats and not summary:
                 return "I don't have any previous conversations stored yet."
 
-            response = (
-                "From our previous conversations, "
-                "I remember that:\n\n"
-            )
+            response = "From our previous conversations, I remember that:\n\n"
             if summary:
                 response += "Earlier conversation summary: " + summary + "\n\n"
-
-            for role, content in chats:
-                response += f"{role}: {content}\n\n"
-
-
+            response += "".join(
+                f"{role}: {content}\n\n" for role, content in chats
+            )
             return response.strip()
 
-
-
         return None
-
-
-
-
-
 
     def _recent_conversation_summary(self):
         """Return the rolling digest for the default assistant conversation."""
