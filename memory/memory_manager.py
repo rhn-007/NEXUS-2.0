@@ -1071,7 +1071,7 @@ class MemoryManager:
     def is_associative_insight_question(text):
         """Identify questions that must be answered from SQLite evidence only."""
         question = " ".join(
-            re.sub(r"[?,.!]", " ", str(text or "").lower()).split()
+            re.sub(r"[?!.]", " ", str(text or "").lower()).split()
         )
         question = re.sub(r"\s+only mention connections supported by things.*$", "", question)
         return bool(re.fullmatch(
