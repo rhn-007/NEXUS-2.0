@@ -25,6 +25,20 @@ class AssociativeMemoryTests(unittest.TestCase):
                 return item["id"]
         self.fail(f"Missing fact: {key}={value}")
 
+    def test_ordinary_question_does_not_trigger_an_extra_model_call(self):
+        class FakeLLM:
+            def __init__(self):
+                self.calls = 0
+
+            def generate_response(self, *args, **kwargs):
+                self.calls += 1
+                return "{}"
+
+        fake_llm = FakeLLM()
+        self.memory.set_llm(fake_llm)
+        self.memory.process_memory("Can you explain recursion?")
+        self.assertEqual(fake_llm.calls, 0)
+
     def test_explicit_relationship_is_discovered_from_user_wording(self):
         self.memory.remember("project", "NEXUS")
         self.memory.remember("interest", "robotics")
