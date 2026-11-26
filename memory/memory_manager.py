@@ -953,6 +953,74 @@ class MemoryManager:
     # =====================================
 
     @staticmethod
+    def is_project_history_question(text):
+        value = " ".join(
+            re.sub(r"[?.!,]", " ", str(text or "").lower()).split()
+        )
+        return bool(re.search(
+            r"\\bwhat projects have i (?:actually )?(?:told you|built|worked on|developed)\\b|"
+            r"\\bwhat (?:projects|project) have i (?:built|worked on|developed)\\b|"
+            r"\\bwhat do you remember about my .{0,50}project\\b|"
+            r"\\bwhat have i told you about my .{0,50}project\\b",
+            value
+        ))
+
+    def answer_project_history(self, query):
+        """Answer project-history questions from user-authored SQLite transcript only."""
+        if not self.is_project_history_question(query):
+            return None
+
+        aliases = [
+            str(value).strip()
+            for value in (self._facts_by_key().get("project", []) or [])
+            if len(str(value).strip()) >= 3
+            and _norm(value) not in {"a project", "personal project", "a personal project", "project"}
+        ]
+        messages = self._recent_conversation_messages(limit=1000)
+        if messages and messages[-1][0] == "user" and _norm(messages[-1][1]) == _norm(query):
+            messages = messages[:-1]
+
+        confirmed = []
+        for alias in aliases:
+            matching = []
+            alias_pattern = re.compile(
+                r"(?<![a-z0-9])" + re.escape(alias) + r"(?![a-z0-9])",
+                re.IGNORECASE
+            )
+            for role, content in messages:
+                if role != "user" or not alias_pattern.search(content):
+                    continue
+                if not re.search(
+                    r"\\b(?:project|working on|worked on|building|built|"
+                    r"developing|developed|creating|created)\\b",
+                    content,
+                    re.IGNORECASE
+                ):
+                    continue
+                matching.append(self._sentence_excerpt(content, max_chars=420))
+            if matching:
+                confirmed.append((alias, list(dict.fromkeys(matching))[-5:]))
+
+        if not confirmed:
+            return (
+                "I don't have enough user-authored evidence in my stored "
+                "conversation to identify a project you explicitly said you "
+                "worked on. I won't infer one from computer details, assistant "
+                "suggestions, or unrelated activity."
+            )
+
+        sections = ["Projects you explicitly said you were working on:"]
+        for alias, evidence in confirmed:
+            sections.append(f"\n{alias}")
+            sections.extend(f"- You said: {item}" for item in evidence)
+            sections.append(
+                "- Purpose and additional features: not established by the "
+                "user-authored statements retrieved here unless explicitly "
+                "described in the statements above."
+            )
+        return "\n".join(sections)
+
+    @staticmethod
     def is_associative_insight_question(text):
         """Identify questions that must be answered from SQLite evidence only."""
         question = " ".join(
