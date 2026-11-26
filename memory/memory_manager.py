@@ -936,6 +936,28 @@ class MemoryManager:
     # DIRECT ANSWERS TO "WHAT IS MY ..."
     # =====================================
 
+    @staticmethod
+    def is_associative_insight_question(text):
+        """Identify questions that must be answered from SQLite evidence only."""
+        question = " ".join(
+            re.sub(r"[?.!]", " ", str(text or "").lower()).split()
+        )
+        return bool(re.fullmatch(
+            r"(?:what patterns have you noticed(?: about me| about my interests)?|"
+            r"what patterns do you see(?: in my interests)?|"
+            r"what themes keep coming up|what recurring themes do you see|"
+            r"what have you noticed about my interests|"
+            r"analyse my memories|analyze my memories|"
+            r"how are my interests connected|"
+            r"how are my interests and goals connected|"
+            r"how are my goals and interests connected|"
+            r"what connections have you found between my memories|"
+            r"what connections (?:do you see|have you found) between my interests and goals|"
+            r"what is the relationship between my interests and goals|"
+            r"show my memory connections|connect my memories)",
+            question
+        ))
+
     def answer_fact_question(self, text):
         """
         Answer "what is my name", "what's my favourite programming language",
@@ -1028,29 +1050,77 @@ class MemoryManager:
             r"(?:what connections have you found between my memories|"
             r"what connections (?:do you see|have you found) between my interests and goals|"
             r"how are my interests connected|"
+            r"how are my interests and goals connected|"
+            r"how are my goals and interests connected|"
             r"what is the relationship between my interests and goals|"
             r"show my memory connections|connect my memories)",
             question
         )
         if connection_question:
             self.associative_memory.update()
-            relationships = self.associative_memory.get_relationships(limit=8)
+            relationships = self.associative_memory.get_relationships(limit=30)
+
+            # A question specifically about interests and goals needs a
+            # relationship between those categories, not arbitrary co-mentions
+            # such as a sport and a television show.
+            if "interests and goals" in question or "goals and interests" in question:
+                interest_keys = self.associative_memory._INTEREST_KEYS
+                goal_keys = self.associative_memory._GOAL_PROJECT_KEYS
+                relationships = [
+                    edge for edge in relationships
+                    if (
+                        edge["source_key"] in interest_keys
+                        and edge["target_key"] in goal_keys
+                    ) or (
+                        edge["target_key"] in interest_keys
+                        and edge["source_key"] in goal_keys
+                    )
+                ]
+
+            # Only explicit links and distinctive topical overlaps are useful
+            # evidence here. A simple co-mention is not a meaningful connection.
+            relationships = [
+                edge for edge in relationships
+                if (
+                    edge["origin"] == "explicit"
+                    and edge["relation_type"] == "related_to"
+                ) or (
+                    edge["origin"] == "inferred"
+                    and edge["relation_type"] == "shares_topic"
+                    and float(edge["confidence"]) >= 0.77
+                )
+            ]
+
             if not relationships:
+                if "interests and goals" in question or "goals and interests" in question:
+                    return (
+                        "I can identify your interests and goals separately, "
+                        "but I don't have a sufficiently supported connection "
+                        "between them yet. I won't assume that one explains or "
+                        "causes the other."
+                    )
                 return (
                     "I haven't found enough evidence to establish reliable "
                     "connections between your saved memories yet."
                 )
+
             descriptions = []
             for edge in relationships[:5]:
                 left = f'{edge["source_key"].replace("_", " ")}: {edge["source_value"]}'
                 right = f'{edge["target_key"].replace("_", " ")}: {edge["target_value"]}'
-                if edge["origin"] == "explicit" and edge["relation_type"] == "related_to":
-                    descriptions.append(f"you explicitly connected {left} with {right}")
-                elif edge["relation_type"] == "co_mentioned":
-                    descriptions.append(f"{left} and {right} were mentioned together")
+                if edge["origin"] == "explicit":
+                    descriptions.append(
+                        f"you explicitly connected {left} with {right}"
+                    )
                 else:
-                    descriptions.append(f"{left} and {right} share a descriptive topic")
-            return "Here are the evidence-based associations I have found: " + "; ".join(descriptions) + ". These are possible connections, not claims that one caused the other."
+                    descriptions.append(
+                        f"{left} and {right} share a possible topical overlap"
+                    )
+            return (
+                "The supported connections I found are: "
+                + "; ".join(descriptions)
+                + ". These associations do not establish causation."
+            )
 
         # Explicit questions about a previously stated learning preference
         # are answered from the matching SQLite fact, never guessed by the LLM.
