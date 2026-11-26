@@ -106,12 +106,48 @@ class ProjectHistoryAnswerTests(unittest.TestCase):
         self.assertIn("Purpose: Personal AI assistant.", answer)
         self.assertNotIn("Purpose and additional features: not established", answer)
 
-    def test_detailed_project_question_uses_memory_context_not_short_project_list(self):
+    def test_detailed_project_question_uses_deterministic_project_history_recall(self):
         question = (
             "What do you remember about my NEXUS project? Include its purpose, "
             "features, and important development decisions."
         )
-        self.assertFalse(self.memory.is_project_history_question(question))
+        self.assertTrue(self.memory.is_project_history_question(question))
+
+    def test_detailed_project_answer_uses_user_statements_not_project_questions(self):
+        question = (
+            "What do you remember about my NEXUS project? Include its purpose, "
+            "features, and important development decisions."
+        )
+        with patch.object(
+            self.memory,
+            "_facts_by_key",
+            return_value={"project": ["NEXUS"]}
+        ), patch.object(
+            self.memory,
+            "_recent_conversation_messages",
+            return_value=[
+                (
+                    "user",
+                    "I have been working on a project called NEXUS which is you. "
+                    "You are my personal AI assisstant."
+                ),
+                (
+                    "user",
+                    "I want NEXUS to have persistent memory for personal facts "
+                    "and earlier conversations."
+                ),
+                (
+                    "user",
+                    "What do you remember about my NEXUS project?"
+                ),
+                ("user", question),
+            ]
+        ):
+            answer = self.memory.answer_project_history(question)
+
+        self.assertIn("Purpose: Personal AI assistant.", answer)
+        self.assertIn("persistent memory for personal facts", answer)
+        self.assertNotIn("What do you remember about my NEXUS project?", answer)
 
     def test_broad_project_list_stays_deterministic_when_it_asks_for_details(self):
         question = (
