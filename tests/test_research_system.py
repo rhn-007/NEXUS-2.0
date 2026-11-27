@@ -73,6 +73,59 @@ class ResearchStoreTests(unittest.TestCase):
         finally:
             pipeline.close()
 
+    def test_pipeline_deduplicates_sources_and_rejects_listing_pages(self):
+        llm = FakeLLM()
+        pipeline = ResearchPipeline(llm, self.db_path)
+        article = {
+            "url": "https://example.org/robotics/article",
+            "title": "Robotics research breakthrough",
+            "source": "example.org",
+            "content": ("Robotics systems are being developed for useful tasks. "
+                        "Researchers tested autonomous robotic manipulation. " * 30),
+        }
+        duplicate = dict(article)
+        duplicate["url"] = "https://mirror.example.org/copy"
+        listing = {
+            "url": "https://example.net/robotics",
+            "title": "Latest News Archive",
+            "source": "example.net",
+            "content": ("Robotics news archive lists many recent robotics stories. "
+                        "Robotics researchers publish updates and reports. " * 30),
+        }
+        try:
+            summary, session_id, accepted = pipeline.analyse_and_store(
+                "robotics", "Research robotics", [article, duplicate, listing]
+            )
+            self.assertTrue(summary)
+            self.assertEqual(accepted, 1)
+            rows = pipeline.store.connection.execute(
+                "SELECT COUNT(*) FROM research_sources WHERE session_id=?",
+                (session_id,)
+            ).fetchone()[0]
+            self.assertEqual(rows, 1)
+        finally:
+            pipeline.close()
+
+    def test_pipeline_does_not_store_repetitive_low_quality_content(self):
+        pipeline = ResearchPipeline(FakeLLM(), self.db_path)
+        try:
+            summary, session_id, accepted = pipeline.analyse_and_store(
+                "robotics", "Research robotics", [{
+                    "url": "https://example.org/robotics",
+                    "title": "Robotics research",
+                    "content": "robotics " * 500,
+                }]
+            )
+            self.assertIsNone(summary)
+            self.assertEqual(accepted, 0)
+            status = pipeline.store.connection.execute(
+                "SELECT status FROM research_sessions WHERE id=?",
+                (session_id,)
+            ).fetchone()["status"]
+            self.assertEqual(status, "no_relevant_sources")
+        finally:
+            pipeline.close()
+
     def test_model_timeout_is_not_saved_as_successful_summary(self):
         llm = FakeLLM("Ollama took too long to respond.")
         pipeline = ResearchPipeline(llm, self.db_path)
