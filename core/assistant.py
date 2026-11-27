@@ -867,7 +867,7 @@ class NexusAssistant:
                     else:
                         topic_search = getattr(store, "search_topic_knowledge", None)
                         if topic_search:
-                            topic_records = topic_search(topic, limit=8) or []
+                            topic_records = topic_search(" ".join(sorted(query_terms)), limit=8) or []
                             scored_topics = []
                             for record in topic_records:
                                 score, _ = self._score_saved_item({
@@ -879,7 +879,7 @@ class NexusAssistant:
                             if scored_topics:
                                 scored_topics.sort(key=lambda pair: pair[0], reverse=True)
                                 saved_summary = scored_topics[0][1].get("summary")
-                    research_sources = store.search_sources(topic, limit=12) or []
+                    research_sources = store.search_sources(" ".join(sorted(query_terms)), limit=12) or []
                     relevant_sources = []
                     for source in research_sources:
                         score, _ = self._score_saved_item({
