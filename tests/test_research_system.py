@@ -50,14 +50,6 @@ class ResearchStoreTests(unittest.TestCase):
         self.assertEqual(topic["summary"], "Robotics summary")
         self.assertEqual(topic["open_questions"], ["Cost"])
 
-    def test_requested_scope_count_keeps_compound_phrases_together(self):
-        query = (
-            "Research the development of autonomous vehicles, their applications "
-            "in transportation and logistics, the technologies that make them work, "
-            "their major safety and technical challenges, and their future impact "
-            "on society. Save the important findings."
-        )
-        self.assertEqual(ResearchPipeline._requested_scope_count(query), 5)
 
     def test_monitoring_requires_explicit_approval(self):
         self.store.add_monitored_topic("robotics", approved=False)
@@ -144,36 +136,6 @@ class ResearchStoreTests(unittest.TestCase):
         finally:
             pipeline.close()
 
-    def test_broad_request_requires_multiple_independent_publishers(self):
-        pipeline = ResearchPipeline(FakeLLM(), self.db_path)
-        try:
-            summary, session_id, accepted = pipeline.analyse_and_store(
-                "humanoid robots",
-                "Research the development of humanoid robots, their real-world "
-                "applications, current limitations, and future prospects. "
-                "Save the important findings.",
-                [{
-                    "url": "https://example.org/humanoids",
-                    "title": "Humanoid robot research",
-                    "publisher": "Example Institute",
-                    "content": ("Humanoid robots are being developed for useful tasks. "
-                                "Researchers study humanoid robot mobility and manipulation. " * 30),
-                }]
-            )
-            self.assertIsNone(summary)
-            self.assertEqual(accepted, 1)
-            session = pipeline.store.connection.execute(
-                "SELECT status, metadata_json FROM research_sessions WHERE id=?",
-                (session_id,)
-            ).fetchone()
-            self.assertEqual(session["status"], "partial")
-            self.assertIn(
-                "too_few_independent_publishers_for_broad_request",
-                session["metadata_json"]
-            )
-            self.assertIsNone(pipeline.store.get_topic_knowledge("humanoid robots"))
-        finally:
-            pipeline.close()
 
     def test_broad_request_can_complete_with_independent_publishers(self):
         broad_summary = (
@@ -221,168 +183,96 @@ class ResearchStoreTests(unittest.TestCase):
                 (session_id,)
             ).fetchone()
             self.assertEqual(session["status"], "completed")
-            self.assertIn('"independent_publishers": 2', session["metadata_json"])
+            self.assertIn('"topic_knowledge_saved": true', session["metadata_json"])
         finally:
             pipeline.close()
 
-    def test_pipeline_retries_incomplete_synthesis_before_rejecting(self):
-        repaired_summary = (
-            "Overview\nAutonomous robotics combines sensing and control.\n\n"
-            "Requested aspects coverage\n"
-            "- Development: SUPPORTED by research into robot capabilities [1].\n"
-            "- Applications: SUPPORTED by evaluated practical tasks [2].\n"
-            "- Safety challenges: SUPPORTED by engineering safety analysis [2].\n\n"
-            "Key findings\n"
-            "- Researchers develop autonomous systems using sensors and control methods [1].\n"
-            "- Evaluations identify safety and reliability as deployment concerns [2].\n\n"
-            "Evidence limitations\nThe supplied sources do not establish performance across all real-world settings.\n\n"
-            "Open questions\nFurther field evaluation is needed to assess long-term reliability."
-        )
-        pipeline = ResearchPipeline(
-            FakeLLM(["An incomplete first draft without citations.", repaired_summary]),
-            self.db_path
-        )
+    def test_pipeline_uses_one_synthesis_call_and_stores_brief(self):
+        pipeline = ResearchPipeline(FakeLLM(), self.db_path)
         try:
-            pages = [
-                {
-                    "url": "https://example.org/robotics",
-                    "title": "Autonomous robotics development",
-                    "publisher": "Example Institute",
-                    "content": ("Autonomous robotics systems use sensors and control methods. "
-                                "Researchers develop robots for practical tasks. " * 30),
-                },
-                {
-                    "url": "https://example.net/robotics-safety",
-                    "title": "Robotics safety evaluation",
-                    "publisher": "Research Example",
-                    "content": ("Robotics safety evaluations examine reliability and task performance. "
-                                "Engineers assess risks in practical deployment. " * 30),
-                },
-            ]
-            summary, session_id, accepted = pipeline.analyse_and_store(
-                "autonomous robotics",
-                "Research autonomous robotics development, applications, and safety challenges.",
-                pages
+            query = (
+                "Research autonomous vehicles, their applications in transportation "
+                "and logistics, enabling technologies, safety challenges, and future impact."
             )
-            self.assertEqual(accepted, 2)
-            self.assertEqual(len(pipeline.llm.prompts), 2)
-            self.assertIn("failed these quality checks", pipeline.llm.prompts[1])
-            self.assertIn("Follow this exact structure:\nOverview\n", pipeline.llm.prompts[1])
-            self.assertEqual(summary, repaired_summary)
+            summary, session_id, accepted = pipeline.analyse_and_store(
+                "autonomous vehicles",
+                query,
+                [{
+                    "url": "https://example.org/autonomous-vehicles",
+                    "title": "Autonomous vehicle research",
+                    "publisher": "Example Institute",
+                    "content": (
+                        "Autonomous vehicles use sensors and software to navigate. "
+                        "Researchers evaluate perception, planning, and control systems. "
+                        "Applications include transportation and logistics. "
+                    ) * 30,
+                }]
+            )
+            self.assertTrue(summary)
+            self.assertEqual(accepted, 1)
+            self.assertEqual(len(pipeline.llm.prompts), 1)
+            self.assertIn("Address every distinct aspect", pipeline.llm.prompts[0])
+            self.assertIn("Sources list containing the exact URLs", pipeline.llm.prompts[0])
+            session = pipeline.store.connection.execute(
+                "SELECT status, metadata_json, summary FROM research_sessions WHERE id=?",
+                (session_id,)
+            ).fetchone()
+            self.assertEqual(session["status"], "completed")
+            self.assertEqual(session["summary"], summary)
+            self.assertIn('"synthesis_calls": 1', session["metadata_json"])
+            topic = pipeline.store.get_topic_knowledge("autonomous vehicles")
+            self.assertIsNotNone(topic)
+            self.assertEqual(topic["summary"], summary)
+        finally:
+            pipeline.close()
+
+
+    def test_brief_with_evidence_gaps_is_stored_with_caveats(self):
+        partial = (
+            "Overview\nThe sources cover development but provide limited deployment data.\n\n"
+            "Key findings\n- Researchers are developing autonomous vehicle systems [SOURCE 1].\n"
+            "- The source discusses perception and control but not broad fleet outcomes [SOURCE 1].\n\n"
+            "Evidence limitations\nThe supplied evidence does not establish long-term safety "
+            "or effects on employment.\n\n"
+            "Open questions\nHow do large-scale deployments affect safety and work?"
+        )
+        pipeline = ResearchPipeline(FakeLLM(partial), self.db_path)
+        try:
+            summary, session_id, accepted = pipeline.analyse_and_store(
+                "autonomous vehicles",
+                "Research autonomous vehicle development, applications, limitations, and future impacts.",
+                [{
+                    "url": "https://example.org/vehicles",
+                    "title": "Autonomous vehicle development",
+                    "publisher": "Example Institute",
+                    "content": (
+                        "Autonomous vehicles use sensors and control software. "
+                        "Researchers study vehicle perception and navigation. "
+                    ) * 30,
+                }]
+            )
+            self.assertEqual(summary, partial)
+            self.assertEqual(accepted, 1)
             session = pipeline.store.connection.execute(
                 "SELECT status FROM research_sessions WHERE id=?",
                 (session_id,)
             ).fetchone()
             self.assertEqual(session["status"], "completed")
-            self.assertIsNotNone(pipeline.store.get_topic_knowledge("autonomous robotics"))
-        finally:
-            pipeline.close()
-
-    def test_subdomains_do_not_count_as_independent_publishers(self):
-        broad_summary = (
-            "Overview\nHumanoid robotics is an active engineering field.\n\n"
-            "Requested aspects coverage\n"
-            "- Development: SUPPORTED [1].\n"
-            "- Applications: SUPPORTED [2].\n"
-            "- Limitations: SUPPORTED [2].\n"
-            "- Future prospects: SUPPORTED [1].\n\n"
-            "Key findings\n"
-            "- Researchers study humanoid mobility and manipulation [1].\n"
-            "- Engineers evaluate robot safety and task performance [2].\n\n"
-            "Evidence limitations\nThe sources provide a limited view of deployment outcomes.\n\n"
-            "Open questions\nLong-term reliability needs further study."
-        )
-        pipeline = ResearchPipeline(FakeLLM(broad_summary), self.db_path)
-        try:
-            pages = [
-                {
-                    "url": "https://www.example.org/humanoids",
-                    "title": "Humanoid robot research",
-                    "publisher": "www.example.org",
-                    "content": ("Humanoid robots are developed for practical tasks. "
-                                "Researchers study humanoid mobility and manipulation. " * 30),
-                },
-                {
-                    "url": "https://research.example.org/humanoids",
-                    "title": "Humanoid robotics applications",
-                    "publisher": "research.example.org",
-                    "content": ("Humanoid robotics systems are evaluated in industrial settings. "
-                                "Engineers examine robot balance, safety, and task performance. " * 30),
-                },
-            ]
-            summary, session_id, accepted = pipeline.analyse_and_store(
-                "humanoid robots",
-                "Research humanoid robot development, real-world applications, "
-                "current limitations, and future prospects.",
-                pages
+            self.assertEqual(
+                pipeline.store.get_topic_knowledge("autonomous vehicles")["summary"],
+                partial
             )
-            self.assertIsNone(summary)
-            self.assertEqual(accepted, 2)
-            session = pipeline.store.connection.execute(
-                "SELECT status, metadata_json FROM research_sessions WHERE id=?",
-                (session_id,)
-            ).fetchone()
-            self.assertEqual(session["status"], "partial")
-            self.assertIn('"independent_publishers": 1', session["metadata_json"])
         finally:
             pipeline.close()
 
-    def test_multi_aspect_summary_with_partial_coverage_is_not_saved(self):
-        partial = (
-            "Overview\nThe topic is covered by two retrieved sources.\n\n"
-            "Requested aspects coverage\n"
-            "- Development: SUPPORTED [1].\n"
-            "- Applications: PARTIAL; deployment evidence is limited [2].\n"
-            "- Limitations: SUPPORTED [2].\n"
-            "- Future prospects: NOT FOUND in the supplied sources.\n\n"
-            "Key findings\n"
-            "- The sources describe humanoid robot development [1].\n"
-            "- They discuss some engineering constraints [2].\n\n"
-            "Evidence limitations\nThe sources do not establish all requested aspects.\n\n"
-            "Open questions\nFurther evidence is needed."
-        )
-        pipeline = ResearchPipeline(FakeLLM(partial), self.db_path)
-        try:
-            pages = [
-                {
-                    "url": "https://example.org/one",
-                    "title": "Humanoid robot research",
-                    "publisher": "Publisher One",
-                    "content": ("Humanoid robots are developed for practical tasks. "
-                                "Researchers examine humanoid mobility and control. " * 30),
-                },
-                {
-                    "url": "https://example.net/two",
-                    "title": "Humanoid robotics limitations",
-                    "publisher": "Publisher Two",
-                    "content": ("Humanoid robotics systems face engineering constraints. "
-                                "Engineers evaluate safety and task performance. " * 30),
-                },
-            ]
-            summary, session_id, accepted = pipeline.analyse_and_store(
-                "humanoid robots",
-                "Research humanoid robot development, applications, limitations, "
-                "and future prospects.",
-                pages
-            )
-            self.assertIsNone(summary)
-            self.assertEqual(accepted, 2)
-            status = pipeline.store.connection.execute(
-                "SELECT status FROM research_sessions WHERE id=?",
-                (session_id,)
-            ).fetchone()["status"]
-            self.assertEqual(status, "partial")
-            self.assertIsNone(pipeline.store.get_topic_knowledge("humanoid robots"))
-        finally:
-            pipeline.close()
 
-    def test_explicit_evidence_gaps_are_not_saved_as_complete_knowledge(self):
+    def test_explicit_evidence_gaps_are_preserved_in_stored_brief(self):
         incomplete = (
-            "Overview\nA brief overview based on the only retrieved source.\n\n"
-            "Key findings\n- The source describes humanoid robot design [1].\n"
-            "- It discusses perception and interaction [1].\n\n"
+            "Overview\nA brief overview based on the retrieved source.\n\n"
+            "Key findings\n- The source describes robotics design [SOURCE 1].\n"
+            "- It discusses perception and interaction [SOURCE 1].\n\n"
             "Evidence limitations\nThe source does not address real-world deployments "
-            "or current engineering limitations, so these aspects remain unsupported.\n\n"
+            "or current engineering limitations.\n\n"
             "Open questions\nWhat evidence establishes deployment outcomes and reliability?"
         )
         pipeline = ResearchPipeline(FakeLLM(incomplete), self.db_path)
@@ -393,20 +283,23 @@ class ResearchStoreTests(unittest.TestCase):
                     "url": "https://example.org/robotics",
                     "title": "Robotics research",
                     "publisher": "Example Institute",
-                    "content": ("Robotics research examines autonomous systems and "
-                                "robotic manipulation in practical environments. " * 30),
+                    "content": (
+                        "Robotics research examines autonomous systems and "
+                        "robotic manipulation in practical environments. "
+                    ) * 30,
                 }]
             )
-            self.assertIsNone(summary)
+            self.assertEqual(summary, incomplete)
             self.assertEqual(accepted, 1)
             status = pipeline.store.connection.execute(
                 "SELECT status FROM research_sessions WHERE id=?",
                 (session_id,)
             ).fetchone()["status"]
-            self.assertEqual(status, "partial")
-            self.assertIsNone(pipeline.store.get_topic_knowledge("robotics"))
+            self.assertEqual(status, "completed")
+            self.assertIsNotNone(pipeline.store.get_topic_knowledge("robotics"))
         finally:
             pipeline.close()
+
 
     def test_model_timeout_is_not_saved_as_successful_summary(self):
         llm = FakeLLM("Ollama took too long to respond.")
