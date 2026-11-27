@@ -11,6 +11,7 @@ from desktop.orb_widget import OrbWidget
 
 class NexusWindow(QMainWindow):
     command_requested = Signal(str)
+    shutdown_requested = Signal()
 
     def __init__(self):
         super().__init__()
@@ -23,6 +24,7 @@ class NexusWindow(QMainWindow):
                 border: 1px solid rgba(255,157,75,90); border-radius: 8px;
                 padding: 9px 14px; }
             QPushButton:hover { background: rgba(255,145,55,45); }
+            QPushButton:disabled { color: #68737E; border-color: #303943; }
             QLineEdit { background: #101923; border: 1px solid #394451;
                 border-radius: 9px; padding: 12px; color: #F3F5F7; }
         """)
@@ -48,7 +50,7 @@ class NexusWindow(QMainWindow):
         home_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.orb = OrbWidget()
         self.orb.setFixedSize(520, 520)
-        self.state_label = QLabel("ALL SYSTEMS STANDING BY")
+        self.state_label = QLabel("INITIALIZING NEXUS")
         self.state_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.state_label.setStyleSheet("color:#D9985B; letter-spacing:3px; font-size:11px;")
         home_layout.addWidget(self.orb, 0, Qt.AlignmentFlag.AlignCenter)
@@ -68,8 +70,10 @@ class NexusWindow(QMainWindow):
         command_row = QHBoxLayout()
         self.command_input = QLineEdit()
         self.command_input.setPlaceholderText("Enter a command for NEXUS...")
+        self.command_input.setEnabled(False)
         self.command_input.returnPressed.connect(self._submit_command)
         self.send_button = QPushButton("SEND")
+        self.send_button.setEnabled(False)
         self.send_button.clicked.connect(self._submit_command)
         command_row.addWidget(self.command_input, 1)
         command_row.addWidget(self.send_button)
@@ -85,18 +89,25 @@ class NexusWindow(QMainWindow):
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.initialize)
         self.command_requested.connect(self.worker.process_command)
-        self.worker.ready.connect(lambda: self.system_status.setText("ALL SYSTEMS ONLINE"))
+        self.shutdown_requested.connect(self.worker.shutdown)
+        self.worker.ready.connect(self._on_ready)
         self.worker.response.connect(self._show_response)
         self.worker.state_changed.connect(self._set_state)
         self.worker.failed.connect(self._show_error)
+        self.worker.stopped.connect(self.thread.quit)
         self.thread.start()
+
+    def _on_ready(self):
+        self.system_status.setText("ALL SYSTEMS ONLINE")
+        self.command_input.setEnabled(True)
+        self.send_button.setEnabled(True)
+        self.state_label.setText("ALL SYSTEMS ARE ONLINE AND RUNNING")
 
     def _select_page(self, name):
         if name == "HOME":
             self.pages.setCurrentWidget(self.home_page)
             return
-        # Workspaces are added in subsequent UI phases; keep navigation live.
-        self.state_label.setText(f"{name} WORKSPACE — IMPLEMENTATION IN PROGRESS")
+        self.state_label.setText(f"{name} WORKSPACE — NEXT IMPLEMENTATION PHASE")
         self.pages.setCurrentWidget(self.home_page)
 
     def _submit_command(self):
@@ -104,27 +115,37 @@ class NexusWindow(QMainWindow):
         if not command:
             return
         self.command_input.clear()
+        self.command_input.setEnabled(False)
+        self.send_button.setEnabled(False)
         self.system_status.setText("PROCESSING REQUEST")
         self.command_requested.emit(command)
 
     def _show_response(self, response):
         self.system_status.setText("ALL SYSTEMS ONLINE")
         self.state_label.setText((response[:180].replace("\n", " ") or "READY"))
+        self.command_input.setEnabled(True)
+        self.send_button.setEnabled(True)
 
     def _set_state(self, state):
         self.orb.set_state(state)
         self.state_label.setText(state.upper())
-        if state == "thinking":
-            self.system_status.setText("PROCESSING REQUEST")
+        if state in ("thinking", "researching", "speaking"):
+            self.system_status.setText(state.upper())
 
     def _show_error(self, message):
         self.orb.set_state("error")
         self.system_status.setText("SYSTEM ERROR")
         self.state_label.setText(str(message)[:180])
+        self.command_input.setEnabled(True)
+        self.send_button.setEnabled(True)
 
     def closeEvent(self, event):
         if self.thread.isRunning():
-            self.worker.shutdown()
-            self.thread.quit()
-            self.thread.wait(5000)
+            self.command_input.setEnabled(False)
+            self.send_button.setEnabled(False)
+            self.shutdown_requested.emit()
+            self.thread.wait(10000)
+            if self.thread.isRunning():
+                self.thread.quit()
+                self.thread.wait(2000)
         event.accept()
