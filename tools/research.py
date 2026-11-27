@@ -300,15 +300,44 @@ class ResearchTool(BaseTool):
 
         return results
 
+    @staticmethod
+    def _clean_page_text(text):
+        """Remove common boilerplate and normalize extracted article text."""
+        lines = []
+        seen = set()
+        boilerplate = (
+            "subscribe to our newsletter", "sign up for our newsletter",
+            "accept all cookies", "cookie policy", "privacy policy",
+            "terms of service", "all rights reserved", "share this article",
+            "read more:", "related articles", "you may also like",
+            "advertisement", "skip to content", "skip to main content",
+        )
+        for raw_line in str(text or "").splitlines():
+            line = " ".join(raw_line.split()).strip()
+            if len(line) < 35 or line.casefold() in seen:
+                continue
+            lowered = line.casefold()
+            if any(marker in lowered for marker in boilerplate):
+                continue
+            seen.add(lowered)
+            lines.append(line)
+        return " ".join(lines)
+
+    @staticmethod
+    def _looks_like_listing_page(title, text):
+        sample = (str(title or "") + " " + str(text or "")[:1800]).casefold()
+        markers = (
+            "news archive", "latest news", "all articles", "topic:",
+            "search results", "category:", "tag archive", "press releases",
+        )
+        return any(marker in sample for marker in markers)
+
     def _extract_page(self, page, url):
         if not self._is_public_http_url(url):
             return None
 
-        page.goto(
-            url,
-            wait_until="domcontentloaded",
-            timeout=self.navigation_timeout
-        )
+        page.goto(url, wait_until="domcontentloaded",
+                  timeout=self.navigation_timeout)
         page.wait_for_timeout(700)
 
         if self._looks_like_challenge(page):
@@ -316,40 +345,49 @@ class ResearchTool(BaseTool):
                 return None
 
         final_url = page.url
-
         if not self._is_public_http_url(final_url):
             return None
 
         soup = BeautifulSoup(page.content(), "html.parser")
-
         for element in soup.select(
-            "script, style, nav, footer, header, "
-            "form, noscript, svg, iframe, aside"
+            "script, style, nav, footer, header, form, noscript, svg, "
+            "iframe, aside, [role='navigation'], [role='banner'], "
+            "[role='contentinfo'], .advertisement, .ads, .cookie, "
+            ".newsletter, .social-share, .related-articles"
         ):
             element.decompose()
 
-        title = (
-            soup.title.get_text(" ", strip=True)
-            if soup.title
-            else urlparse(final_url).netloc
-        )
+        title_node = soup.find("h1") or (soup.title if soup.title else None)
+        title = (title_node.get_text(" ", strip=True) if title_node
+                 else urlparse(final_url).netloc)
 
-        main = soup.find("main") or soup.find("article") or soup.body
-
+        # Prefer semantic article containers; fall back to the largest
+        # content-like block instead of blindly storing the whole body.
+        candidates = soup.select("article, main, [itemprop='articleBody']")
+        if candidates:
+            main = max(candidates, key=lambda node: len(node.get_text(" ", strip=True)))
+        else:
+            main = soup.body
         if not main:
             return None
 
-        text = main.get_text(" ", strip=True)
-        text = " ".join(text.split())
+        text = self._clean_page_text(main.get_text("\\n", strip=True))
+        if len(text) < 350 or self._looks_like_listing_page(title, text):
+            return None
 
-        if len(text) < 250:
+        # Reject pages dominated by short link-like fragments or repeated
+        # headings; these are usually indexes rather than substantive articles.
+        words = re.findall(r"[A-Za-z0-9][A-Za-z0-9'-]*", text)
+        if len(words) < 65 or len(set(w.casefold() for w in words)) < 25:
             return None
 
         return {
             "title": title[:250],
             "url": final_url,
             "source": urlparse(final_url).netloc,
-            "content": text[:self.max_page_chars]
+            "publisher": urlparse(final_url).netloc,
+            "content": text[:self.max_page_chars],
+            "extraction_type": "article" if candidates else "main_content",
         }
 
     def _connect_to_opera(self, playwright):
@@ -514,31 +552,29 @@ class ResearchTool(BaseTool):
                     "You can ask NEXUS about the stored sources later."
                 )
 
-            saved_count = 0
-
-            # The pipeline assigns relevance_score to every extracted page
-            # and stores only pages meeting the same acceptance threshold.
-            # Keep the legacy knowledge table consistent with that decision.
+            # Keep raw source material and provenance in ResearchStore.
+            # The general knowledge table receives one concise synthesis,
+            # not a separate copy of every noisy webpage extraction.
             accepted_pages = [
                 page for page in pages
-                if page.get("relevance_score", 0.0) >= 0.20
+                if page.get("relevance_score", 0.0) >= 0.25
                 and len(page.get("content", "")) >= 350
             ]
-
-            for page in accepted_pages:
+            saved_count = 0
+            if accepted_pages and summary.strip():
+                primary_source = accepted_pages[0]
                 knowledge_id = self.knowledge.save_knowledge(
                     topic=topic,
-                    title=page["title"],
-                    content=page["content"],
-                    source_url=page["url"],
-                    source_name=page["source"],
+                    title=f"Research brief: {topic}",
+                    content=summary.strip(),
+                    source_url=primary_source.get("url", ""),
+                    source_name="NEXUS research synthesis; source records retained separately",
                     confidence=0.0,
                     verification_status="unverified",
-                    tags="web research"
+                    tags="web research, synthesized findings"
                 )
-
                 if knowledge_id is not None:
-                    saved_count += 1
+                    saved_count = 1
 
             result_message = (
                 f"Research results for: {topic}\n\n"
