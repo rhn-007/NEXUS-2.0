@@ -218,7 +218,11 @@ class OrbWidget(QWidget):
             painter.setBrush(bloom)
             painter.drawEllipse(QPointF(cx, cy), radius * factor, radius * factor)
 
-        # Rear portions of orbital rings are dim; front portions are brighter.
+        # Split each orbital ring at the depth plane. Rear arcs sit behind
+        # the sphere; front arcs are painted later so the rings truly weave
+        # through the particle shell instead of looking like flat overlays.
+        rear_ring_segments = []
+        front_ring_segments = []
         for u, v, scale, flatten, speed, ring_index in self._rings:
             ring_phase = self._phase * speed + ring_index * 0.47
             points = []
@@ -233,10 +237,14 @@ class OrbWidget(QWidget):
             for index in range(len(points) - 1):
                 a, da = points[index]
                 b, db = points[index + 1]
-                front = (da + db) * 0.5 > 0.0
-                alpha = 112 if front else 28
-                width = 1.05 if front else 0.7
-                self._draw_segment(painter, a, b, QColor(255, 158, 78, alpha), width)
+                segment = (a, b)
+                if (da + db) * 0.5 > 0.0:
+                    front_ring_segments.append(segment)
+                else:
+                    rear_ring_segments.append(segment)
+
+        for a, b in rear_ring_segments:
+            self._draw_segment(painter, a, b, QColor(255, 142, 65, 25), 0.7)
 
         # Rotate and project the spherical particle shell.
         projected = []
@@ -298,6 +306,10 @@ class OrbWidget(QWidget):
             if depth > 0.45 and seed > 0.78:
                 painter.setBrush(QColor(255, 231, 185, min(235, alpha + 30)))
                 painter.drawEllipse(screen, max(0.65, dot * 0.38), max(0.65, dot * 0.38))
+
+        # Front orbital arcs cross over the sphere, completing the 3D weave.
+        for a, b in front_ring_segments:
+            self._draw_segment(painter, a, b, QColor(255, 171, 91, 118), 1.0)
 
         # Intermittent bright sparks around the sphere.
         for point, size, phase_offset in self._sparks:
