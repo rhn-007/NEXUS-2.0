@@ -31,7 +31,6 @@ class ResearchPipeline:
         coverage = body_hits / len(terms)
         title_score = title_hits / len(terms)
         words = re.findall(r"[a-z0-9]+", body)
-        unique_ratio = len(set(words)) / max(1, len(words))
         length_score = min(1.0, len(words) / 350)
         listing_penalty = 0.45 if any(
             marker in title for marker in (
@@ -39,9 +38,8 @@ class ResearchPipeline:
                 "category:", "search results", "all articles"
             )
         ) else 0.0
-        repetition_penalty = 0.25 if unique_ratio < 0.22 else 0.0
         score = (0.45 * title_score + 0.35 * coverage
-                 + 0.20 * length_score - listing_penalty - repetition_penalty)
+                 + 0.20 * length_score - listing_penalty)
         return max(0.0, min(1.0, score))
 
     @staticmethod
@@ -89,7 +87,7 @@ class ResearchPipeline:
             page["relevance_score"] = score
             words = re.findall(r"[a-z0-9]+", content.casefold())
             if (len(content) < 350 or len(words) < 65
-                    or len(set(words)) / max(1, len(words)) < 0.22
+                    or len(set(words)) < 3
                     or score < self.MIN_RELEVANCE_SCORE
                     or not canonical_url
                     or canonical_url in seen_urls
