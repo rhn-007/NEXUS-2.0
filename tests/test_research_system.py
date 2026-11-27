@@ -154,10 +154,46 @@ class ResearchStoreTests(unittest.TestCase):
             ).fetchone()
             self.assertEqual(session["status"], "partial")
             self.assertIn(
-                "too_few_independent_sources_for_broad_request",
+                "too_few_independent_publishers_for_broad_request",
                 session["metadata_json"]
             )
             self.assertIsNone(pipeline.store.get_topic_knowledge("humanoid robots"))
+        finally:
+            pipeline.close()
+
+    def test_broad_request_can_complete_with_independent_publishers(self):
+        pipeline = ResearchPipeline(FakeLLM(), self.db_path)
+        try:
+            pages = [
+                {
+                    "url": "https://example.org/humanoids",
+                    "title": "Humanoid robot research",
+                    "publisher": "Example Institute",
+                    "content": ("Humanoid robots are being developed for useful tasks. "
+                                "Researchers study humanoid robot mobility and manipulation. " * 30),
+                },
+                {
+                    "url": "https://research.example.net/humanoids",
+                    "title": "Humanoid robotics applications",
+                    "publisher": "Research Example",
+                    "content": ("Humanoid robotics systems are evaluated in industrial settings. "
+                                "Engineers examine robot balance, safety, and task performance. " * 30),
+                },
+            ]
+            summary, session_id, accepted = pipeline.analyse_and_store(
+                "humanoid robots",
+                "Research the development of humanoid robots, their real-world "
+                "applications, current limitations, and future prospects.",
+                pages
+            )
+            self.assertTrue(summary)
+            self.assertEqual(accepted, 2)
+            session = pipeline.store.connection.execute(
+                "SELECT status, metadata_json FROM research_sessions WHERE id=?",
+                (session_id,)
+            ).fetchone()
+            self.assertEqual(session["status"], "completed")
+            self.assertIn('"independent_publishers": 2', session["metadata_json"])
         finally:
             pipeline.close()
 
