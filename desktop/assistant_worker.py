@@ -8,6 +8,7 @@ class AssistantWorker(QObject):
     response = Signal(str)
     state_changed = Signal(str)
     failed = Signal(str)
+    stopped = Signal()
 
     def __init__(self):
         super().__init__()
@@ -41,8 +42,9 @@ class AssistantWorker(QObject):
 
     @Slot()
     def shutdown(self):
-        if self.assistant is not None:
-            try:
+        try:
+            if self.assistant is not None:
                 self.assistant.shutdown()
-            finally:
                 self.assistant = None
+        finally:
+            self.stopped.emit()
