@@ -61,18 +61,18 @@ class ResearchPipeline:
     def _requested_scope_count(query):
         """Estimate how many distinct aspects the user explicitly requested."""
         text = re.sub(
-            r"\\b(?:save|store|remember|give|provide|write|create)\\b.*$",
+            r"\b(?:save|store|remember|give|provide|write|create)\b.*$",
             "",
             str(query or ""),
             flags=re.IGNORECASE,
         )
         text = re.sub(
-            r"^\\s*(?:please\\s+)?(?:research|look\\s+into|investigate|learn\\s+about)\\s+",
+            r"^\s*(?:please\s+)?(?:research|look\s+into|investigate|learn\s+about)\s+",
             "",
             text,
             flags=re.IGNORECASE,
         )
-        parts = re.split(r"[,;]|\\b(?:and|or)\\b", text, flags=re.IGNORECASE)
+        parts = re.split(r"[,;]|\b(?:and|or)\b", text, flags=re.IGNORECASE)
         meaningful = [
             part for part in parts
             if len(re.findall(r"[a-z0-9]{3,}", part.casefold())) >= 2
@@ -96,24 +96,24 @@ class ResearchPipeline:
         if len(text) < 180:
             reasons.append("summary_too_short")
         findings_match = re.search(
-            r"key findings\\s*:?\\s*(.*?)(?=evidence limitations|open questions|$)",
+            r"key findings\s*:?\s*(.*?)(?=evidence limitations|open questions|$)",
             text, flags=re.IGNORECASE | re.DOTALL
         )
         findings = findings_match.group(1).strip() if findings_match else ""
         finding_lines = [
             line for line in findings.splitlines()
-            if re.search(r"(?:^\\s*[-*•]|^\\s*\\d+[.)])", line)
+            if re.search(r"(?:^\s*[-*•]|^\s*\d+[.)])", line)
         ]
         if len(finding_lines) < 2:
             reasons.append("too_few_key_findings")
-        citations = [int(value) for value in re.findall(r"\\[(\\d+)\\]", text)]
+        citations = [int(value) for value in re.findall(r"\[(\d+)\]", text)]
         if not citations:
             reasons.append("missing_source_citations")
         elif any(value < 1 or value > source_count for value in citations):
             reasons.append("invalid_source_citation")
 
         limitations_match = re.search(
-            r"evidence limitations\\s*:?\\s*(.*?)(?=open questions|$)",
+            r"evidence limitations\s*:?\s*(.*?)(?=open questions|$)",
             text, flags=re.IGNORECASE | re.DOTALL
         )
         limitations = limitations_match.group(1).casefold() if limitations_match else ""
