@@ -751,32 +751,32 @@ class NexusAssistant:
         information. The patterns describe retrieval intent and storage
         concepts, not individual topics or example commands.
         """
-        text = re.sub(r"\\s+", " ", str(user_input or "").strip())
+        text = re.sub(r"\s+", " ", str(user_input or "").strip())
         patterns = (
             r"(?:retrieve|recall|find|look up|lookup|pull up|bring up|show|display|get)"
-            r"\\s+(?:me\\s+)?(?:everything|all|any|the)?\\s*(?:of\\s+)?(?:my\\s+)?"
-            r"(?:previous|past|saved|stored|old|earlier)\\s+"
-            r"(?:research|knowledge|notes|information|entries|findings)\\s+(?:on|about|for)\\s+(.+)",
+            r"\s+(?:me\s+)?(?:everything|all|any|the)?\s*(?:of\s+)?(?:my\s+)?"
+            r"(?:previous|past|saved|stored|old|earlier)\s+"
+            r"(?:research|knowledge|notes|information|entries|findings)\s+(?:on|about|for)\s+(.+)",
             r"(?:recall|retrieve|find|look up|lookup|pull up|bring up|show|get)"
-            r"\\s+(?:me\\s+)?(?:everything|all)\\s+(?:that\\s+)?"
-            r"(?:i|we)\\s+(?:know|knew|have learned|learned|saved|stored)\\s+"
-            r"(?:about|on)\\s+(.+)",
-            r"(?:what|which)\\s+(?:did|have)\\s+i\\s+(?:previously\\s+)?"
-            r"(?:save|saved|store|stored|learn|learned|research|researched)\\s+"
-            r"(?:about|on)\\s+(.+)",
-            r"(?:what|which)\\s+(?:have|did)\\s+i\\s+(?:previously\\s+)?"
-            r"(?:saved|stored|researched)\\s+(?:about|on)\\s+(.+)",
+            r"\s+(?:me\s+)?(?:everything|all)\s+(?:that\s+)?"
+            r"(?:i|we)\s+(?:know|knew|have learned|learned|saved|stored)\s+"
+            r"(?:about|on)\s+(.+)",
+            r"(?:what|which)\s+(?:did|have)\s+i\s+(?:previously\s+)?"
+            r"(?:save|saved|store|stored|learn|learned|research|researched)\s+"
+            r"(?:about|on)\s+(.+)",
+            r"(?:what|which)\s+(?:have|did)\s+i\s+(?:previously\s+)?"
+            r"(?:saved|stored|researched)\s+(?:about|on)\s+(.+)",
         )
         for pattern in patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 topic = re.split(r"[.!?]", match.group(1), maxsplit=1)[0]
                 topic = re.sub(
-                    r"\\s+(?:and\\s+)?(?:give|provide|show|summari[sz]e|tell)\\s+me\\b.*$",
+                    r"\s+(?:and\s+)?(?:give|provide|show|summari[sz]e|tell)\s+me\b.*$",
                     "", topic, flags=re.IGNORECASE
                 )
                 topic = re.sub(
-                    r"\\s+(?:from|using)\\s+(?:the\\s+)?saved\\s+entries?\\b.*$",
+                    r"\s+(?:from|using)\s+(?:the\s+)?saved\s+entries?\b.*$",
                     "", topic, flags=re.IGNORECASE
                 )
                 return topic.strip(" ,;:-")
@@ -906,7 +906,7 @@ class NexusAssistant:
                 )
 
             is_research_request = bool(re.search(
-                r"\\b(?:research|findings|sources)\\b",
+                r"\b(?:research|findings|sources)\b",
                 str(user_input), re.IGNORECASE
             ))
             heading = "Your saved research on" if is_research_request else "Your saved information about"
@@ -915,13 +915,14 @@ class NexusAssistant:
                 lines.extend(["Saved research summary:", saved_summary, ""])
             if matching:
                 lines.extend([
-                    f"Found {len(matching)} relevant saved knowledge entr"
-                    + ("y." if len(matching) == 1 else "ies."),
+                    (f"Found {len(matching)} saved source entr" + ("y." if len(matching) == 1 else "ies."))
+                    if is_research_request else
+                    (f"Found {len(matching)} relevant saved knowledge entr" + ("y." if len(matching) == 1 else "ies.")),
                     "Entries retain their recorded verification status.",
                     ""
                 ])
                 for index, item in enumerate(matching, 1):
-                    body = re.sub(r"\\s+", " ", str(item.get("content") or "")).strip()
+                    body = re.sub(r"\s+", " ", str(item.get("content") or "")).strip()
                     if len(body) > 850:
                         body = body[:847].rsplit(" ", 1)[0] + "..."
                     lines.extend([
@@ -935,7 +936,7 @@ class NexusAssistant:
             if research_sources:
                 lines.extend(["Additional saved research sources:", ""])
                 for index, source in enumerate(research_sources, 1):
-                    body = re.sub(r"\\s+", " ", str(source.get("content") or "")).strip()
+                    body = re.sub(r"\s+", " ", str(source.get("content") or "")).strip()
                     lines.extend([
                         f"{index}. {source.get('title') or 'Untitled source'}",
                         f"Publisher: {source.get('publisher') or 'Not recorded'}",
@@ -949,7 +950,7 @@ class NexusAssistant:
                     lines.append(
                         f"- {str(item['key']).replace('_', ' ').title()}: {item['value']}"
                     )
-            return "\\n".join(lines).strip()
+            return "\n".join(lines).strip()
         except Exception as error:
             logger.error("Could not retrieve saved information for %s: %s", topic, error)
             return "I couldn't retrieve the saved information because a storage system returned an error."
