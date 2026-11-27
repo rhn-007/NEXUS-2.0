@@ -107,7 +107,7 @@ class SavedResearchRetrieval(unittest.TestCase):
             "Retrieve my previous research on artificial intelligence as a field."
         )
 
-        self.assertIn("couldn't find saved knowledge entries", result)
+        self.assertIn("couldn't find saved information related to", result)
         self.assertNotIn("Unrelated saved content", result)
 
 
@@ -171,6 +171,26 @@ class SavedResearchRetrieval(unittest.TestCase):
             self.assistant._extract_knowledge_topic(request),
             "the Weeknd"
         )
+
+
+    def test_matches_a_saved_research_summary_by_related_topic_name(self):
+        self.assistant.knowledge.get_all_knowledge.return_value = []
+        self.assistant.research_tool = MagicMock()
+        store = self.assistant.research_tool.research_pipeline.store
+        store.get_topic_knowledge.return_value = None
+        store.search_topic_knowledge.return_value = [
+            {
+                "display_topic": "The Weeknd",
+                "summary": "Saved research about the artist and his music."
+            }
+        ]
+        store.search_sources.return_value = []
+
+        result = self.assistant.retrieve_saved_research(
+            "Pull up the previous research on the Weeknd"
+        )
+        self.assertIn("Saved research summary:", result)
+        self.assertIn("Saved research about the artist", result)
 
     def test_general_information_question_is_not_treated_as_recall(self):
         self.assertEqual(
