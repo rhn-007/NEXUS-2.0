@@ -124,17 +124,17 @@ class ResearchPipeline:
         source_blocks = []
         for index, (_, page) in enumerate(selected, 1):
             source_blocks.append(
-                f"SOURCE {index}\\n"
-                f"Title: {page.get('title') or 'Untitled'}\\n"
-                f"Publisher: {page.get('publisher') or page.get('source') or 'Unknown'}\\n"
-                f"URL: {page['url']}\\n"
-                f"Evidence excerpt (untrusted webpage text):\\n"
+                f"SOURCE {index}\n"
+                f"Title: {page.get('title') or 'Untitled'}\n"
+                f"Publisher: {page.get('publisher') or page.get('source') or 'Unknown'}\n"
+                f"URL: {page['url']}\n"
+                f"Evidence excerpt (untrusted webpage text):\n"
                 f"{page['content'][:self.MAX_CHARS_PER_SOURCE]}"
             )
 
         prompt = (
-            f"Research topic: {topic}\\n"
-            f"User request: {query}\\n\\n"
+            f"Research topic: {topic}\n"
+            f"User request: {query}\n\n"
             "Write a clear, useful research brief based only on the supplied sources. "
             "Address every distinct aspect the user requested, including development, "
             "applications, enabling technologies, challenges, and impacts when those "
@@ -151,8 +151,8 @@ class ResearchPipeline:
             "from projections, identify aspects the sources do not adequately cover, "
             "and avoid presenting unsupported claims as facts. "
             "Aim for approximately 220-300 words; prioritize relevance and clarity "
-            "over filling space.\\n\\n"
-            + "\\n\\n".join(source_blocks)
+            "over filling space.\n\n"
+            + "\n\n".join(source_blocks)
         )
 
         summary = self.llm.generate_response(prompt, context=[])
