@@ -80,7 +80,7 @@ class ResearchPipeline:
         return max(1, len(meaningful))
 
     @staticmethod
-    def _validate_summary(summary, source_count, query):
+    def _validate_summary(summary, source_count, query, publisher_count=None):
         """Reject empty, unstructured, uncited, or explicitly incomplete briefs."""
         if not isinstance(summary, str):
             return False, ["invalid_summary"]
@@ -126,8 +126,9 @@ class ResearchPipeline:
         if any(marker in limitations for marker in insufficiency_markers):
             reasons.append("explicit_evidence_gap")
 
-        if ResearchPipeline._requested_scope_count(query) >= 3 and source_count < 2:
-            reasons.append("too_few_independent_sources_for_broad_request")
+        independent_count = source_count if publisher_count is None else publisher_count
+        if ResearchPipeline._requested_scope_count(query) >= 3 and independent_count < 2:
+            reasons.append("too_few_independent_publishers_for_broad_request")
         return not reasons, reasons
 
     def retrieve_context(self, query, limit=6):
@@ -229,8 +230,14 @@ class ResearchPipeline:
             )
             return None, session_id, len(accepted)
 
+        publishers = {
+            str(page.get("publisher") or page.get("source") or page.get("url") or "")
+            .strip().casefold()
+            for _, page in selected
+        }
+        publishers.discard("")
         quality_ok, quality_reasons = self._validate_summary(
-            summary, len(selected), query
+            summary, len(selected), query, publisher_count=len(publishers)
         )
         if not quality_ok:
             self.store.finish_session(
@@ -239,6 +246,7 @@ class ResearchPipeline:
                     "extracted": len(pages),
                     "accepted": len(accepted),
                     "analysed_sources": len(selected),
+                    "independent_publishers": len(publishers),
                     "quality_reasons": quality_reasons,
                     "topic_knowledge_saved": False,
                 }
@@ -256,6 +264,7 @@ class ResearchPipeline:
                 "extracted": len(pages),
                 "accepted": len(accepted),
                 "analysed_sources": len(selected),
+                "independent_publishers": len(publishers),
                 "quality_reasons": [],
                 "topic_knowledge_saved": True,
             }
