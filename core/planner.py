@@ -31,6 +31,7 @@ logger = setup_logger(__name__)
 
 MAX_STEPS = 3
 MAX_VALUE_LENGTH = 150
+MAX_RESEARCH_VALUE_LENGTH = 600
 HISTORY_MESSAGES = 4
 HISTORY_CHARACTERS = 160
 PLANNER_TIMEOUT_SECONDS = 40
@@ -175,7 +176,7 @@ class IntentPlanner:
 
         user = (
             f"Recent conversation:\n{history}\n\n"
-            f"Rohan now says: {str(text).strip()[:400]}"
+            f"Rohan now says: {str(text).strip()[:1200]}"
         )
 
         return [
@@ -227,7 +228,7 @@ class IntentPlanner:
             "stream": False,
             "format": response_format,
             "keep_alive": get_keep_alive(),
-            "options": {"temperature": 0, "num_predict": 160}
+            "options": {"temperature": 0, "num_predict": 256}
         }
 
         response = requests.post(
@@ -339,7 +340,12 @@ class IntentPlanner:
 
         value = re.sub(r"\s+", " ", str(value or "")).strip()
 
-        if len(value) > MAX_VALUE_LENGTH:
+        max_value_length = (
+            MAX_RESEARCH_VALUE_LENGTH
+            if action == "research"
+            else MAX_VALUE_LENGTH
+        )
+        if len(value) > max_value_length:
             return None
 
         if action == "open_browser":
