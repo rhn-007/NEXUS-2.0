@@ -1,6 +1,7 @@
 """Adaptive research orchestration built around the local Ollama model."""
 import logging
 import re
+from urllib.parse import urlparse
 
 from research.store import ResearchStore
 
@@ -72,9 +73,13 @@ class ResearchPipeline:
             text,
             flags=re.IGNORECASE,
         )
-        parts = re.split(r"[,;]|\b(?:and|or)\b", text, flags=re.IGNORECASE)
+        # Commas and semicolons separate requested clauses. Keep ordinary
+        # conjunctions inside a clause: "transportation and logistics" and
+        # "safety and technical challenges" are each one requested aspect.
+        parts = re.split(r"[,;]", text)
         meaningful = [
-            part for part in parts
+            re.sub(r"^\s*(?:and|or)\s+", "", part, flags=re.IGNORECASE)
+            for part in parts
             if len(re.findall(r"[a-z0-9]{3,}", part.casefold())) >= 2
         ]
         return max(1, len(meaningful))
