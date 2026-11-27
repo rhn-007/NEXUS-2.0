@@ -117,6 +117,8 @@ class SavedResearchRetrieval(unittest.TestCase):
             "What did I previously save about robotics?": "robotics",
             "Pull up the previous research on the Weeknd": "the Weeknd",
             "Show me all stored notes about computer vision": "computer vision",
+            "Can you retrieve the notes I saved about robotics?": "robotics",
+            "Find my research on machine learning": "machine learning",
         }
         for request, expected in cases.items():
             with self.subTest(request=request):
