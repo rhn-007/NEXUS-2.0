@@ -251,6 +251,29 @@ class ResearchStore:
         ).fetchall()
         return [dict(row) for row in rows]
 
+    def search_topic_knowledge(self, query, limit=8):
+        """Find stored topic summaries using topic names and summary terms."""
+        words = [word for word in query.casefold().split() if len(word) > 2]
+        if not words:
+            return []
+        clauses, params = [], []
+        for word in words[:8]:
+            clauses.append(
+                "(topic_key LIKE ? OR display_topic LIKE ? OR summary LIKE ?)"
+            )
+            params.extend([f"%{word}%", f"%{word}%", f"%{word}%"])
+        rows = self.connection.execute(
+            "SELECT * FROM topic_knowledge WHERE " + " OR ".join(clauses)
+            + " ORDER BY updated_at DESC LIMIT ?",
+            (*params, max(1, int(limit)))
+        ).fetchall()
+        results = []
+        for row in rows:
+            item = dict(row)
+            item["open_questions"] = json.loads(item.get("open_questions") or "[]")
+            results.append(item)
+        return results
+
     def add_monitored_topic(self, topic, cadence_days=7, approved=False):
         with self.connection:
             self.connection.execute("""
