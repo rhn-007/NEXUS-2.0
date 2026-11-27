@@ -157,24 +157,36 @@ class NexusWindow(QMainWindow):
         outer = QVBoxLayout(page)
         outer.setContentsMargins(4, 8, 4, 4)
         top = QHBoxLayout()
-        left, left_box = self._panel("SYSTEM OVERVIEW", "LIVE CORE STATUS")
+        top.setSpacing(14)
+
+        # Left column: live system status above recent activity.
+        left_column = QWidget()
+        left_layout = QVBoxLayout(left_column)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(12)
+
+        system_panel, system_box = self._panel("SYSTEM", "LIVE CORE STATUS")
         self.home_core = _label("CORE  ·  INITIALIZING", "#D9A06C", 10, True)
         self.home_model = _label("AI ENGINE  ·  LOADING", "#A7B4C0", 9)
         self.home_voice = _label("VOICE  ·  LOADING", "#A7B4C0", 9)
-        left_box.addWidget(self.home_core)
-        left_box.addWidget(self.home_model)
-        left_box.addWidget(self.home_voice)
-        left_box.addStretch(1)
-        left.setMinimumWidth(190)
+        system_box.addWidget(self.home_core)
+        system_box.addWidget(self.home_model)
+        system_box.addWidget(self.home_voice)
+        system_box.addStretch(1)
 
-        right, right_box = self._panel("ACTIVITY", "PERSISTENT KNOWLEDGE")
+        activity_panel, activity_box = self._panel("ACTIVITY", "PERSISTENT KNOWLEDGE")
         self.home_research = _label("RESEARCH RECORDS  ·  —", "#A7B4C0", 9)
         self.home_memory = _label("PERSONAL FACTS  ·  —", "#A7B4C0", 9)
-        right_box.addWidget(self.home_research)
-        right_box.addWidget(self.home_memory)
-        right_box.addStretch(1)
-        right.setMinimumWidth(190)
+        activity_box.addWidget(self.home_research)
+        activity_box.addWidget(self.home_memory)
+        activity_box.addStretch(1)
 
+        left_layout.addWidget(system_panel, 1)
+        left_layout.addWidget(activity_panel, 1)
+        left_column.setMinimumWidth(205)
+        left_column.setMaximumWidth(285)
+
+        # Centre: keep the orb as the visual focus.
         orb_column = QVBoxLayout()
         orb_column.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.orb = OrbWidget()
@@ -183,9 +195,22 @@ class NexusWindow(QMainWindow):
         self.state_label = _label("INITIALIZING NEXUS", "#DDA36E", 10, True)
         self.state_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         orb_column.addWidget(self.state_label)
-        top.addWidget(left, 1)
-        top.addLayout(orb_column, 3)
-        top.addWidget(right, 1)
+
+        # Right column: a live mirror of NEXUS's written conversation output.
+        output_panel, output_box = self._panel("NEXUS OUTPUT", "LIVE CONVERSATION")
+        self.home_output = QTextBrowser()
+        self.home_output.setOpenExternalLinks(True)
+        self.home_output.setHtml(
+            "<div style='color:#8494A2;padding:18px'>"
+            "NEXUS responses will appear here as the conversation progresses."
+            "</div>"
+        )
+        output_box.addWidget(self.home_output, 1)
+        output_panel.setMinimumWidth(280)
+
+        top.addWidget(left_column, 1)
+        top.addLayout(orb_column, 2)
+        top.addWidget(output_panel, 2)
         outer.addLayout(top, 1)
         outer.addWidget(_label(
             "AWARE  ·  ADAPTIVE  ·  READY TO ASSIST",
@@ -310,18 +335,29 @@ class NexusWindow(QMainWindow):
         if not command:
             return
         self.command_input.clear()
+        self._append_conversation_message("YOU", command, "#91B6D0")
         self.command_input.setEnabled(False)
         self.send_button.setEnabled(False)
         self.system_status.setText("PROCESSING REQUEST")
         self.command_requested.emit(command)
 
-    def _show_response(self, response):
-        safe = html.escape(str(response or ""))
-        self._chat_count += 1
-        self.chat_view.append(
-            f"<div style='margin:12px 4px;color:#FFB36C;font-weight:600'>"
-            f"NEXUS</div><div style='color:#E0E7ED;white-space:pre-wrap'>{safe}</div>"
+    def _append_conversation_message(self, speaker, message, speaker_color):
+        safe_speaker = html.escape(str(speaker))
+        safe_message = html.escape(str(message or ""))
+        entry = (
+            f"<div style='margin:14px 4px 4px;color:{speaker_color};font-weight:600'>"
+            f"{safe_speaker}</div>"
+            f"<div style='color:#E0E7ED;white-space:pre-wrap;margin:0 4px 10px'>"
+            f"{safe_message}</div>"
         )
+        self.chat_view.append(entry)
+        self.home_output.append(entry)
+        for view in (self.chat_view, self.home_output):
+            view.moveCursor(view.textCursor().MoveOperation.End)
+
+    def _show_response(self, response):
+        self._chat_count += 1
+        self._append_conversation_message("NEXUS", response, "#FFB36C")
         self.system_status.setText("ALL SYSTEMS ONLINE")
         self.state_label.setText("RESPONSE READY")
         self.command_input.setEnabled(True)
