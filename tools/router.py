@@ -15,7 +15,8 @@ class ToolResult:
         self,
         success=False,
         message="",
-        spoken=None
+        spoken=None,
+        handled=None
     ):
 
         self.success = success
@@ -23,6 +24,8 @@ class ToolResult:
 
         # Optional shorter text to say out loud. None means say the message.
         self.spoken = spoken
+        # Distinguish a handled tool failure from ordinary conversation.
+        self.handled = success if handled is None else handled
 
 
 class ToolRouter:
@@ -109,12 +112,14 @@ class ToolRouter:
 
                 return ToolResult(
                     result.success,
-                    result.message
+                    result.message,
+                    handled=True
                 )
 
             return ToolResult(
                 True,
-                str(result)
+                str(result),
+                handled=True
             )
 
         # ==========================
@@ -136,7 +141,8 @@ class ToolRouter:
                 return ToolResult(
                     bool(result.success),
                     str(result.message or ""),
-                    data.get("spoken") if isinstance(data, dict) else None
+                    data.get("spoken") if isinstance(data, dict) else None,
+                    handled=True
                 )
 
             # ApplicationTool must return an explicit ToolResponse. Treat
@@ -145,7 +151,8 @@ class ToolRouter:
             return ToolResult(
                 False,
                 str(result) if result is not None else
-                "The application tool returned no result."
+                "The application tool returned no result.",
+                handled=True
             )
 
         # ==========================
@@ -178,12 +185,14 @@ class ToolRouter:
                     return ToolResult(
                         result.success,
                         result.message,
-                        spoken
+                        spoken,
+                        handled=True
                     )
 
                 return ToolResult(
                     True,
-                    str(result)
+                    str(result),
+                    handled=True
                 )
 
         return ToolResult()
