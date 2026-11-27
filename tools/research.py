@@ -11,6 +11,7 @@ import logging
 import socket
 import subprocess
 import time
+import re
 from pathlib import Path
 from urllib.parse import parse_qs, quote_plus, unquote, urljoin, urlparse
 
@@ -84,7 +85,7 @@ class ResearchTool(BaseTool):
         return text.startswith(prefixes)
 
     def _extract_topic(self, query):
-        text = query.strip()
+        text = str(query or "").strip()
 
         prefixes = (
             "research about ",
@@ -98,9 +99,30 @@ class ResearchTool(BaseTool):
 
         for prefix in prefixes:
             if lowered.startswith(prefix):
-                return text[len(prefix):].strip()
+                text = text[len(prefix):].strip()
+                break
+        else:
+            return ""
 
-        return ""
+        # Separate the research subject from instructions about what to do
+        # with the results. Without this, phrases such as "save the findings
+        # and give me a summary" become part of the search topic itself.
+        instruction = re.compile(
+            r"\s*(?:,?\s+and\s+)?"
+            r"(?:save\s+(?:the\s+)?(?:important\s+)?"
+            r"(?:findings|results|information|research|notes)\b"
+            r"|store\s+(?:the\s+)?(?:findings|results|information|research|notes)\b"
+            r"|(?:give|provide|write|create)\s+(?:me\s+)?"
+            r"(?:a\s+)?(?:short\s+|brief\s+|quick\s+)?"
+            r"(?:summary|overview|report)\b"
+            r"|summari[sz]e\b)",
+            re.IGNORECASE
+        )
+        match = instruction.search(text)
+        if match:
+            text = text[:match.start()]
+
+        return text.strip(" ,.;:!?")
 
     def _is_public_http_url(self, url):
         try:
@@ -494,7 +516,16 @@ class ResearchTool(BaseTool):
 
             saved_count = 0
 
-            for page in pages:
+            # The pipeline assigns relevance_score to every extracted page
+            # and stores only pages meeting the same acceptance threshold.
+            # Keep the legacy knowledge table consistent with that decision.
+            accepted_pages = [
+                page for page in pages
+                if page.get("relevance_score", 0.0) >= 0.20
+                and len(page.get("content", "")) >= 350
+            ]
+
+            for page in accepted_pages:
                 knowledge_id = self.knowledge.save_knowledge(
                     topic=topic,
                     title=page["title"],
