@@ -66,6 +66,31 @@ class SavedResearchRetrieval(unittest.TestCase):
         self.assertIn("Verification: unverified", result)
         self.assertNotIn("AI Text Summarizer", result)
 
+    def test_includes_the_saved_consolidated_research_summary(self):
+        self.assistant.knowledge.get_all_knowledge.return_value = [
+            {
+                "topic": "artificial intelligence as a field",
+                "title": "AI overview",
+                "content": "A saved source excerpt.",
+                "source_name": "Example",
+                "source_url": "https://example.com",
+                "verification_status": "unverified",
+            }
+        ]
+        self.assistant.research_tool = MagicMock()
+        self.assistant.research_tool.research_pipeline.store.get_topic_knowledge.return_value = {
+            "summary": "AI systems perform tasks associated with human intelligence. "
+                       "Machine learning and deep learning are major subfields."
+        }
+
+        result = self.assistant.retrieve_saved_research(
+            "Retrieve my previous research on artificial intelligence as a field."
+        )
+
+        self.assertIn("Saved research summary:", result)
+        self.assertIn("Machine learning and deep learning are major subfields.", result)
+        self.assertIn("A saved source excerpt.", result)
+
     def test_does_not_return_entries_for_a_different_topic(self):
         self.assistant.knowledge.get_all_knowledge.return_value = [
             {
