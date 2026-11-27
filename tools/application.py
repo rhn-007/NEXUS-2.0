@@ -14,6 +14,7 @@ import logging
 from pathlib import Path
 
 from tools.base import BaseTool
+from tools.response import ToolResponse
 
 
 logger = logging.getLogger(__name__)
@@ -175,29 +176,29 @@ class ApplicationTool(BaseTool):
                             app_info["id"]
                         )
 
-            return "I couldn't identify the application or folder."
+            return ToolResponse.failure("I couldn't identify the application or folder.")
 
         except Exception as e:
 
             logger.error(f"Application control error: {e}")
-            return f"I couldn't complete that action: {e}"
+            return ToolResponse.failure(f"I couldn't complete that action: {e}")
 
     def open_opera(self, opera_path):
 
         try:
 
             if not Path(opera_path).exists():
-                return "I couldn't find the Opera executable."
+                return ToolResponse.failure("I couldn't find the Opera executable.")
 
             subprocess.Popen([opera_path], shell=False)
 
             logger.info("Launched Opera.")
-            return "Opening Opera."
+            return ToolResponse.success("Opening Opera.")
 
         except Exception as e:
 
             logger.error(f"Could not launch Opera: {e}")
-            return f"I couldn't open Opera: {e}"
+            return ToolResponse.failure(f"I couldn't open Opera: {e}")
 
     def open_application(self, name, app_id):
 
@@ -212,29 +213,29 @@ class ApplicationTool(BaseTool):
             )
 
             logger.info(f"Launched application: {name}")
-            return f"Opening {name.title()}."
+            return ToolResponse.success(f"Opening {name.title()}.")
 
         except Exception as e:
 
             logger.error(f"Could not launch {name}: {e}")
-            return f"I couldn't open {name.title()}: {e}"
+            return ToolResponse.failure(f"I couldn't open {name.title()}: {e}")
 
     def open_folder(self, name, path):
 
         if not path.exists():
-            return f"The {name} folder could not be found."
+            return ToolResponse.failure(f"The {name} folder could not be found.")
 
         try:
 
             os.startfile(str(path))
 
             logger.info(f"Opened folder: {path}")
-            return f"Opening your {name} folder."
+            return ToolResponse.success(f"Opening your {name} folder.")
 
         except Exception as e:
 
             logger.error(f"Could not open folder {path}: {e}")
-            return f"I couldn't open your {name} folder: {e}"
+            return ToolResponse.failure(f"I couldn't open your {name} folder: {e}")
 
     def open_file_explorer(self):
 
@@ -243,9 +244,9 @@ class ApplicationTool(BaseTool):
             subprocess.Popen(["explorer.exe"], shell=False)
 
             logger.info("Opened File Explorer.")
-            return "Opening File Explorer."
+            return ToolResponse.success("Opening File Explorer.")
 
         except Exception as e:
 
             logger.error(f"Could not open File Explorer: {e}")
-            return f"I couldn't open File Explorer: {e}"
+            return ToolResponse.failure(f"I couldn't open File Explorer: {e}")
