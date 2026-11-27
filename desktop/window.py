@@ -1,7 +1,7 @@
 """NEXUS desktop command centre and workspace navigation."""
 import html
 
-from PySide6.QtCore import Qt, Signal, QThread
+from PySide6.QtCore import Qt, Signal, QThread, QEvent
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 
 from desktop.assistant_worker import AssistantWorker
 from desktop.orb_widget import OrbWidget
+from desktop.companion import CompanionOrb
 
 
 STYLE = """
@@ -59,6 +60,7 @@ class NexusWindow(QMainWindow):
         self.setStyleSheet(STYLE)
         self._snapshots = {}
         self._chat_count = 0
+        self._active_page = "HOME"
 
         root = QWidget()
         layout = QVBoxLayout(root)
@@ -117,6 +119,8 @@ class NexusWindow(QMainWindow):
 
         self.setCentralWidget(root)
         self._setup_worker()
+        self.companion = CompanionOrb(self)
+        self.companion.restore_requested.connect(self._restore_from_companion)
         self._select_page("HOME")
         QShortcut(QKeySequence("Escape"), self, activated=self.showMinimized)
 
@@ -277,6 +281,7 @@ class NexusWindow(QMainWindow):
 
     def _select_page(self, name):
         index = {"HOME": 0, "ASSISTANT": 1, "RESEARCH": 2, "MEMORY": 3, "SETTINGS": 4}[name]
+        self._active_page = name
         self.pages.setCurrentIndex(index)
         for label, button in self.nav_buttons.items():
             button.setChecked(label == name)
@@ -309,6 +314,8 @@ class NexusWindow(QMainWindow):
 
     def _set_state(self, state):
         self.orb.set_state(state)
+        if hasattr(self, "companion"):
+            self.companion.set_state(state)
         self.state_label.setText(state.upper())
         if state in ("thinking", "researching", "speaking"):
             self.system_status.setText(state.upper())
@@ -393,7 +400,26 @@ class NexusWindow(QMainWindow):
         )
         self.research_document.setHtml(document)
 
+    def _restore_from_companion(self):
+        self.companion.hide()
+        self.showNormal()
+        self.showFullScreen()
+        self.raise_()
+        self.activateWindow()
+        self._select_page(self._active_page)
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.WindowStateChange and hasattr(self, "companion"):
+            if self.isMinimized():
+                self.companion.set_state(self.orb._state)
+                self.companion.show_at_corner()
+            else:
+                self.companion.hide()
+
     def closeEvent(self, event):
+        if hasattr(self, "companion"):
+            self.companion.hide()
         if self.thread.isRunning():
             self.command_input.setEnabled(False)
             self.send_button.setEnabled(False)
