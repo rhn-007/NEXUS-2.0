@@ -131,7 +131,7 @@ class IntentRunner:
 
             result = self.router.execute(text)
 
-            if result.success:
+            if result.success or getattr(result, "handled", False):
 
                 path = "router"
 
@@ -345,7 +345,8 @@ class IntentRunner:
         return ToolResult(
             not task_failed,
             shown,
-            said if said != shown else None
+            said if said != shown else None,
+            handled=True
         )
 
     # ======================================================
