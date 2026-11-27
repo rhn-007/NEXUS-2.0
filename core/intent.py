@@ -547,7 +547,17 @@ class IntentFastPath:
 
         text = strip_fillers(text)
 
+        # Accept natural phrasing such as "and on the browser open YouTube"
+        # as a new action, rather than merging it into the previous app target.
+        browser_prefixed = re.sub(
+            r"^(?:on|in)\s+(?:the\s+)?(?:browser|opera)\s+",
+            "",
+            text
+        )
+
         kind, _ = _match_verb(text)
+        if not kind:
+            kind, _ = _match_verb(browser_prefixed)
 
         if kind or detect_topics(text) or detect_media(text):
             return True
@@ -574,6 +584,14 @@ class IntentFastPath:
         for part in parts:
 
             part = strip_fillers(part)
+
+            # Remove a conversational browser prefix before parsing the
+            # actual action in this step.
+            part = re.sub(
+                r"^(?:on|in)\s+(?:the\s+)?(?:browser|opera)\s+",
+                "",
+                part
+            )
 
             step = self._parse_one(part)
 
@@ -712,7 +730,7 @@ class IntentFastPath:
         # Keep the article-bearing form for matching site names such as
         # "the hindu", while still removing articles for app/browser checks.
         site_target = re.sub(
-            r"\s+(?:app|application|program|for me|please)$",
+            r"\s+(?:app|application|program|for me|please|in opera|on opera)$",
             "",
             target
         ).strip()
