@@ -211,6 +211,55 @@ class ResearchStoreTests(unittest.TestCase):
         finally:
             pipeline.close()
 
+    def test_multi_aspect_summary_with_partial_coverage_is_not_saved(self):
+        partial = (
+            "Overview\nThe topic is covered by two retrieved sources.\n\n"
+            "Requested aspects coverage\n"
+            "- Development: SUPPORTED [1].\n"
+            "- Applications: PARTIAL; deployment evidence is limited [2].\n"
+            "- Limitations: SUPPORTED [2].\n"
+            "- Future prospects: NOT FOUND in the supplied sources.\n\n"
+            "Key findings\n"
+            "- The sources describe humanoid robot development [1].\n"
+            "- They discuss some engineering constraints [2].\n\n"
+            "Evidence limitations\nThe sources do not establish all requested aspects.\n\n"
+            "Open questions\nFurther evidence is needed."
+        )
+        pipeline = ResearchPipeline(FakeLLM(partial), self.db_path)
+        try:
+            pages = [
+                {
+                    "url": "https://example.org/one",
+                    "title": "Humanoid robot research",
+                    "publisher": "Publisher One",
+                    "content": ("Humanoid robots are developed for practical tasks. "
+                                "Researchers examine humanoid mobility and control. " * 30),
+                },
+                {
+                    "url": "https://example.net/two",
+                    "title": "Humanoid robotics limitations",
+                    "publisher": "Publisher Two",
+                    "content": ("Humanoid robotics systems face engineering constraints. "
+                                "Engineers evaluate safety and task performance. " * 30),
+                },
+            ]
+            summary, session_id, accepted = pipeline.analyse_and_store(
+                "humanoid robots",
+                "Research humanoid robot development, applications, limitations, "
+                "and future prospects.",
+                pages
+            )
+            self.assertIsNone(summary)
+            self.assertEqual(accepted, 2)
+            status = pipeline.store.connection.execute(
+                "SELECT status FROM research_sessions WHERE id=?",
+                (session_id,)
+            ).fetchone()["status"]
+            self.assertEqual(status, "partial")
+            self.assertIsNone(pipeline.store.get_topic_knowledge("humanoid robots"))
+        finally:
+            pipeline.close()
+
     def test_explicit_evidence_gaps_are_not_saved_as_complete_knowledge(self):
         incomplete = (
             "Overview\nA brief overview based on the only retrieved source.\n\n"
