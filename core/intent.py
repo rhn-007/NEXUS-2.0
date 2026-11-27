@@ -562,6 +562,17 @@ class IntentFastPath:
         if kind or detect_topics(text) or detect_media(text):
             return True
 
+        # "do that for Spotify" repeats the previous search on another site.
+        repeat_search = re.fullmatch(
+            r"(?:do that|do the same|same thing) "
+            r"(?:for|on|in) "
+            r"(youtube|github|wikipedia|reddit|spotify)",
+            text
+        )
+        previous_kind, _ = _match_verb(strip_fillers(previous))
+        if repeat_search and previous_kind == "search":
+            return True
+
         # "open notepad and calculator": a bare app after an open step.
         previous_kind, _ = _match_verb(strip_fillers(previous))
 
@@ -593,7 +604,21 @@ class IntentFastPath:
                 part
             )
 
-            step = self._parse_one(part)
+            # Carry the previous search query to another named site:
+            # "search for X and do that for Spotify".
+            repeat_search = re.fullmatch(
+                r"(?:do that|do the same|same thing) "
+                r"(?:for|on|in) "
+                r"(youtube|github|wikipedia|reddit|spotify)",
+                part
+            )
+            if repeat_search and steps and steps[-1].action == "web_search":
+                step = site_search_step(
+                    repeat_search.group(1),
+                    steps[-1].value
+                )
+            else:
+                step = self._parse_one(part)
 
             if step is None and steps and steps[-1].action in (
                 "open_app", "open_website"
