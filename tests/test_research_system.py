@@ -267,6 +267,7 @@ class ResearchStoreTests(unittest.TestCase):
             self.assertEqual(accepted, 2)
             self.assertEqual(len(pipeline.llm.prompts), 2)
             self.assertIn("failed these quality checks", pipeline.llm.prompts[1])
+            self.assertIn("Follow this exact structure:\nOverview\n", pipeline.llm.prompts[1])
             self.assertEqual(summary, repaired_summary)
             session = pipeline.store.connection.execute(
                 "SELECT status FROM research_sessions WHERE id=?",
