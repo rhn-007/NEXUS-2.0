@@ -378,6 +378,53 @@ class NexusWindow(QMainWindow):
                     "<p style='color:#91A0AE'>Start research from the command bar with: research [topic]</p>"
                 )
 
+        elif section.startswith("research_detail:"):
+            session = payload.get("session")
+            if not session:
+                self.research_document.setHtml(
+                    "<p style='color:#FF9B86'>This research session could not be loaded.</p>"
+                )
+                return
+            title = html.escape(str(session.get("topic") or "Research session"))
+            summary = html.escape(str(session.get("summary") or "No synthesis was saved."))
+            status = html.escape(str(session.get("status") or "unknown"))
+            created = html.escape(str(session.get("created_at") or ""))
+            parts = [
+                f"<h1 style='color:#FFB36C'>{title}</h1>",
+                f"<p style='color:#91A0AE'>STATUS: {status.upper()} &nbsp; · &nbsp; {created}</p>",
+                f"<div style='color:#E0E7ED;white-space:pre-wrap'>{summary}</div>",
+                "<h2 style='color:#FFB36C'>SOURCES</h2>",
+            ]
+            sources = session.get("sources", [])
+            if sources:
+                for source in sources:
+                    source_title = html.escape(str(source.get("title") or "Untitled source"))
+                    url = str(source.get("url") or "")
+                    safe_url = html.escape(url, quote=True)
+                    publisher = html.escape(str(source.get("publisher") or "Publisher unknown"))
+                    if url.lower().startswith(("https://", "http://")):
+                        parts.append(
+                            f"<p><a href='{safe_url}' style='color:#F2B477'>{source_title}</a>"
+                            f"<br><span style='color:#91A0AE'>{publisher}</span></p>"
+                        )
+                    else:
+                        parts.append(f"<p>{source_title} — {publisher}</p>")
+            else:
+                parts.append("<p style='color:#91A0AE'>No source records were attached to this session.</p>")
+            findings = session.get("findings", [])
+            if findings:
+                parts.append("<h2 style='color:#FFB36C'>FINDINGS</h2>")
+                for finding in findings:
+                    claim = html.escape(str(finding.get("claim") or ""))
+                    evidence = html.escape(str(finding.get("evidence") or ""))
+                    confidence = float(finding.get("confidence") or 0)
+                    parts.append(
+                        f"<p style='color:#E0E7ED'><b>{claim}</b>"
+                        f"<br><span style='color:#91A0AE'>{evidence}</span>"
+                        f"<br><span style='color:#D79B62'>Confidence: {confidence:.0%}</span></p>"
+                    )
+            self.research_document.setHtml("".join(parts))
+
     def _filter_research(self, text):
         term = text.casefold().strip()
         for index in range(self.research_list.count()):
@@ -396,9 +443,12 @@ class NexusWindow(QMainWindow):
             f"<h1 style='color:#FFB36C'>{title}</h1>"
             f"<p style='color:#91A0AE'>STATUS: {status.upper()} &nbsp; · &nbsp; {created}</p>"
             f"<div style='color:#E0E7ED;white-space:pre-wrap'>{summary}</div>"
-            "<p style='color:#91A0AE'>Source-level detail remains in the research database and will be exposed in the next research-workspace pass.</p>"
+            "<p style='color:#91A0AE'>Loading saved source records and findings...</p>"
         )
         self.research_document.setHtml(document)
+        session_id = session.get("id")
+        if session_id is not None:
+            self.snapshot_requested.emit(f"research_detail:{session_id}")
 
     def _restore_from_companion(self):
         self.companion.hide()
