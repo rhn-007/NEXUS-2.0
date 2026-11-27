@@ -131,9 +131,21 @@ class ToolRouter:
             with activity("Opening application"):
                 result = application_tool.execute(text)
 
+            if hasattr(result, "success") and hasattr(result, "message"):
+                data = getattr(result, "data", None) or {}
+                return ToolResult(
+                    bool(result.success),
+                    str(result.message or ""),
+                    data.get("spoken") if isinstance(data, dict) else None
+                )
+
+            # ApplicationTool must return an explicit ToolResponse. Treat
+            # unexpected legacy values as failures rather than reporting
+            # that an application definitely opened.
             return ToolResult(
-                True,
-                str(result)
+                False,
+                str(result) if result is not None else
+                "The application tool returned no result."
             )
 
         # ==========================
