@@ -479,7 +479,7 @@ class NexusAssistant:
                 self.conversation.get_context()
             )
 
-            if tool_result.success or getattr(tool_result, "handled", False):
+            if tool_result.success or getattr(tool_result, "handled", False) is True:
 
                 self.conversation.add_assistant_message(
                     tool_result.message
