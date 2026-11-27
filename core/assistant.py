@@ -155,7 +155,7 @@ class NexusAssistant:
             ):
 
                 self.speaker.speak(
-                    "Goodbye Rohan."
+                    "Goodbye, Sir."
                 )
 
                 print("Goodbye 👋")
