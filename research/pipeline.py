@@ -69,7 +69,7 @@ class ResearchPipeline:
 
         # Human-readable publisher names are more reliable than URL guesses.
         if " " in raw and "://" not in raw:
-            return re.sub(r"\\s+", " ", raw)
+            return re.sub(r"\s+", " ", raw)
 
         parsed = urlparse(raw if "://" in raw else "//" + raw)
         host = (parsed.hostname or "").strip(".").lower()
