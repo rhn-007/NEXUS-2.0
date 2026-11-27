@@ -57,10 +57,15 @@ class AssistantWorker(QObject):
                 payload = {"items": self.assistant.knowledge.get_all_knowledge(100)}
             elif section == "research":
                 from desktop.research_service import ResearchService
+                service = ResearchService()
                 payload = {
-                    "sessions": ResearchService().list_sessions(),
-                    "topics": ResearchService().list_topic_knowledge(),
+                    "sessions": service.list_sessions(),
+                    "topics": service.list_topic_knowledge(),
                 }
+            elif section.startswith("research_detail:"):
+                from desktop.research_service import ResearchService
+                session_id = section.split(":", 1)[1]
+                payload = {"session": ResearchService().get_session(session_id)}
             elif section == "settings":
                 from ai.ollama import DEFAULT_MODEL
                 payload = {
