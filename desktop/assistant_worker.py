@@ -13,6 +13,7 @@ class AssistantWorker(QObject):
     def __init__(self):
         super().__init__()
         self.assistant = None
+        self._ptt_recording = False
 
     @Slot()
     def initialize(self):
@@ -82,9 +83,52 @@ class AssistantWorker(QObject):
             self.snapshot_ready.emit(section, {"error": str(error)})
 
     @Slot()
+    def start_voice_capture(self):
+        """Start a desktop hold-to-talk recording using the existing Whisper listener."""
+        if self.assistant is None:
+            self.failed.emit("NEXUS is still initializing.")
+            return
+        if self._ptt_recording:
+            return
+        try:
+            input_manager = self.assistant.input_manager
+            input_manager.mode = "voice"
+            input_manager.listener.start_recording()
+            self._ptt_recording = True
+            self.state_changed.emit("listening")
+        except Exception as error:
+            self._ptt_recording = False
+            self.state_changed.emit("error")
+            self.failed.emit(f"Could not start microphone recording: {error}")
+
+    @Slot()
+    def stop_voice_capture(self):
+        """Stop the current recording, transcribe it, and process the result."""
+        if self.assistant is None or not self._ptt_recording:
+            return
+        self._ptt_recording = False
+        try:
+            self.state_changed.emit("thinking")
+            text = self.assistant.input_manager.listener.stop_recording()
+            text = str(text or "").strip()
+            if text:
+                self.process_command(text)
+            else:
+                self.state_changed.emit("idle")
+        except Exception as error:
+            self.state_changed.emit("error")
+            self.failed.emit(f"Could not process the voice recording: {error}")
+
+    @Slot()
     def shutdown(self):
         try:
             if self.assistant is not None:
+                if self._ptt_recording:
+                    self._ptt_recording = False
+                    try:
+                        self.assistant.input_manager.listener.stop_recording()
+                    except Exception:
+                        pass
                 self.assistant.shutdown()
                 self.assistant = None
         finally:
