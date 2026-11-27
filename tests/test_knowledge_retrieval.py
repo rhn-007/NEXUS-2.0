@@ -110,6 +110,74 @@ class SavedResearchRetrieval(unittest.TestCase):
         self.assertIn("couldn't find saved knowledge entries", result)
         self.assertNotIn("Unrelated saved content", result)
 
+
+    def test_extracts_general_recall_wording_and_topic(self):
+        cases = {
+            "Recall everything I know about Python": "Python",
+            "What did I previously save about robotics?": "robotics",
+            "Pull up the previous research on the Weeknd": "the Weeknd",
+            "Show me all stored notes about computer vision": "computer vision",
+        }
+        for request, expected in cases.items():
+            with self.subTest(request=request):
+                self.assertEqual(
+                    self.assistant._extract_knowledge_topic(request),
+                    expected
+                )
+
+    def test_retrieves_related_topic_without_exact_topic_string(self):
+        self.assistant.knowledge.get_all_knowledge.return_value = [
+            {
+                "id": 12,
+                "topic": "Python programming",
+                "title": "Python fundamentals",
+                "content": "Variables, functions and modules.",
+                "source_name": "Saved notes",
+                "source_url": None,
+                "verification_status": "verified",
+            },
+            {
+                "id": 13,
+                "topic": "robotics",
+                "title": "Robot sensors",
+                "content": "Sensors help robots understand their environment.",
+                "source_name": "Saved notes",
+                "source_url": None,
+                "verification_status": "unverified",
+            },
+        ]
+        result = self.assistant.retrieve_saved_research(
+            "Recall everything I know about Python"
+        )
+        self.assertIn("Python fundamentals", result)
+        self.assertNotIn("Robot sensors", result)
+        self.assertIn("Verification: verified", result)
+
+    def test_retrieves_personal_memory_when_no_research_entry_matches(self):
+        self.assistant.knowledge.get_all_knowledge.return_value = []
+        self.assistant.memory = MagicMock()
+        self.assistant.memory.db.search.return_value = [
+            ("programming_language", "Python", "fact")
+        ]
+        result = self.assistant.retrieve_saved_research(
+            "Recall everything I know about Python"
+        )
+        self.assertIn("Related personal memory:", result)
+        self.assertIn("Programming Language: Python", result)
+
+    def test_previous_research_pull_up_is_classified_before_navigation(self):
+        request = "Pull up the previous research on the Weeknd"
+        self.assertEqual(
+            self.assistant._extract_knowledge_topic(request),
+            "the Weeknd"
+        )
+
+    def test_general_information_question_is_not_treated_as_recall(self):
+        self.assertEqual(
+            self.assistant._extract_knowledge_topic("What is Python?"),
+            ""
+        )
+
     def test_non_retrieval_requests_are_not_intercepted(self):
         self.assertIsNone(
             self.assistant.retrieve_saved_research(
