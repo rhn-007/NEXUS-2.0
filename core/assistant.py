@@ -437,7 +437,9 @@ class NexusAssistant:
 
             if knowledge_response:
                 self.conversation.add_assistant_message(knowledge_response)
-                self.speaker.speak(knowledge_response)
+                self.speaker.speak(
+                    "Here are the saved knowledge entries, including unverified entries."
+                )
                 return knowledge_response
 
             # ======================
