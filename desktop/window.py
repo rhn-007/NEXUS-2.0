@@ -6,7 +6,7 @@ from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
     QMainWindow, QPushButton, QStackedWidget, QTextBrowser, QVBoxLayout,
-    QWidget, QSplitter, QApplication, QLineEdit
+    QWidget, QSplitter, QApplication
 )
 
 from desktop.assistant_worker import AssistantWorker
