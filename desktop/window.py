@@ -119,7 +119,7 @@ class NexusWindow(QMainWindow):
 
         self.setCentralWidget(root)
         self._setup_worker()
-        self.companion = CompanionOrb(self)
+        self.companion = CompanionOrb()
         self.companion.restore_requested.connect(self._restore_from_companion)
         self._select_page("HOME")
         QShortcut(QKeySequence("Escape"), self, activated=self.showMinimized)
