@@ -1,12 +1,12 @@
 """NEXUS desktop command centre and workspace navigation."""
 import html
 
-from PySide6.QtCore import Qt, Signal, QThread, QEvent
+from PySide6.QtCore import Qt, Signal, QThread, QEvent, QTimer
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
     QMainWindow, QPushButton, QStackedWidget, QTextBrowser, QVBoxLayout,
-    QWidget, QSplitter
+    QWidget, QSplitter, QApplication, QLineEdit
 )
 
 from desktop.assistant_worker import AssistantWorker
@@ -52,6 +52,8 @@ class NexusWindow(QMainWindow):
     command_requested = Signal(str)
     snapshot_requested = Signal(str)
     shutdown_requested = Signal()
+    ptt_start_requested = Signal()
+    ptt_stop_requested = Signal()
 
     def __init__(self):
         super().__init__()
@@ -100,7 +102,7 @@ class NexusWindow(QMainWindow):
         command_row = QHBoxLayout()
         self.command_input = QLineEdit()
         self.command_input.setPlaceholderText(
-            "Enter a command for NEXUS  ·  Try: research <topic>"
+            "Enter a command · Hold SPACE to speak (outside text fields)"
         )
         self.command_input.setEnabled(False)
         self.command_input.returnPressed.connect(self._submit_command)
@@ -119,6 +121,19 @@ class NexusWindow(QMainWindow):
 
         self.setCentralWidget(root)
         self._setup_worker()
+
+        # Desktop push-to-talk: hold SPACE for at least 250 ms, release to send.
+        # Text fields retain normal SPACE typing behaviour.
+        self._ptt_pending = False
+        self._ptt_active = False
+        self._ptt_timer = QTimer(self)
+        self._ptt_timer.setSingleShot(True)
+        self._ptt_timer.setInterval(250)
+        self._ptt_timer.timeout.connect(self._begin_ptt_capture)
+        app = QApplication.instance()
+        if app is not None:
+            app.installEventFilter(self)
+
         self.companion = CompanionOrb()
         self.companion.restore_requested.connect(self._restore_from_companion)
         self._select_page("HOME")
@@ -263,6 +278,8 @@ class NexusWindow(QMainWindow):
         self.command_requested.connect(self.worker.process_command)
         self.snapshot_requested.connect(self.worker.load_snapshot)
         self.shutdown_requested.connect(self.worker.shutdown)
+        self.ptt_start_requested.connect(self.worker.start_voice_capture)
+        self.ptt_stop_requested.connect(self.worker.stop_voice_capture)
         self.worker.ready.connect(self._on_ready)
         self.worker.response.connect(self._show_response)
         self.worker.state_changed.connect(self._set_state)
@@ -317,8 +334,10 @@ class NexusWindow(QMainWindow):
         if hasattr(self, "companion"):
             self.companion.set_state(state)
         self.state_label.setText(state.upper())
-        if state in ("thinking", "researching", "speaking"):
+        if state in ("listening", "thinking", "researching", "speaking"):
             self.system_status.setText(state.upper())
+        elif state == "idle":
+            self.system_status.setText("ALL SYSTEMS ONLINE")
 
     def _show_error(self, message):
         self.orb.set_state("error")
@@ -458,6 +477,46 @@ class NexusWindow(QMainWindow):
         self.activateWindow()
         self._select_page(self._active_page)
 
+    def _begin_ptt_capture(self):
+        if self._ptt_pending and not self._ptt_active:
+            self._ptt_active = True
+            self.ptt_start_requested.emit()
+
+    def _cancel_ptt_capture(self):
+        self._ptt_timer.stop()
+        was_active = self._ptt_active
+        self._ptt_pending = False
+        self._ptt_active = False
+        if was_active:
+            self.ptt_stop_requested.emit()
+
+    def eventFilter(self, watched, event):
+        # If the application loses focus while SPACE is held, stop recording
+        # so the microphone cannot remain open accidentally.
+        if event.type() == QEvent.Type.ApplicationDeactivate:
+            self._cancel_ptt_capture()
+            return False
+
+        if isinstance(watched, QWidget) and watched.window() is self:
+            if event.type() == QEvent.Type.KeyPress:
+                if event.key() == Qt.Key.Key_Space and not event.isAutoRepeat():
+                    if self._ptt_pending or self._ptt_active:
+                        return True
+                    focus = QApplication.focusWidget()
+                    # Preserve ordinary typing in every text-entry field.
+                    if isinstance(focus, QLineEdit):
+                        return False
+                    self._ptt_pending = True
+                    self._ptt_timer.start()
+                    return True
+
+            elif event.type() == QEvent.Type.KeyRelease:
+                if event.key() == Qt.Key.Key_Space and (self._ptt_pending or self._ptt_active):
+                    self._cancel_ptt_capture()
+                    return True
+
+        return super().eventFilter(watched, event)
+
     def changeEvent(self, event):
         super().changeEvent(event)
         if event.type() == QEvent.Type.WindowStateChange and hasattr(self, "companion"):
@@ -468,6 +527,10 @@ class NexusWindow(QMainWindow):
                 self.companion.hide()
 
     def closeEvent(self, event):
+        app = QApplication.instance()
+        if app is not None:
+            app.removeEventFilter(self)
+        self._cancel_ptt_capture()
         if hasattr(self, "companion"):
             self.companion.hide()
         if self.thread.isRunning():
