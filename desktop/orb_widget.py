@@ -92,14 +92,14 @@ class OrbWidget(QWidget):
                 if d2 < 0.047:
                     near.append((d2, j))
             near.sort(key=lambda item: item[0])
-            for _d, j in near[:self._rng.choice((2, 3, 3, 4))]:
-                if self._rng.random() < 0.78:
+            for _d, j in near[:self._rng.choice((1, 1, 2, 2))]:
+                if self._rng.random() < 0.34:
                     self._edges.append((i, j, self._rng.random()))
 
         # Branching electrical paths. Each path is a stable spherical walk
         # with bends and occasional forks, not a repeated geometric lattice.
         self._filaments = []
-        for fi in range(112):
+        for fi in range(148):
             start = _unit(tuple(self._rng.uniform(-1, 1) for _ in range(3)))
             direction = _unit(tuple(self._rng.uniform(-1, 1) for _ in range(3)))
             length = self._rng.randint(13, 30)
@@ -113,9 +113,9 @@ class OrbWidget(QWidget):
                 )
                 current = _unit(blend)
                 points.append(current)
-            strength = self._rng.uniform(0.42, 1.25)
+            strength = self._rng.uniform(0.58, 1.45)
             self._filaments.append((points, strength, fi % 7 == 0))
-            if fi % 2 == 0:
+            if fi % 1 == 0:
                 branch_at = self._rng.randint(4, length - 4)
                 branch_start = points[branch_at]
                 branch_dir = _unit(tuple(
@@ -156,7 +156,7 @@ class OrbWidget(QWidget):
         self._reactor_rings = []
         for ri in range(6):
             self._reactor_rings.append((
-                self._rng.uniform(0.115, 0.285),
+                self._rng.uniform(0.17, 0.34),
                 self._rng.uniform(0.72, 1.0),
                 self._rng.uniform(-0.45, 0.45),
                 self._rng.uniform(0.45, 1.0),
@@ -280,7 +280,7 @@ class OrbWidget(QWidget):
 
         # Broad volumetric corona and a more concentrated plasma halo.
         painter.setPen(Qt.PenStyle.NoPen)
-        for factor, alpha in ((2.05, 10), (1.62, 16), (1.28, 25), (0.92, 24)):
+        for factor, alpha in ((2.05, 10), (1.62, 16), (1.28, 25), (0.92, 30), (0.62, 24)):
             grad = QRadialGradient(QPointF(cx, cy), radius * factor)
             grad.setColorAt(0.0, QColor(255, 190, 104, alpha + int(self._state_mix * 8)))
             grad.setColorAt(0.42, QColor(glow_r, glow_g, glow_b, alpha))
@@ -332,16 +332,16 @@ class OrbWidget(QWidget):
                 if depth < -0.30:
                     continue
                 flicker = 0.72 + 0.28 * math.sin(self._phase * 2.1 + k * 0.7 + strength * 9)
-                alpha = int((22 + max(0.0, depth) * 76) * strength * flicker)
+                alpha = int((35 + max(0.0, depth) * 92) * strength * flicker)
                 self._line(painter, a, b, QColor(255, 105, 27, alpha),
-                           1.15 if bright else 0.68)
+                           1.35 if bright else 0.82)
                 if bright and depth > -0.05:
                     self._line(painter, a, b, QColor(255, 205, 126, min(150, alpha)),
                                0.42)
 
         # Dynamic radial traces converge on the central reactor.
-        for i in range(48):
-            a = TAU * i / 48 + self._phase * (0.10 if i % 2 else -0.07)
+        for i in range(34):
+            a = TAU * i / 34 + self._phase * (0.10 if i % 2 else -0.07) + math.sin(i * 2.17) * 0.055
             wobble = 0.025 * math.sin(self._phase * 1.8 + i * 2.3)
             start = (math.cos(a) * 0.91, math.sin(a) * 0.91, wobble)
             mid = (math.cos(a + 0.08) * 0.46, math.sin(a + 0.08) * 0.46, -wobble)
@@ -428,7 +428,7 @@ class OrbWidget(QWidget):
             energy += 0.10
         if self._state == "researching":
             energy += 0.06
-        core_r = radius * (0.105 + energy * 0.025)
+        core_r = radius * (0.155 + energy * 0.035)
         corona = QRadialGradient(QPointF(cx, cy), core_r * 4.4)
         corona.setColorAt(0.0, QColor(255, 244, 205, 245))
         corona.setColorAt(0.16, QColor(255, 190, 94, 225))
