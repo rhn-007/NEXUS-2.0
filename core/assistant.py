@@ -201,6 +201,7 @@ class NexusAssistant:
         self._closed = True
 
         closers = [
+            ("Ollama model", lambda: self.llm.unload_model()),
             ("conversation", lambda: self.conversation.close()),
             ("memory", lambda: self.memory.db.close()),
             ("knowledge", lambda: self.knowledge.close()),
