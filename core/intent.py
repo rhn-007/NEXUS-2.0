@@ -730,7 +730,8 @@ class IntentFastPath:
         # Keep the article-bearing form for matching site names such as
         # "the hindu", while still removing articles for app/browser checks.
         site_target = re.sub(
-            r"\s+(?:app|application|program|for me|please|in opera|on opera)$",
+            r"\s+(?:app|application|program|for me|please|"
+            r"(?:in|on)\s+(?:the\s+)?(?:opera|browser))$",
             "",
             target
         ).strip()
