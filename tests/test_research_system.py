@@ -12,12 +12,17 @@ class FakeLLM:
                                   "- Researchers investigate autonomous robotic capabilities [1].\n\n"
                                   "Evidence limitations\nThe available source provides limited coverage of this topic.\n\n"
                                   "Open questions\nFurther independent evidence is needed to assess broader impacts.")):
-        self.response = response
+        self.responses = list(response) if isinstance(response, list) else [response]
+        self.response_index = 0
         self.last_prompt = None
+        self.prompts = []
 
     def generate_response(self, message, context=None):
         self.last_prompt = message
-        return self.response
+        self.prompts.append(message)
+        response = self.responses[min(self.response_index, len(self.responses) - 1)]
+        self.response_index += 1
+        return response
 
 
 class ResearchStoreTests(unittest.TestCase):
@@ -217,6 +222,58 @@ class ResearchStoreTests(unittest.TestCase):
             ).fetchone()
             self.assertEqual(session["status"], "completed")
             self.assertIn('"independent_publishers": 2', session["metadata_json"])
+        finally:
+            pipeline.close()
+
+    def test_pipeline_retries_incomplete_synthesis_before_rejecting(self):
+        repaired_summary = (
+            "Overview\\nAutonomous robotics combines sensing and control.\\n\\n"
+            "Requested aspects coverage\\n"
+            "- Development: SUPPORTED by research into robot capabilities [1].\\n"
+            "- Applications: SUPPORTED by evaluated practical tasks [2].\\n"
+            "- Safety challenges: SUPPORTED by engineering safety analysis [2].\\n\\n"
+            "Key findings\\n"
+            "- Researchers develop autonomous systems using sensors and control methods [1].\\n"
+            "- Evaluations identify safety and reliability as deployment concerns [2].\\n\\n"
+            "Evidence limitations\\nThe supplied sources do not establish performance across all real-world settings.\\n\\n"
+            "Open questions\\nFurther field evaluation is needed to assess long-term reliability."
+        )
+        pipeline = ResearchPipeline(
+            FakeLLM(["An incomplete first draft without citations.", repaired_summary]),
+            self.db_path
+        )
+        try:
+            pages = [
+                {
+                    "url": "https://example.org/robotics",
+                    "title": "Autonomous robotics development",
+                    "publisher": "Example Institute",
+                    "content": ("Autonomous robotics systems use sensors and control methods. "
+                                "Researchers develop robots for practical tasks. " * 30),
+                },
+                {
+                    "url": "https://example.net/robotics-safety",
+                    "title": "Robotics safety evaluation",
+                    "publisher": "Research Example",
+                    "content": ("Robotics safety evaluations examine reliability and task performance. "
+                                "Engineers assess risks in practical deployment. " * 30),
+                },
+            ]
+            summary, session_id, accepted = pipeline.analyse_and_store(
+                "autonomous robotics",
+                "Research autonomous robotics development, applications, and safety challenges.",
+                pages
+            )
+            self.assertEqual(accepted, 2)
+            self.assertEqual(len(pipeline.llm.prompts), 2)
+            self.assertIn("failed these quality checks", pipeline.llm.prompts[1])
+            self.assertEqual(summary, repaired_summary)
+            session = pipeline.store.connection.execute(
+                "SELECT status FROM research_sessions WHERE id=?",
+                (session_id,)
+            ).fetchone()
+            self.assertEqual(session["status"], "completed")
+            self.assertIsNotNone(pipeline.store.get_topic_knowledge("autonomous robotics"))
         finally:
             pipeline.close()
 
