@@ -51,7 +51,9 @@ class TaskExecutionTrackingTests(unittest.TestCase):
     def test_failed_step_stops_and_records_remaining_steps_as_skipped(self):
         runner = self.make_runner(fail_on="open notepad")
         result = runner.resolve("open notepad and open opera")
-        self.assertTrue(result.success)
+        self.assertFalse(result.success)
+        self.assertTrue(result.handled)
+        self.assertIn("failed", result.message.lower())
         task = self.tasks.list_tasks(1)[0]
         self.assertEqual(task["status"], "failed")
         self.assertEqual(
