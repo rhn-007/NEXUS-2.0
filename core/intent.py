@@ -77,6 +77,10 @@ _TRAILING_FILLERS = re.compile(
 
 _SEPARATORS = r"[\s,.:;!\-]*"
 
+# Research questions can contain several requested aspects; other fast-path
+# targets remain deliberately short.
+MAX_RESEARCH_TARGET_LENGTH = 600
+
 
 def clean(text):
     """Lowercase, tidy punctuation and spacing."""
@@ -475,7 +479,7 @@ class IntentFastPath:
 
         lowered = clean(text)
 
-        if not lowered or len(lowered) > 300:
+        if not lowered or len(lowered) > 1200:
             return False
 
         cleaned = strip_fillers(text)
@@ -706,7 +710,7 @@ class IntentFastPath:
 
         if kind == "research":
 
-            if len(target) > 150:
+            if len(target) > MAX_RESEARCH_TARGET_LENGTH:
                 return None
 
             return Step("research", target, f"research {target}")
