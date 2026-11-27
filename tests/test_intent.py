@@ -250,11 +250,21 @@ class PlannerChecksTheModel(unittest.TestCase):
         self.assertEqual(plan.kind, "ask")
         self.assertIn("photoshop", plan.question)
 
+    def test_research_values_over_150_characters_are_accepted(self):
+        value = "autonomous vehicles " * 10
+        plan = plan_for({
+            "decision": "act",
+            "steps": [{"action": "research", "value": value}],
+            "question": ""
+        })
+        self.assertEqual(plan.kind, "act")
+        self.assertEqual(plan.steps[0].value, value.strip())
+
     def test_bad_values_are_rejected(self):
         for step in [
             {"action": "open_website", "value": "javascript:alert(1)"},
             {"action": "calculate", "value": "__import__('os')"},
-            {"action": "research", "value": "x" * 151},
+            {"action": "research", "value": "x" * 601},
             {"action": "switch_mode", "value": "turbo"},
         ]:
             plan = plan_for({"decision": "act", "steps": [step], "question": ""})
