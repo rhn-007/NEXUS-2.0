@@ -162,7 +162,21 @@ class ResearchStoreTests(unittest.TestCase):
             pipeline.close()
 
     def test_broad_request_can_complete_with_independent_publishers(self):
-        pipeline = ResearchPipeline(FakeLLM(), self.db_path)
+        broad_summary = (
+            "Overview\nHumanoid robotics is an active area of engineering research.\n\n"
+            "Requested aspects coverage\n"
+            "- Development: SUPPORTED by the supplied research [1].\n"
+            "- Real-world applications: SUPPORTED by deployment research [2].\n"
+            "- Current limitations: SUPPORTED by engineering evaluations [2].\n"
+            "- Future prospects: SUPPORTED by the research outlook [1].\n\n"
+            "Key findings\n"
+            "- Research explores humanoid mobility and manipulation [1].\n"
+            "- Evaluations examine safety and task performance [2].\n\n"
+            "Evidence limitations\nThe available sources cover the requested aspects, "
+            "but conclusions remain limited to these publications.\n\n"
+            "Open questions\nLong-term performance requires further independent study."
+        )
+        pipeline = ResearchPipeline(FakeLLM(broad_summary), self.db_path)
         try:
             pages = [
                 {
