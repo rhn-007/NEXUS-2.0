@@ -131,7 +131,7 @@ class IntentRunner:
 
             result = self.router.execute(text)
 
-            if result.success or getattr(result, "handled", False):
+            if result.success or getattr(result, "handled", False) is True:
 
                 path = "router"
 
