@@ -544,9 +544,14 @@ class NexusWindow(QMainWindow):
                     if self._ptt_pending or self._ptt_active:
                         return True
                     focus = QApplication.focusWidget()
-                    # Preserve ordinary typing in every text-entry field.
+                    # Preserve typing in search fields and in a non-empty
+                    # command. The command bar commonly retains focus after
+                    # sending, so an empty command bar must still allow PTT.
                     if isinstance(focus, QLineEdit):
-                        return False
+                        if focus is not self.command_input:
+                            return False
+                        if self.command_input.text():
+                            return False
                     self._ptt_pending = True
                     self._ptt_timer.start()
                     return True
