@@ -76,6 +76,8 @@ def main():
     finally:
 
 
+        assistant.llm.unload_model()
+
         animation.stop()
 
         clear_status()
