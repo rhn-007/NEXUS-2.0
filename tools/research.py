@@ -371,7 +371,7 @@ class ResearchTool(BaseTool):
         if not main:
             return None
 
-        text = self._clean_page_text(main.get_text("\\n", strip=True))
+        text = self._clean_page_text(main.get_text("\n", strip=True))
         if len(text) < 350 or self._looks_like_listing_page(title, text):
             return None
 
