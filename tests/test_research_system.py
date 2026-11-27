@@ -45,6 +45,15 @@ class ResearchStoreTests(unittest.TestCase):
         self.assertEqual(topic["summary"], "Robotics summary")
         self.assertEqual(topic["open_questions"], ["Cost"])
 
+    def test_requested_scope_count_keeps_compound_phrases_together(self):
+        query = (
+            "Research the development of autonomous vehicles, their applications "
+            "in transportation and logistics, the technologies that make them work, "
+            "their major safety and technical challenges, and their future impact "
+            "on society. Save the important findings."
+        )
+        self.assertEqual(ResearchPipeline._requested_scope_count(query), 5)
+
     def test_monitoring_requires_explicit_approval(self):
         self.store.add_monitored_topic("robotics", approved=False)
         topic = self.store.list_monitored_topics()[0]
