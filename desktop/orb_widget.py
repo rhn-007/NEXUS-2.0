@@ -102,7 +102,7 @@ class OrbWidget(QWidget):
         for fi in range(112):
             start = _unit(tuple(self._rng.uniform(-1, 1) for _ in range(3)))
             direction = _unit(tuple(self._rng.uniform(-1, 1) for _ in range(3)))
-            length = self._rng.randint(13,  thirty := 30)
+            length = self._rng.randint(13, 30)
             points = [start]
             current = start
             for step in range(1, length):
@@ -237,7 +237,7 @@ class OrbWidget(QWidget):
         painter.drawLine(a, b)
 
     def _draw_ring(self, painter, cx, cy, radius, yaw, pitch, roll,
-                   u, v, scale, flatten, phase, color, width, segments=112):
+                   u, v, scale, flatten, phase, color, width, segments=112, front_pass=None):
         projected = []
         for i in range(segments + 1):
             a = TAU * i / segments + phase
@@ -250,6 +250,10 @@ class OrbWidget(QWidget):
             a, da = projected[i]
             b, db = projected[i + 1]
             depth = (da + db) * 0.5
+            if front_pass is True and depth <= 0.0:
+                continue
+            if front_pass is False and depth > 0.0:
+                continue
             alpha = int(color.alpha() * (0.28 + 0.72 * max(0.0, depth + 0.12)))
             self._line(painter, a, b, QColor(color.red(), color.green(), color.blue(), alpha), width)
 
@@ -292,6 +296,7 @@ class OrbWidget(QWidget):
                 ring["u"], ring["v"], ring["scale"], ring["flatten"], phase,
                 QColor(255, 139, 55, 38 + int(ring["bright"] * 45)),
                 ring["width"] * 0.78,
+                front_pass=False,
             )
 
         # Dense particle shell and stable projected coordinates.
@@ -399,6 +404,7 @@ class OrbWidget(QWidget):
                 ring["u"], ring["v"], ring["scale"], ring["flatten"], phase,
                 QColor(255, 171, 91, 100 + int(ring["bright"] * 65)),
                 ring["width"],
+                front_pass=True,
             )
 
         # Inner reactor: offset, independently rotating rings form a bright
