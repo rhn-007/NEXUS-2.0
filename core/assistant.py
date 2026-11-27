@@ -430,6 +430,17 @@ class NexusAssistant:
                 return response
 
             # ======================
+            # KNOWLEDGE BASE LOOKUP
+            # ======================
+
+            knowledge_response = self.check_knowledge(canonical)
+
+            if knowledge_response:
+                self.conversation.add_assistant_message(knowledge_response)
+                self.speaker.speak(knowledge_response)
+                return knowledge_response
+
+            # ======================
             # MEMORY CHECK
             # ======================
 
@@ -839,6 +850,67 @@ class NexusAssistant:
         if len(values) == 2:
             return values[0] + " and " + values[1]
         return ", ".join(values[:-1]) + ", and " + values[-1]
+
+    # ==========================
+    # KNOWLEDGE BASE COMMANDS
+    # ==========================
+
+    def check_knowledge(self, user_input):
+        """Handle explicit requests to list saved research knowledge."""
+        text = str(user_input or "").lower()
+
+        refers_to_knowledge = any(
+            phrase in text
+            for phrase in (
+                "knowledge entries",
+                "knowledge items",
+                "saved knowledge",
+                "knowledge base",
+                "what have you saved"
+            )
+        )
+        asks_to_list = any(
+            phrase in text
+            for phrase in (
+                "show", "list", "display", "all", "recent",
+                "recently saved", "what have you saved"
+            )
+        )
+
+        if not (refers_to_knowledge and asks_to_list):
+            return None
+
+        try:
+            entries = self.knowledge.get_all_knowledge(limit=100)
+        except Exception as error:
+            logger.error("Could not list saved knowledge: %s", error)
+            return "I couldn't read the saved knowledge database."
+
+        if not entries:
+            return "There are no saved knowledge entries yet."
+
+        lines = [
+            f"Recently saved knowledge entries ({len(entries)} shown).",
+            "Unverified entries are included.",
+            ""
+        ]
+
+        for item in entries:
+            lines.extend([
+                f"ID: {item.get('id', 'Unknown')}",
+                f"Topic: {item.get('topic') or 'Not recorded'}",
+                f"Title: {item.get('title') or 'Untitled'}",
+                f"Verification: {item.get('verification_status') or 'unverified'}",
+                f"Source: {item.get('source_name') or 'Not recorded'}",
+                f"Saved: {item.get('learned_at') or 'Unknown'}",
+                f"Content: {(item.get('content') or '')[:500]}",
+                ""
+            ])
+
+        if len(entries) >= 100:
+            lines.append("The display is limited to the 100 most recent entries.")
+
+        return "\n".join(lines)
 
     # ==========================
     # MEMORY CHECK
