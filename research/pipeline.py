@@ -112,13 +112,13 @@ class ResearchPipeline:
 
         if scope_count >= 2:
             coverage_match = re.search(
-                r"requested aspects coverage\\s*:?\\s*(.*?)(?=key findings|evidence limitations|open questions|$)",
+                r"requested aspects coverage\s*:?\s*(.*?)(?=key findings|evidence limitations|open questions|$)",
                 text, flags=re.IGNORECASE | re.DOTALL
             )
             coverage = coverage_match.group(1).strip() if coverage_match else ""
             coverage_lines = [
                 line for line in coverage.splitlines()
-                if re.search(r"(?:^\\s*[-*•]|^\\s*\\d+[.)])", line)
+                if re.search(r"(?:^\s*[-*•]|^\s*\d+[.)])", line)
             ]
             if len(coverage_lines) < scope_count:
                 reasons.append("requested_aspects_not_individually_assessed")
