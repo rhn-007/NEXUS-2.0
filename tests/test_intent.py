@@ -48,6 +48,18 @@ class FastPathUnderstandsRequests(unittest.TestCase):
             commands("open youtube and then open notepad"),
             ["go to youtube", "open notepad"]
         )
+        self.assertEqual(
+            commands("open notepad and also open youtube on browser"),
+            ["open notepad", "go to youtube"]
+        )
+        self.assertEqual(
+            commands("open notepad and open youtube in the browser"),
+            ["open notepad", "go to youtube"]
+        )
+        self.assertEqual(
+            commands("open youtube on browser"),
+            ["go to youtube"]
+        )
 
     def test_one_topic_with_and_is_not_split(self):
         self.assertEqual(
