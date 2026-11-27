@@ -26,8 +26,8 @@ class ResearchPipeline:
         terms = list(dict.fromkeys(re.findall(r"[a-z0-9]{3,}", topic.casefold())))
         if not terms:
             return 0.0
-        title_hits = sum(1 for term in terms if re.search(r"\\b" + re.escape(term) + r"\\b", title))
-        body_hits = sum(1 for term in terms if re.search(r"\\b" + re.escape(term) + r"\\b", body))
+        title_hits = sum(1 for term in terms if re.search(r"\b" + re.escape(term) + r"\b", title))
+        body_hits = sum(1 for term in terms if re.search(r"\b" + re.escape(term) + r"\b", body))
         coverage = body_hits / len(terms)
         title_score = title_hits / len(terms)
         words = re.findall(r"[a-z0-9]+", body)
