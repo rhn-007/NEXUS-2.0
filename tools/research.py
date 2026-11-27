@@ -519,9 +519,9 @@ class ResearchTool(BaseTool):
         topic = (topic or "").strip()
         query = research_question or f"Research about {topic}"
 
-        if not topic or len(topic) > 150:
+        if not topic:
             return ToolResponse.failure(
-                "Please provide a research topic of up to 150 characters."
+                "Please provide a research topic."
             )
 
         try:
