@@ -283,6 +283,11 @@ class IntentRunner:
 
                     if not result.success:
 
+                        # Failure must be reflected in the returned result even
+                        # when persistent task tracking is unavailable or this
+                        # is a single-step command.
+                        task_failed = True
+
                         if task_id:
                             self._task_call(
                                 "finish_step", task_id, position, "failed", message
@@ -292,7 +297,6 @@ class IntentRunner:
                                 "set_task_status", task_id, "failed",
                                 message or "A task step failed."
                             )
-                            task_failed = True
 
                         messages.append(
                             message
@@ -338,7 +342,11 @@ class IntentRunner:
             except Exception as error:
                 logger.warning("Could not complete task history: %s", error)
 
-        return ToolResult(True, shown, said if said != shown else None)
+        return ToolResult(
+            not task_failed,
+            shown,
+            said if said != shown else None
+        )
 
     # ======================================================
     # FOLLOW-UPS ON A FEATURE
