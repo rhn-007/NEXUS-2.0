@@ -7,7 +7,11 @@ from research.pipeline import ResearchPipeline
 
 
 class FakeLLM:
-    def __init__(self, response="Overview\n\nKey findings\n\nOpen questions"):
+    def __init__(self, response=("Overview\\nA concise overview grounded in the retrieved source material.\\n\\n"
+                                  "Key findings\\n- Robotics research develops systems for practical tasks [1].\\n"
+                                  "- Researchers investigate autonomous robotic capabilities [1].\\n\\n"
+                                  "Evidence limitations\\nThe available source provides limited coverage of this topic.\\n\\n"
+                                  "Open questions\\nFurther independent evidence is needed to assess broader impacts.")):
         self.response = response
         self.last_prompt = None
 
@@ -123,6 +127,69 @@ class ResearchStoreTests(unittest.TestCase):
                 (session_id,)
             ).fetchone()["status"]
             self.assertEqual(status, "no_relevant_sources")
+        finally:
+            pipeline.close()
+
+    def test_broad_request_requires_multiple_independent_publishers(self):
+        pipeline = ResearchPipeline(FakeLLM(), self.db_path)
+        try:
+            summary, session_id, accepted = pipeline.analyse_and_store(
+                "humanoid robots",
+                "Research the development of humanoid robots, their real-world "
+                "applications, current limitations, and future prospects. "
+                "Save the important findings.",
+                [{
+                    "url": "https://example.org/humanoids",
+                    "title": "Humanoid robot research",
+                    "publisher": "Example Institute",
+                    "content": ("Humanoid robots are being developed for useful tasks. "
+                                "Researchers study humanoid robot mobility and manipulation. " * 30),
+                }]
+            )
+            self.assertIsNone(summary)
+            self.assertEqual(accepted, 1)
+            session = pipeline.store.connection.execute(
+                "SELECT status, metadata_json FROM research_sessions WHERE id=?",
+                (session_id,)
+            ).fetchone()
+            self.assertEqual(session["status"], "partial")
+            self.assertIn(
+                "too_few_independent_sources_for_broad_request",
+                session["metadata_json"]
+            )
+            self.assertIsNone(pipeline.store.get_topic_knowledge("humanoid robots"))
+        finally:
+            pipeline.close()
+
+    def test_explicit_evidence_gaps_are_not_saved_as_complete_knowledge(self):
+        incomplete = (
+            "Overview\\nA brief overview based on the only retrieved source.\\n\\n"
+            "Key findings\\n- The source describes humanoid robot design [1].\\n"
+            "- It discusses perception and interaction [1].\\n\\n"
+            "Evidence limitations\\nThe source does not address real-world deployments "
+            "or current engineering limitations, so these aspects remain unsupported.\\n\\n"
+            "Open questions\\nWhat evidence establishes deployment outcomes and reliability?"
+        )
+        pipeline = ResearchPipeline(FakeLLM(incomplete), self.db_path)
+        try:
+            summary, session_id, accepted = pipeline.analyse_and_store(
+                "robotics", "Research robotics",
+                [{
+                    "url": "https://example.org/robotics",
+                    "title": "Robotics research",
+                    "publisher": "Example Institute",
+                    "content": ("Robotics research examines autonomous systems and "
+                                "robotic manipulation in practical environments. " * 30),
+                }]
+            )
+            self.assertIsNone(summary)
+            self.assertEqual(accepted, 1)
+            status = pipeline.store.connection.execute(
+                "SELECT status FROM research_sessions WHERE id=?",
+                (session_id,)
+            ).fetchone()["status"]
+            self.assertEqual(status, "partial")
+            self.assertIsNone(pipeline.store.get_topic_knowledge("robotics"))
         finally:
             pipeline.close()
 
