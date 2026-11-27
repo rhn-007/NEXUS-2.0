@@ -87,9 +87,12 @@ class ResearchPipeline:
         text = summary.strip()
         lowered = text.casefold()
         reasons = []
-        required_sections = (
+        scope_count = ResearchPipeline._requested_scope_count(query)
+        required_sections = [
             "overview", "key findings", "evidence limitations", "open questions"
-        )
+        ]
+        if scope_count >= 2:
+            required_sections.append("requested aspects coverage")
         missing = [heading for heading in required_sections if heading not in lowered]
         if missing:
             reasons.append("missing_sections:" + ",".join(missing))
@@ -106,6 +109,29 @@ class ResearchPipeline:
         ]
         if len(finding_lines) < 2:
             reasons.append("too_few_key_findings")
+
+        if scope_count >= 2:
+            coverage_match = re.search(
+                r"requested aspects coverage\\s*:?\\s*(.*?)(?=key findings|evidence limitations|open questions|$)",
+                text, flags=re.IGNORECASE | re.DOTALL
+            )
+            coverage = coverage_match.group(1).strip() if coverage_match else ""
+            coverage_lines = [
+                line for line in coverage.splitlines()
+                if re.search(r"(?:^\\s*[-*•]|^\\s*\\d+[.)])", line)
+            ]
+            if len(coverage_lines) < scope_count:
+                reasons.append("requested_aspects_not_individually_assessed")
+            incomplete_labels = (
+                "partial", "not found", "not covered", "not supported",
+                "insufficient", "unanswered", "unknown",
+            )
+            if any(
+                label in line.casefold()
+                for line in coverage_lines
+                for label in incomplete_labels
+            ):
+                reasons.append("requested_aspect_not_fully_supported")
         citations = [int(value) for value in re.findall(r"\[(\d+)\]", text)]
         if not citations:
             reasons.append("missing_source_citations")
@@ -211,8 +237,14 @@ class ResearchPipeline:
             "source number that was not supplied. Do not disguise missing evidence as "
             "a conclusion. If the sources do not adequately cover the request, state "
             "exactly which aspects remain unsupported. "
-            "Use these headings: Overview; Key findings; Evidence limitations; "
-            "Open questions. Aim for 180-250 words when evidence permits; never pad "
+            "For requests with multiple aspects, include a section titled "
+            "'Requested aspects coverage' before Key findings. List every distinct "
+            "aspect requested by the user on its own bullet and label it SUPPORTED, "
+            "PARTIAL, or NOT FOUND, with source citations. Use SUPPORTED only when "
+            "the supplied evidence directly addresses that aspect. "
+            "Use these headings: Overview; Requested aspects coverage when applicable; "
+            "Key findings; Evidence limitations; Open questions. Aim for 180-250 words "
+            "when evidence permits; never pad "
             "the report with repetition.\n\n"
             + "\n\n".join(source_blocks)
         )
