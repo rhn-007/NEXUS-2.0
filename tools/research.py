@@ -45,7 +45,7 @@ class ResearchTool(BaseTool):
         self.llm = llm
         self.interactive_verification = interactive_verification
         self.research_pipeline = ResearchPipeline(llm)
-        self.max_results = 4
+        self.max_results = 8
         self.max_page_chars = 6000
         self.navigation_timeout = 30000
 
@@ -546,10 +546,12 @@ class ResearchTool(BaseTool):
             if not summary:
                 return ToolResponse.failure(
                     f"I extracted and preserved {accepted_count} relevant "
-                    "source(s) in the research database, but the local AI "
-                    "model could not complete the analysis. No research "
-                    "summary was saved, and the sources remain unverified. "
-                    "You can ask NEXUS about the stored sources later."
+                    "source(s) in the research database, but could not produce "
+                    "a sufficiently supported research summary. This can happen "
+                    "when the sources do not cover all requested aspects, when "
+                    "there are too few independent publishers, or when model "
+                    "analysis fails. No incomplete summary was added to general "
+                    "knowledge; the source records remain available for follow-up."
                 )
 
             # Keep raw source material and provenance in ResearchStore.
