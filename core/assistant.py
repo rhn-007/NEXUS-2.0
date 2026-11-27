@@ -5,6 +5,7 @@ Main brain controller.
 """
 
 import time
+import re
 
 from dotenv import load_dotenv
 
@@ -739,6 +740,73 @@ class NexusAssistant:
     # KNOWLEDGE RETRIEVAL
     # ==========================
 
+    @staticmethod
+    def _normalize_knowledge_topic(value):
+        return " ".join(re.findall(r"[a-z0-9]+", str(value or "").casefold()))
+
+    @staticmethod
+    def _extract_knowledge_topic(user_input):
+        """Extract the subject from an explicit saved-research retrieval request."""
+        text = str(user_input or "").strip()
+        patterns = (
+            r"(?:retrieve|recall|find|show|get)\s+(?:my\s+)?(?:previous|past|saved|stored)\s+research\s+(?:on|about)\s+(.+)",
+            r"(?:retrieve|recall|find|show|get)\s+(?:my\s+)?research\s+(?:on|about)\s+(.+)",
+        )
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if not match:
+                continue
+            topic = re.split(r"[.!?\n]", match.group(1), maxsplit=1)[0]
+            topic = re.sub(r"\s+(?:and\s+)?(?:give|provide|show|summari[sz]e|tell)\s+me\b.*$", "", topic, flags=re.IGNORECASE)
+            topic = re.sub(r"\s+(?:from|using)\s+the\s+saved\s+entries?\b.*$", "", topic, flags=re.IGNORECASE)
+            return topic.strip(" ,;:-")
+        return ""
+
+    def retrieve_saved_research(self, user_input):
+        """Answer explicit saved-research requests directly from SQLite."""
+        topic = self._extract_knowledge_topic(user_input)
+        if not topic:
+            return None
+        try:
+            entries = self.knowledge.get_all_knowledge(limit=100)
+            normalized_topic = self._normalize_knowledge_topic(topic)
+            matching = [
+                item for item in entries
+                if self._normalize_knowledge_topic(item.get("topic")) == normalized_topic
+            ]
+            if not matching:
+                return (
+                    f"I couldn't find saved knowledge entries for the exact topic "
+                    f"'{topic}'. Try asking me to list your saved knowledge entries."
+                )
+            lines = [
+                f"Your saved research on {topic}:",
+                f"Found {len(matching)} saved source entr" + ("y." if len(matching) == 1 else "ies."),
+                "These entries are unverified source material; the notes below "
+                "are extracted from what NEXUS saved, not independently verified.",
+                "",
+            ]
+            for index, item in enumerate(matching[:6], 1):
+                title = item.get("title") or "Untitled source"
+                source = item.get("source_name") or item.get("source_url") or "Source not recorded"
+                verification = item.get("verification_status") or "unverified"
+                body = re.sub(r"\s+", " ", str(item.get("content") or "")).strip()
+                if len(body) > 850:
+                    body = body[:847].rsplit(" ", 1)[0] + "..."
+                lines.extend([
+                    f"{index}. {title}",
+                    f"Source: {source}",
+                    f"Verification: {verification}",
+                    f"Saved information: {body or 'No content was stored for this entry.'}",
+                    "",
+                ])
+            if len(matching) > 6:
+                lines.append(f"{len(matching) - 6} additional matching entries were omitted.")
+            return "\n".join(lines).strip()
+        except Exception as error:
+            logger.error("Could not retrieve saved research for %s: %s", topic, error)
+            return "I couldn't retrieve the saved research because the knowledge database returned an error."
+
     def get_relevant_knowledge(self, user_input):
 
         try:
@@ -860,6 +928,10 @@ class NexusAssistant:
     def check_knowledge(self, user_input):
         """Handle explicit requests to list saved research knowledge."""
         text = str(user_input or "").lower()
+        retrieved = self.retrieve_saved_research(user_input)
+        if retrieved:
+            return retrieved
+
 
         refers_to_knowledge = any(
             phrase in text
