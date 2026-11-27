@@ -175,6 +175,19 @@ class OrbWidget(QWidget):
         self._state_mix += (target - self._state_mix) * 0.08
         self.update()
 
+    def _entity_shape(self, point, seed=0.0):
+        """Break the perfect sphere into an asymmetric, vertically flowing AI form."""
+        x, y, z = point
+        angle = math.atan2(z, x)
+        vertical = 1.0 + 0.13 * math.cos(angle * 3.0 + seed * 0.7)
+        vertical += 0.045 * math.sin(angle * 7.0 - self._phase * 0.18)
+        crown = 0.10 * max(0.0, y) * math.sin(angle * 4.0 + seed)
+        waist = 1.0 - 0.075 * math.exp(-((y + 0.05) / 0.28) ** 2)
+        x *= waist * (1.0 + 0.075 * math.sin(angle * 5.0 + self._phase * 0.11))
+        z *= waist * (1.0 + 0.06 * math.cos(angle * 4.0 - self._phase * 0.13))
+        y = y * vertical + crown
+        return (x, y * 1.14, z)
+
     def _project(self, point, cx, cy, radius, yaw, pitch, roll=0.0):
         x, y, z = _rotate(point, yaw, pitch, roll)
         perspective = 0.91 + (z + 1.0) * 0.075
@@ -249,7 +262,8 @@ class OrbWidget(QWidget):
         # Rotate and project the spherical particle shell.
         projected = []
         for point, size, seed in self._particles:
-            screen, depth = self._project(point, cx, cy, radius, yaw, pitch, roll)
+            shaped = self._entity_shape(point, seed)
+            screen, depth = self._project(shaped, cx, cy, radius, yaw, pitch, roll)
             projected.append((screen, depth, size, seed))
 
         # Fine interconnected surface web, with hidden-side lines subdued.
@@ -265,7 +279,8 @@ class OrbWidget(QWidget):
         # Organic electrical filaments are drawn in two passes for a luminous core.
         for points, strength, branching in self._filaments:
             transformed = [
-                self._project(point, cx, cy, radius * (1.006 if branching else 1.0),
+                self._project(self._entity_shape(point, strength),
+                              cx, cy, radius * (1.006 if branching else 1.0),
                               yaw, pitch, roll)
                 for point in points
             ]
@@ -316,7 +331,8 @@ class OrbWidget(QWidget):
             twinkle = 0.5 + 0.5 * math.sin(self._phase * 2.2 + phase_offset)
             if twinkle < 0.72:
                 continue
-            screen, depth = self._project(point, cx, cy, radius * 1.055, yaw, pitch, roll)
+            screen, depth = self._project(self._entity_shape(point, phase_offset),
+                                          cx, cy, radius * 1.075, yaw, pitch, roll)
             if depth < -0.10:
                 continue
             alpha = int(35 + twinkle * 105)
@@ -325,7 +341,7 @@ class OrbWidget(QWidget):
             painter.drawEllipse(screen, size * twinkle, size * twinkle)
 
         # White-hot centre with amber plasma falloff and a soft corona.
-        core_radius = radius * (0.205 + self._state_mix * 0.012)
+        core_radius = radius * (0.172 + self._state_mix * 0.012)
         core = QRadialGradient(QPointF(cx - core_radius * 0.10, cy - core_radius * 0.12),
                                core_radius * 2.35)
         core.setColorAt(0.0, QColor(255, 255, 237, 255))
@@ -335,7 +351,7 @@ class OrbWidget(QWidget):
         core.setColorAt(1.0, QColor(255, 79, 13, 0))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(core)
-        painter.drawEllipse(QPointF(cx, cy), core_radius * 2.35, core_radius * 2.35)
+        painter.drawEllipse(QPointF(cx, cy), core_radius * 1.82, core_radius * 2.65)
 
         # A fine inner highlight gives the core a glassy, high-energy centre.
         highlight = QRadialGradient(QPointF(cx - core_radius * 0.22, cy - core_radius * 0.25),
@@ -344,6 +360,47 @@ class OrbWidget(QWidget):
         highlight.setColorAt(0.55, QColor(255, 230, 174, 95))
         highlight.setColorAt(1.0, QColor(255, 210, 130, 0))
         painter.setBrush(highlight)
-        painter.drawEllipse(QPointF(cx, cy), core_radius * 0.72, core_radius * 0.72)
+        painter.drawEllipse(QPointF(cx, cy), core_radius * 0.60, core_radius * 0.92)
+
+        # Vertical neural strands and a shifting crown make the silhouette
+        # read as a digital entity rather than a perfectly spherical plasma ball.
+        for strand in range(11):
+            angle = TAU * strand / 11.0 + self._phase * 0.035
+            points = []
+            for step in range(34):
+                t = step / 33.0
+                y = -0.96 + t * 1.92
+                width = 0.11 + 0.72 * abs(y) ** 0.72
+                wobble = 0.035 * math.sin(t * 9.0 + strand * 1.7 + self._phase * 0.5)
+                points.append((math.cos(angle) * width + wobble, y, math.sin(angle) * width))
+            projected_strand = [
+                self._project(point, cx, cy, radius * 0.92, yaw, pitch, roll)
+                for point in points
+            ]
+            for index in range(len(projected_strand) - 1):
+                a, da = projected_strand[index]
+                b, db = projected_strand[index + 1]
+                if (da + db) * 0.5 > -0.18:
+                    alpha = 26 + int(max(0.0, (da + db) * 0.5) * 54)
+                    self._draw_segment(painter, a, b, QColor(255, 91, 39, alpha), 0.72)
+
+        for arc_index in range(5):
+            arc_points = []
+            start = -0.92 + arc_index * 0.16
+            for step in range(48):
+                t = step / 47.0
+                angle = start + t * (1.42 + 0.18 * math.sin(self._phase * 0.2 + arc_index))
+                y = 0.48 + 0.34 * math.sin(t * math.pi) + 0.035 * math.sin(t * 13 + self._phase)
+                r = 0.55 + 0.11 * math.sin(t * math.pi * 2 + arc_index)
+                arc_points.append((math.cos(angle) * r, y, math.sin(angle) * r))
+            projected_arc = [
+                self._project(point, cx, cy, radius * 1.04, yaw, pitch, roll)
+                for point in arc_points
+            ]
+            for index in range(len(projected_arc) - 1):
+                a, da = projected_arc[index]
+                b, db = projected_arc[index + 1]
+                if (da + db) * 0.5 > -0.1:
+                    self._draw_segment(painter, a, b, QColor(255, 171, 100, 82), 0.9)
 
         painter.end()
