@@ -7,11 +7,11 @@ from research.pipeline import ResearchPipeline
 
 
 class FakeLLM:
-    def __init__(self, response=("Overview\\nA concise overview grounded in the retrieved source material.\\n\\n"
-                                  "Key findings\\n- Robotics research develops systems for practical tasks [1].\\n"
-                                  "- Researchers investigate autonomous robotic capabilities [1].\\n\\n"
-                                  "Evidence limitations\\nThe available source provides limited coverage of this topic.\\n\\n"
-                                  "Open questions\\nFurther independent evidence is needed to assess broader impacts.")):
+    def __init__(self, response=("Overview\nA concise overview grounded in the retrieved source material.\n\n"
+                                  "Key findings\n- Robotics research develops systems for practical tasks [1].\n"
+                                  "- Researchers investigate autonomous robotic capabilities [1].\n\n"
+                                  "Evidence limitations\nThe available source provides limited coverage of this topic.\n\n"
+                                  "Open questions\nFurther independent evidence is needed to assess broader impacts.")):
         self.response = response
         self.last_prompt = None
 
@@ -163,12 +163,12 @@ class ResearchStoreTests(unittest.TestCase):
 
     def test_explicit_evidence_gaps_are_not_saved_as_complete_knowledge(self):
         incomplete = (
-            "Overview\\nA brief overview based on the only retrieved source.\\n\\n"
-            "Key findings\\n- The source describes humanoid robot design [1].\\n"
-            "- It discusses perception and interaction [1].\\n\\n"
-            "Evidence limitations\\nThe source does not address real-world deployments "
-            "or current engineering limitations, so these aspects remain unsupported.\\n\\n"
-            "Open questions\\nWhat evidence establishes deployment outcomes and reliability?"
+            "Overview\nA brief overview based on the only retrieved source.\n\n"
+            "Key findings\n- The source describes humanoid robot design [1].\n"
+            "- It discusses perception and interaction [1].\n\n"
+            "Evidence limitations\nThe source does not address real-world deployments "
+            "or current engineering limitations, so these aspects remain unsupported.\n\n"
+            "Open questions\nWhat evidence establishes deployment outcomes and reliability?"
         )
         pipeline = ResearchPipeline(FakeLLM(incomplete), self.db_path)
         try:
