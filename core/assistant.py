@@ -775,7 +775,7 @@ class NexusAssistant:
             r"(?:on|about|for)\s+(.+)",
             r"(?:retrieve|recall|find|look up|lookup|pull up|bring up|show|get)"
             r"\s+(?:me\s+)?(?:the\s+)?(?:notes|research|knowledge|information|findings)"
-            r"\s+(?:that|which)\s+(?:i|we)\s+(?:saved|stored|researched|learned)"
+            r"\s+(?:(?:that|which)\s+)?(?:i|we)\s+(?:saved|stored|researched|learned)"
             r"\s+(?:on|about)\s+(.+)",
             r"(?:bring up|show|find|retrieve|recall|get)\s+(?:me\s+)?what\s+"
             r"(?:i|we)\s+(?:saved|stored|researched|learned)\s+(?:on|about)\s+(.+)",
