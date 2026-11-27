@@ -227,16 +227,16 @@ class ResearchStoreTests(unittest.TestCase):
 
     def test_pipeline_retries_incomplete_synthesis_before_rejecting(self):
         repaired_summary = (
-            "Overview\\nAutonomous robotics combines sensing and control.\\n\\n"
-            "Requested aspects coverage\\n"
-            "- Development: SUPPORTED by research into robot capabilities [1].\\n"
-            "- Applications: SUPPORTED by evaluated practical tasks [2].\\n"
-            "- Safety challenges: SUPPORTED by engineering safety analysis [2].\\n\\n"
-            "Key findings\\n"
-            "- Researchers develop autonomous systems using sensors and control methods [1].\\n"
-            "- Evaluations identify safety and reliability as deployment concerns [2].\\n\\n"
-            "Evidence limitations\\nThe supplied sources do not establish performance across all real-world settings.\\n\\n"
-            "Open questions\\nFurther field evaluation is needed to assess long-term reliability."
+            "Overview\nAutonomous robotics combines sensing and control.\n\n"
+            "Requested aspects coverage\n"
+            "- Development: SUPPORTED by research into robot capabilities [1].\n"
+            "- Applications: SUPPORTED by evaluated practical tasks [2].\n"
+            "- Safety challenges: SUPPORTED by engineering safety analysis [2].\n\n"
+            "Key findings\n"
+            "- Researchers develop autonomous systems using sensors and control methods [1].\n"
+            "- Evaluations identify safety and reliability as deployment concerns [2].\n\n"
+            "Evidence limitations\nThe supplied sources do not establish performance across all real-world settings.\n\n"
+            "Open questions\nFurther field evaluation is needed to assess long-term reliability."
         )
         pipeline = ResearchPipeline(
             FakeLLM(["An incomplete first draft without citations.", repaired_summary]),
