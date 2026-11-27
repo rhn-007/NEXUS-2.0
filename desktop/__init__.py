@@ -1,0 +1,1 @@
+"""NEXUS desktop application package."""
