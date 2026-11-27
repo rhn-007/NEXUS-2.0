@@ -222,17 +222,17 @@ class ResearchStoreTests(unittest.TestCase):
 
     def test_subdomains_do_not_count_as_independent_publishers(self):
         broad_summary = (
-            "Overview\\nHumanoid robotics is an active engineering field.\\n\\n"
-            "Requested aspects coverage\\n"
-            "- Development: SUPPORTED [1].\\n"
-            "- Applications: SUPPORTED [2].\\n"
-            "- Limitations: SUPPORTED [2].\\n"
-            "- Future prospects: SUPPORTED [1].\\n\\n"
-            "Key findings\\n"
-            "- Researchers study humanoid mobility and manipulation [1].\\n"
-            "- Engineers evaluate robot safety and task performance [2].\\n\\n"
-            "Evidence limitations\\nThe sources provide a limited view of deployment outcomes.\\n\\n"
-            "Open questions\\nLong-term reliability needs further study."
+            "Overview\nHumanoid robotics is an active engineering field.\n\n"
+            "Requested aspects coverage\n"
+            "- Development: SUPPORTED [1].\n"
+            "- Applications: SUPPORTED [2].\n"
+            "- Limitations: SUPPORTED [2].\n"
+            "- Future prospects: SUPPORTED [1].\n\n"
+            "Key findings\n"
+            "- Researchers study humanoid mobility and manipulation [1].\n"
+            "- Engineers evaluate robot safety and task performance [2].\n\n"
+            "Evidence limitations\nThe sources provide a limited view of deployment outcomes.\n\n"
+            "Open questions\nLong-term reliability needs further study."
         )
         pipeline = ResearchPipeline(FakeLLM(broad_summary), self.db_path)
         try:
@@ -265,7 +265,7 @@ class ResearchStoreTests(unittest.TestCase):
                 (session_id,)
             ).fetchone()
             self.assertEqual(session["status"], "partial")
-            self.assertIn("\\\"independent_publishers\\\": 1", session["metadata_json"])
+            self.assertIn('"independent_publishers": 1', session["metadata_json"])
         finally:
             pipeline.close()
 
