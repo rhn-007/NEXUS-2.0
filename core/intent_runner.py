@@ -325,13 +325,23 @@ class IntentRunner:
                     spoken_parts.append(spoken or message)
 
             except Exception as error:
+                task_failed = True
+                logger.exception("Task step %s failed: %s", position, error)
+
                 if task_id:
                     self._task_call(
                         "finish_step", task_id, position, "failed", str(error)
                     )
                     self._task_call("skip_remaining", task_id, position)
                     self._task_call("set_task_status", task_id, "failed", str(error))
-                raise
+
+                failure_message = (
+                    f"I couldn't complete the {step.action.replace('_', ' ')} step: "
+                    f"{error}"
+                )
+                messages.append(failure_message)
+                spoken_parts.append(failure_message)
+                break
 
         shown = "\n".join(messages) or "Done."
         said = "\n".join(spoken_parts) or "Done."
