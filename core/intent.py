@@ -113,13 +113,13 @@ def greeting_response(text):
     greeting = clean(text)
 
     if greeting.startswith("good morning"):
-        return "Good morning! I'm here. What can I help you with?"
+        return "Good morning, Sir. What can I help you with?"
     if greeting.startswith("good afternoon"):
-        return "Good afternoon! I'm here. What can I help you with?"
+        return "Good afternoon, Sir. What can I help you with?"
     if greeting.startswith("good evening"):
-        return "Good evening! I'm here. What can I help you with?"
+        return "Good evening, Sir. What can I help you with?"
 
-    return "Hello! I'm here. What can I help you with?"
+    return "Hello, Sir. What can I help you with?"
 
 
 def strip_fillers(text):
