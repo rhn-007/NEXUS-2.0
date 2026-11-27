@@ -59,6 +59,39 @@ class ResearchPipeline:
         return any(normalized.startswith(marker) for marker in failure_markers)
 
     @staticmethod
+    def _publisher_identity(page):
+        """Return a conservative publisher key, grouping ordinary subdomains."""
+        raw = str(
+            page.get("publisher") or page.get("source") or page.get("url") or ""
+        ).strip().casefold()
+        if not raw:
+            return ""
+
+        # Human-readable publisher names are more reliable than URL guesses.
+        if " " in raw and "://" not in raw:
+            return re.sub(r"\\s+", " ", raw)
+
+        parsed = urlparse(raw if "://" in raw else "//" + raw)
+        host = (parsed.hostname or "").strip(".").lower()
+        if not host:
+            return re.sub(r"[^a-z0-9]+", " ", raw).strip()
+        if host.startswith("www."):
+            host = host[4:]
+
+        labels = host.split(".")
+        multi_label_suffixes = {
+            "co.uk", "org.uk", "ac.uk", "gov.uk",
+            "com.au", "net.au", "org.au",
+            "co.nz", "org.nz", "co.in", "firm.in",
+            "com.sg", "com.br", "com.mx", "co.za", "co.jp",
+        }
+        if len(labels) >= 3 and ".".join(labels[-2:]) in multi_label_suffixes:
+            return ".".join(labels[-3:])
+        if len(labels) >= 2:
+            return ".".join(labels[-2:])
+        return host
+
+    @staticmethod
     def _requested_scope_count(query):
         """Estimate how many distinct aspects the user explicitly requested."""
         text = re.sub(
@@ -268,8 +301,7 @@ class ResearchPipeline:
             return None, session_id, len(accepted)
 
         publishers = {
-            str(page.get("publisher") or page.get("source") or page.get("url") or "")
-            .strip().casefold()
+            self._publisher_identity(page)
             for _, page in selected
         }
         publishers.discard("")
