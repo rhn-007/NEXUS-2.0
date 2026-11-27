@@ -1,5 +1,4 @@
-"""Run the existing NEXUS assistant away from the Qt UI thread."""
-
+"""Run NEXUS core work away from the Qt UI thread."""
 from PySide6.QtCore import QObject, Signal, Slot
 
 
@@ -8,6 +7,7 @@ class AssistantWorker(QObject):
     response = Signal(str)
     state_changed = Signal(str)
     failed = Signal(str)
+    snapshot_ready = Signal(str, object)
     stopped = Signal()
 
     def __init__(self):
@@ -39,6 +39,42 @@ class AssistantWorker(QObject):
         except Exception as error:
             self.state_changed.emit("error")
             self.failed.emit(str(error))
+
+    @Slot(str)
+    def load_snapshot(self, section):
+        """Read existing memory, knowledge and research data without mutating it."""
+        if self.assistant is None:
+            self.snapshot_ready.emit(section, {"error": "NEXUS is not ready."})
+            return
+        try:
+            if section == "memory":
+                rows = self.assistant.memory.get_memory_context()
+                payload = {"facts": [
+                    {"key": str(row[0]), "value": str(row[1])}
+                    for row in rows
+                ]}
+            elif section == "knowledge":
+                payload = {"items": self.assistant.knowledge.get_all_knowledge(100)}
+            elif section == "research":
+                from desktop.research_service import ResearchService
+                payload = {
+                    "sessions": ResearchService().list_sessions(),
+                    "topics": ResearchService().list_topic_knowledge(),
+                }
+            elif section == "settings":
+                from ai.ollama import DEFAULT_MODEL
+                payload = {
+                    "model": str(DEFAULT_MODEL),
+                    "voice": str(getattr(self.assistant.speaker, "model", "Unknown")),
+                    "speech_speed": str(getattr(self.assistant.speaker, "speech_length_scale", "Unknown")),
+                    "input_mode": str(getattr(self.assistant.input_manager, "mode", "Unknown")),
+                    "database": "nexus_memory.db",
+                }
+            else:
+                payload = {}
+            self.snapshot_ready.emit(section, payload)
+        except Exception as error:
+            self.snapshot_ready.emit(section, {"error": str(error)})
 
     @Slot()
     def shutdown(self):
