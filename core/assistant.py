@@ -752,6 +752,10 @@ class NexusAssistant:
         concepts, not individual topics or example commands.
         """
         text = re.sub(r"\s+", " ", str(user_input or "").strip())
+        text = re.sub(
+            r"^(?:(?:can|could|would|will)\s+(?:you|u)\s+|please\s+|okay,?\s+)+",
+            "", text, flags=re.IGNORECASE
+        )
         patterns = (
             r"(?:retrieve|recall|find|look up|lookup|pull up|bring up|show|display|get)"
             r"\s+(?:me\s+)?(?:everything|all|any|the)?\s*(?:of\s+)?(?:my\s+)?"
@@ -766,6 +770,15 @@ class NexusAssistant:
             r"(?:about|on)\s+(.+)",
             r"(?:what|which)\s+(?:have|did)\s+i\s+(?:previously\s+)?"
             r"(?:saved|stored|researched)\s+(?:about|on)\s+(.+)",
+            r"(?:retrieve|recall|find|look up|lookup|pull up|bring up|show|display|get)"
+            r"\s+(?:me\s+)?(?:my\s+)?(?:notes|research|knowledge|findings)\s+"
+            r"(?:on|about|for)\s+(.+)",
+            r"(?:retrieve|recall|find|look up|lookup|pull up|bring up|show|get)"
+            r"\s+(?:me\s+)?(?:the\s+)?(?:notes|research|knowledge|information|findings)"
+            r"\s+(?:that|which)\s+(?:i|we)\s+(?:saved|stored|researched|learned)"
+            r"\s+(?:on|about)\s+(.+)",
+            r"(?:bring up|show|find|retrieve|recall|get)\s+(?:me\s+)?what\s+"
+            r"(?:i|we)\s+(?:saved|stored|researched|learned)\s+(?:on|about)\s+(.+)",
         )
         for pattern in patterns:
             match = re.search(pattern, text, re.IGNORECASE)
