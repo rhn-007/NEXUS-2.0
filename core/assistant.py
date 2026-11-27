@@ -746,91 +746,213 @@ class NexusAssistant:
 
     @staticmethod
     def _extract_knowledge_topic(user_input):
-        """Extract the subject from an explicit saved-research retrieval request."""
-        text = str(user_input or "").strip()
+        """
+        Extract a subject from a natural-language request to recall stored
+        information. The patterns describe retrieval intent and storage
+        concepts, not individual topics or example commands.
+        """
+        text = re.sub(r"\\s+", " ", str(user_input or "").strip())
         patterns = (
-            r"(?:retrieve|recall|find|show|get)\s+(?:my\s+)?(?:previous|past|saved|stored)\s+research\s+(?:on|about)\s+(.+)",
-            r"(?:retrieve|recall|find|show|get)\s+(?:my\s+)?research\s+(?:on|about)\s+(.+)",
+            r"(?:retrieve|recall|find|look up|lookup|pull up|bring up|show|display|get)"
+            r"\\s+(?:me\\s+)?(?:everything|all|any|the)?\\s*(?:of\\s+)?(?:my\\s+)?"
+            r"(?:previous|past|saved|stored|old|earlier)\\s+"
+            r"(?:research|knowledge|notes|information|entries|findings)\\s+(?:on|about|for)\\s+(.+)",
+            r"(?:recall|retrieve|find|look up|lookup|pull up|bring up|show|get)"
+            r"\\s+(?:me\\s+)?(?:everything|all)\\s+(?:that\\s+)?"
+            r"(?:i|we)\\s+(?:know|knew|have learned|learned|saved|stored)\\s+"
+            r"(?:about|on)\\s+(.+)",
+            r"(?:what|which)\\s+(?:did|have)\\s+i\\s+(?:previously\\s+)?"
+            r"(?:save|saved|store|stored|learn|learned|research|researched)\\s+"
+            r"(?:about|on)\\s+(.+)",
+            r"(?:what|which)\\s+(?:have|did)\\s+i\\s+(?:previously\\s+)?"
+            r"(?:saved|stored|researched)\\s+(?:about|on)\\s+(.+)",
         )
         for pattern in patterns:
             match = re.search(pattern, text, re.IGNORECASE)
-            if not match:
-                continue
-            topic = re.split(r"[.!?\n]", match.group(1), maxsplit=1)[0]
-            topic = re.sub(r"\s+(?:and\s+)?(?:give|provide|show|summari[sz]e|tell)\s+me\b.*$", "", topic, flags=re.IGNORECASE)
-            topic = re.sub(r"\s+(?:from|using)\s+the\s+saved\s+entries?\b.*$", "", topic, flags=re.IGNORECASE)
-            return topic.strip(" ,;:-")
+            if match:
+                topic = re.split(r"[.!?]", match.group(1), maxsplit=1)[0]
+                topic = re.sub(
+                    r"\\s+(?:and\\s+)?(?:give|provide|show|summari[sz]e|tell)\\s+me\\b.*$",
+                    "", topic, flags=re.IGNORECASE
+                )
+                topic = re.sub(
+                    r"\\s+(?:from|using)\\s+(?:the\\s+)?saved\\s+entries?\\b.*$",
+                    "", topic, flags=re.IGNORECASE
+                )
+                return topic.strip(" ,;:-")
         return ""
 
+    @staticmethod
+    def _knowledge_terms(value):
+        stopwords = {
+            "the", "and", "for", "with", "about", "from", "that", "this",
+            "everything", "anything", "previous", "previously", "saved",
+            "stored", "research", "knowledge", "information", "notes",
+            "entries", "findings", "what", "which", "did", "have", "know",
+            "knew", "learned", "learn", "recall", "retrieve", "pull", "up",
+            "show", "find", "get", "bring", "me", "my", "i", "we", "all",
+            "old", "past", "earlier", "about", "on", "as", "a", "an"
+        }
+        return {
+            word for word in re.findall(r"[a-z0-9]+", str(value or "").casefold())
+            if len(word) > 1 and word not in stopwords
+        }
+
+    @staticmethod
+    def _score_saved_item(item, query_terms):
+        fields = {
+            "topic": 3.0,
+            "title": 2.0,
+            "tags": 2.0,
+            "source_name": 0.75,
+            "content": 0.35,
+        }
+        score = 0.0
+        matched = set()
+        for field, weight in fields.items():
+            value = item.get(field) or ""
+            terms = set(re.findall(r"[a-z0-9]+", str(value).casefold()))
+            overlap = query_terms & terms
+            if overlap:
+                score += weight * len(overlap) / max(1, len(query_terms))
+                matched.update(overlap)
+        return score, matched
+
     def retrieve_saved_research(self, user_input):
-        """Answer explicit saved-research requests directly from SQLite."""
+        """Compatibility entry point for explicit stored-knowledge retrieval."""
         topic = self._extract_knowledge_topic(user_input)
         if not topic:
             return None
-        try:
-            entries = self.knowledge.get_all_knowledge(limit=100)
-            normalized_topic = self._normalize_knowledge_topic(topic)
-            matching = [
-                item for item in entries
-                if self._normalize_knowledge_topic(item.get("topic")) == normalized_topic
-            ]
 
-            # The research pipeline stores a consolidated topic summary separately
-            # from the legacy source-entry table. Prefer that summary when present.
-            saved_summary = None
+        try:
+            query_terms = self._knowledge_terms(topic)
+            entries = self.knowledge.get_all_knowledge(limit=1000)
+            ranked = []
+            for item in entries:
+                score, matched = self._score_saved_item(item, query_terms)
+                if score >= 1.0 and matched:
+                    ranked.append((score, item))
+            ranked.sort(
+                key=lambda pair: (
+                    pair[0],
+                    str(pair[1].get("learned_at") or "")
+                ),
+                reverse=True
+            )
+            matching = [item for _, item in ranked[:12]]
+
             research_tool = getattr(self, "research_tool", None)
             pipeline = getattr(research_tool, "research_pipeline", None)
             store = getattr(pipeline, "store", None)
+            research_sources = []
+            saved_summary = None
             if store:
                 try:
-                    topic_record = store.get_topic_knowledge(topic)
-                    if topic_record:
-                        saved_summary = topic_record.get("summary")
+                    exact = store.get_topic_knowledge(topic)
+                    if exact:
+                        saved_summary = exact.get("summary")
+                    research_sources = store.search_sources(topic, limit=12) or []
+                    relevant_sources = []
+                    for source in research_sources:
+                        score, _ = self._score_saved_item({
+                            "title": source.get("title"),
+                            "source_name": source.get("publisher"),
+                            "content": source.get("content"),
+                        }, query_terms)
+                        if score >= 0.5:
+                            relevant_sources.append(source)
+                    research_sources = relevant_sources[:8]
                 except Exception as retrieval_error:
                     logger.warning(
-                        "Could not load consolidated research summary for %s: %s",
+                        "Research index retrieval failed for %s: %s",
                         topic, retrieval_error
                     )
 
-            if not matching and not saved_summary:
+            # Search personal facts and conversation memory through the same
+            # query terms. These are separate from research-source records.
+            memory_matches = []
+            memory_db = getattr(getattr(self, "memory", None), "db", None)
+            if memory_db and query_terms:
+                seen = set()
+                for term in query_terms:
+                    try:
+                        rows = memory_db.search(term)
+                    except Exception as retrieval_error:
+                        logger.warning("Personal memory search failed: %s", retrieval_error)
+                        continue
+                    for row in rows:
+                        try:
+                            key, value, memory_type = row[0], row[1], row[2]
+                        except (TypeError, IndexError):
+                            key = row.get("key", "")
+                            value = row.get("value", "")
+                            memory_type = row.get("type", "")
+                        identity = (str(key), str(value), str(memory_type))
+                        if identity in seen:
+                            continue
+                        seen.add(identity)
+                        item_terms = self._knowledge_terms(
+                            str(key) + " " + str(value)
+                        )
+                        if query_terms & item_terms:
+                            memory_matches.append({
+                                "key": key, "value": value, "type": memory_type
+                            })
+
+            if not matching and not saved_summary and not research_sources and not memory_matches:
                 return (
-                    f"I couldn't find saved knowledge entries for the exact topic "
-                    f"'{topic}'. Try asking me to list your saved knowledge entries."
+                    f"I couldn't find saved information related to '{topic}' "
+                    "in the knowledge or memory stores."
                 )
-            lines = [
-                f"Your saved research on {topic}:",
-            ]
+
+            is_research_request = bool(re.search(
+                r"\\b(?:research|findings|sources)\\b",
+                str(user_input), re.IGNORECASE
+            ))
+            heading = "Your saved research on" if is_research_request else "Your saved information about"
+            lines = [f"{heading} {topic}:"]
             if saved_summary:
+                lines.extend(["Saved research summary:", saved_summary, ""])
+            if matching:
                 lines.extend([
-                    "Saved research summary:",
-                    saved_summary,
-                    "",
+                    f"Found {len(matching)} relevant saved knowledge entr"
+                    + ("y." if len(matching) == 1 else "ies."),
+                    "Entries retain their recorded verification status.",
+                    ""
                 ])
-            lines.extend([
-                f"Found {len(matching)} saved source entr" + ("y." if len(matching) == 1 else "ies."),
-                "Source entries are unverified unless explicitly marked otherwise.",
-                "",
-            ])
-            for index, item in enumerate(matching[:6], 1):
-                title = item.get("title") or "Untitled source"
-                source = item.get("source_name") or item.get("source_url") or "Source not recorded"
-                verification = item.get("verification_status") or "unverified"
-                body = re.sub(r"\s+", " ", str(item.get("content") or "")).strip()
-                if len(body) > 850:
-                    body = body[:847].rsplit(" ", 1)[0] + "..."
-                lines.extend([
-                    f"{index}. {title}",
-                    f"Source: {source}",
-                    f"Verification: {verification}",
-                    f"Saved information: {body or 'No content was stored for this entry.'}",
-                    "",
-                ])
-            if len(matching) > 6:
-                lines.append(f"{len(matching) - 6} additional matching entries were omitted.")
-            return "\n".join(lines).strip()
+                for index, item in enumerate(matching, 1):
+                    body = re.sub(r"\\s+", " ", str(item.get("content") or "")).strip()
+                    if len(body) > 850:
+                        body = body[:847].rsplit(" ", 1)[0] + "..."
+                    lines.extend([
+                        f"{index}. {item.get('title') or 'Untitled entry'}",
+                        f"Topic: {item.get('topic') or 'Not recorded'}",
+                        f"Source: {item.get('source_name') or item.get('source_url') or 'Not recorded'}",
+                        f"Verification: {item.get('verification_status') or 'unverified'}",
+                        f"Saved information: {body or 'No content was stored.'}",
+                        ""
+                    ])
+            if research_sources:
+                lines.extend(["Additional saved research sources:", ""])
+                for index, source in enumerate(research_sources, 1):
+                    body = re.sub(r"\\s+", " ", str(source.get("content") or "")).strip()
+                    lines.extend([
+                        f"{index}. {source.get('title') or 'Untitled source'}",
+                        f"Publisher: {source.get('publisher') or 'Not recorded'}",
+                        f"URL: {source.get('url') or 'Not recorded'}",
+                        f"Saved information: {body[:700]}",
+                        ""
+                    ])
+            if memory_matches:
+                lines.extend(["Related personal memory:", ""])
+                for item in memory_matches[:10]:
+                    lines.append(
+                        f"- {str(item['key']).replace('_', ' ').title()}: {item['value']}"
+                    )
+            return "\\n".join(lines).strip()
         except Exception as error:
-            logger.error("Could not retrieve saved research for %s: %s", topic, error)
-            return "I couldn't retrieve the saved research because the knowledge database returned an error."
+            logger.error("Could not retrieve saved information for %s: %s", topic, error)
+            return "I couldn't retrieve the saved information because a storage system returned an error."
 
     def get_relevant_knowledge(self, user_input):
 
