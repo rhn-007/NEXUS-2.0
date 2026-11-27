@@ -23,10 +23,47 @@ class OllamaClient:
         self.model = "qwen2.5:3b"
 
         self.response_style = ResponseStyleController()
+        self._model_used = False
 
         logger.info(
             "Ollama client ready"
         )
+
+    def unload_model(self):
+        """
+        Ask Ollama to unload the model used by this NEXUS session.
+
+        This unloads the model only; it does not stop the Ollama server.
+        Note that Ollama does not track which application owns a model, so
+        another application using this same model may also be affected.
+        """
+
+        if not self._model_used:
+            return
+
+        try:
+            response = requests.post(
+                self.url,
+                json={
+                    "model": self.model,
+                    "messages": [],
+                    "stream": False,
+                    "keep_alive": 0
+                },
+                timeout=5
+            )
+            response.raise_for_status()
+            self._model_used = False
+            logger.info(
+                "Unloaded Ollama model %s. Ollama server remains running.",
+                self.model
+            )
+
+        except requests.exceptions.RequestException as error:
+            logger.warning("Could not unload Ollama model %s: %s", self.model, error)
+
+        except Exception as error:
+            logger.warning("Unexpected error while unloading Ollama model: %s", error)
 
     def generate_response(
         self,
@@ -138,6 +175,8 @@ class OllamaClient:
                 }
 
             }
+
+            self._model_used = True
 
             response = requests.post(
 
