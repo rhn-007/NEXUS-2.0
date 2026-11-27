@@ -13,6 +13,7 @@ class ResearchPipeline:
 
     MAX_ANALYSIS_SOURCES = 4
     MAX_CHARS_PER_SOURCE = 1800
+    MAX_REPAIR_ATTEMPTS = 1
     MIN_RELEVANCE_SCORE = 0.25
 
     def __init__(self, llm, database_path="nexus_memory.db"):
@@ -308,6 +309,44 @@ class ResearchPipeline:
         quality_ok, quality_reasons = self._validate_summary(
             summary, len(selected), query, publisher_count=len(publishers)
         )
+
+        # A small local model may miss required structure on its first pass.
+        # Give it one evidence-bounded repair opportunity; never relax validation.
+        for _ in range(self.MAX_REPAIR_ATTEMPTS):
+            if quality_ok:
+                break
+            repair_prompt = (
+                "Your previous research brief failed these quality checks: "
+                + ", ".join(quality_reasons)
+                + ". Rewrite the brief using ONLY the supplied source excerpts. "
+                "Do not merely explain the errors. Follow this exact structure:\\n"
+                "Overview\\n"
+                "Requested aspects coverage\\n"
+                "- One bullet for EACH distinct aspect in the user's request; "
+                "label each SUPPORTED, PARTIAL, or NOT FOUND and cite evidence "
+                "where available. Do not claim unsupported coverage.\\n"
+                "Key findings\\n"
+                "- At least two concise, non-repeated factual bullets with citations.\\n"
+                "Evidence limitations\\n"
+                "Open questions\\n"
+                "Every factual claim must cite supplied source numbers [1] through ["
+                + str(len(selected))
+                + "]. If an aspect is not established by the sources, say so "
+                "clearly in its coverage bullet and explain the gap in Evidence "
+                "limitations. Keep the report concise and do not invent evidence.\\n\\n"
+                f"User request: {query}\\n\\n"
+                f"Previous draft to correct:\\n{summary}\\n\\n"
+                "Supplied source evidence:\\n"
+                + "\\n\\n".join(source_blocks)
+            )
+            revised_summary = self.llm.generate_response(repair_prompt, context=[])
+            if self._is_model_failure(revised_summary):
+                break
+            summary = revised_summary
+            quality_ok, quality_reasons = self._validate_summary(
+                summary, len(selected), query, publisher_count=len(publishers)
+            )
+
         if not quality_ok:
             self.store.finish_session(
                 session_id, summary, status="partial",
