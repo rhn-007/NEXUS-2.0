@@ -774,18 +774,43 @@ class NexusAssistant:
                 item for item in entries
                 if self._normalize_knowledge_topic(item.get("topic")) == normalized_topic
             ]
-            if not matching:
+
+            # The research pipeline stores a consolidated topic summary separately
+            # from the legacy source-entry table. Prefer that summary when present.
+            saved_summary = None
+            research_tool = getattr(self, "research_tool", None)
+            pipeline = getattr(research_tool, "research_pipeline", None)
+            store = getattr(pipeline, "store", None)
+            if store:
+                try:
+                    topic_record = store.get_topic_knowledge(topic)
+                    if topic_record:
+                        saved_summary = topic_record.get("summary")
+                except Exception as retrieval_error:
+                    logger.warning(
+                        "Could not load consolidated research summary for %s: %s",
+                        topic, retrieval_error
+                    )
+
+            if not matching and not saved_summary:
                 return (
                     f"I couldn't find saved knowledge entries for the exact topic "
                     f"'{topic}'. Try asking me to list your saved knowledge entries."
                 )
             lines = [
                 f"Your saved research on {topic}:",
-                f"Found {len(matching)} saved source entr" + ("y." if len(matching) == 1 else "ies."),
-                "These entries are unverified source material; the notes below "
-                "are extracted from what NEXUS saved, not independently verified.",
-                "",
             ]
+            if saved_summary:
+                lines.extend([
+                    "Saved research summary:",
+                    saved_summary,
+                    "",
+                ])
+            lines.extend([
+                f"Found {len(matching)} saved source entr" + ("y." if len(matching) == 1 else "ies."),
+                "Source entries are unverified unless explicitly marked otherwise.",
+                "",
+            ])
             for index, item in enumerate(matching[:6], 1):
                 title = item.get("title") or "Untitled source"
                 source = item.get("source_name") or item.get("source_url") or "Source not recorded"
