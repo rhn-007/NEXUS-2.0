@@ -164,6 +164,51 @@ class OrbWidget(QWidget):
                 self._rng.uniform(0, TAU),
             ))
 
+        # Stable holographic circuit paths: angular, segmented traces laid
+        # over several spherical depth layers. These replace the impression
+        # of a uniformly connected triangular net with deliberate circuitry.
+        self._circuit_paths = []
+        for ci in range(92):
+            theta = self._rng.uniform(0.0, TAU)
+            phi = self._rng.uniform(0.32, math.pi - 0.32)
+            layer = self._rng.choice((0.82, 0.90, 0.98, 1.045))
+            step_count = self._rng.randint(5, 12)
+            points = []
+            for si in range(step_count):
+                # Quantised angular turns create the angular, etched look.
+                if si:
+                    theta += self._rng.choice((-1, 1)) * self._rng.uniform(0.045, 0.16)
+                    phi += self._rng.choice((-1, 0, 1)) * self._rng.uniform(0.025, 0.095)
+                    phi = max(0.16, min(math.pi - 0.16, phi))
+                r = layer + self._rng.uniform(-0.012, 0.012)
+                points.append((
+                    r * math.sin(phi) * math.cos(theta),
+                    r * math.cos(phi),
+                    r * math.sin(phi) * math.sin(theta),
+                ))
+            self._circuit_paths.append((
+                points, self._rng.uniform(0.45, 1.0),
+                self._rng.random(), ci % 5 == 0,
+            ))
+
+        # Reactor aperture: fixed segment layouts with independent angular
+        # motion, gaps, ticks and small luminous nodes.
+        self._aperture = []
+        for ri, fraction in enumerate((0.205, 0.255, 0.315, 0.385, 0.455)):
+            segment_count = (18, 24, 28, 32, 36)[ri]
+            segments = []
+            for si in range(segment_count):
+                if self._rng.random() < (0.18 if ri < 3 else 0.27):
+                    continue
+                start = TAU * si / segment_count + self._rng.uniform(-0.018, 0.018)
+                span = TAU / segment_count * self._rng.uniform(0.48, 0.90)
+                segments.append((start, span, self._rng.random()))
+            self._aperture.append((
+                fraction, segments, self._rng.uniform(-0.28, 0.28),
+                self._rng.choice((-1, 1)) * self._rng.uniform(0.08, 0.28),
+                self._rng.uniform(0.0, TAU),
+            ))
+
         # Stable motes distributed both on and just outside the shell.
         self._sparks = []
         for _ in range(190):
@@ -256,6 +301,49 @@ class OrbWidget(QWidget):
                 continue
             alpha = int(color.alpha() * (0.28 + 0.72 * max(0.0, depth + 0.12)))
             self._line(painter, a, b, QColor(color.red(), color.green(), color.blue(), alpha), width)
+
+    def _draw_aperture_ring(self, painter, cx, cy, radius, yaw, pitch, roll,
+                             fraction, segments, tilt, phase, layer_seed):
+        # Elliptical segmented arcs, each split into front/back depth passes.
+        u = _rotate((1, 0, 0), tilt, 0.22 + tilt * 0.25, 0.0)
+        v = _rotate((0, 1, 0), tilt, 0.22 + tilt * 0.25, 0.0)
+        for start, span, seed in segments:
+            samples = max(5, int(span * 30))
+            points = []
+            for si in range(samples + 1):
+                a = start + span * si / samples + phase
+                p = tuple(
+                    (u[k] * math.cos(a) + v[k] * math.sin(a) * 0.88)
+                    * fraction
+                    for k in range(3)
+                )
+                points.append(self._project(p, cx, cy, radius, yaw, pitch, roll))
+            for si in range(len(points) - 1):
+                a, da = points[si]
+                b, db = points[si + 1]
+                depth = (da + db) * 0.5
+                alpha = int((72 + seed * 95) * (0.48 + max(0.0, depth) * 0.52))
+                # Soft orange underglow plus a narrow gold-white trace.
+                self._line(painter, a, b, QColor(255, 105, 25, alpha // 2), 2.8)
+                self._line(painter, a, b, QColor(255, 187, 102, alpha), 0.85 if layer_seed else 0.62)
+
+        # Instrument-like radial ticks and nodes around selected ring segments.
+        if layer_seed:
+            for index in range(0, len(segments), 3):
+                start, span, seed = segments[index]
+                a = start + span + phase
+                p0 = tuple(
+                    (u[k] * math.cos(a) + v[k] * math.sin(a) * 0.88) * fraction
+                    for k in range(3)
+                )
+                p1 = tuple(value * 1.075 for value in p0)
+                q0, d0 = self._project(p0, cx, cy, radius, yaw, pitch, roll)
+                q1, d1 = self._project(p1, cx, cy, radius, yaw, pitch, roll)
+                if (d0 + d1) > -0.1:
+                    self._line(painter, q0, q1, QColor(255, 204, 133, 135), 0.75)
+                    painter.setPen(Qt.PenStyle.NoPen)
+                    painter.setBrush(QColor(255, 215, 155, 190))
+                    painter.drawEllipse(q1, 1.0 + seed * 0.7, 1.0 + seed * 0.7)
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -406,6 +494,41 @@ class OrbWidget(QWidget):
                 ring["width"],
                 front_pass=True,
             )
+
+        # Layered holographic aperture: segmented rings, radial ticks and
+        # angular traces make the centre read as a reactor mechanism.
+        for index, (fraction, segments, tilt, speed, phase) in enumerate(self._aperture):
+            self._draw_aperture_ring(
+                painter, cx, cy, radius, yaw, pitch, roll,
+                fraction, segments, tilt,
+                phase + self._phase * speed,
+                index in (0, 2, 4),
+            )
+
+        # Angular circuit traces are drawn as discrete etched segments with
+        # branching endpoints, rather than connecting every neighbouring mote.
+        for points, strength, phase, bright in self._circuit_paths:
+            drift = self._phase * (0.025 + strength * 0.035) * (1 if bright else -1)
+            projected_path = []
+            for index, point in enumerate(points):
+                rotated = _rotate(point, drift + phase * 0.025, 0.0, 0.0)
+                projected_path.append(self._project(
+                    self._shape(rotated, phase), cx, cy, radius, yaw, pitch, roll
+                ))
+            for index in range(len(projected_path) - 1):
+                a, da = projected_path[index]
+                b, db = projected_path[index + 1]
+                depth = (da + db) * 0.5
+                if depth < -0.28:
+                    continue
+                flicker = 0.76 + 0.24 * math.sin(self._phase * 2.4 + phase * 13 + index)
+                alpha = int((46 if bright else 27) * strength * flicker
+                            * (0.55 + max(0.0, depth) * 0.45))
+                self._line(painter, a, b, QColor(255, 116, 35, alpha), 1.55 if bright else 0.78)
+                if bright and index == len(projected_path) - 2:
+                    painter.setPen(Qt.PenStyle.NoPen)
+                    painter.setBrush(QColor(255, 206, 139, min(190, alpha * 2)))
+                    painter.drawEllipse(b, 1.25, 1.25)
 
         # Inner reactor: offset, independently rotating rings form a bright
         # circular aperture rather than a plain glowing ball.
