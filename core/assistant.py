@@ -139,6 +139,9 @@ class NexusAssistant:
 
         print("\n🤖 N.E.X.U.S 3.0 Online\n")
 
+        # Announce readiness only after the assistant has initialized.
+        self.speaker.speak("NEXUS is online and ready, Sir.")
+
         while True:
 
             user_input = self.input_manager.get_input()
