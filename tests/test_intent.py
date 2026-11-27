@@ -109,6 +109,19 @@ class FastPathUnderstandsRequests(unittest.TestCase):
             commands("open spotify and search for the weeknd"),
             ["spotify search the weeknd"]
         )
+        self.assertEqual(
+            commands(
+                "open opera and search for the weeknd and also do that for spotify"
+            ),
+            ["search the weeknd", "spotify search the weeknd"]
+        )
+        self.assertEqual(
+            commands("search for the weeknd and do that for youtube"),
+            [
+                "search the weeknd",
+                "go to https://www.youtube.com/results?search_query=the+weeknd"
+            ]
+        )
         # Plain searches still go to Google.
         self.assertEqual(commands("search for the weeknd"), ["search the weeknd"])
 
