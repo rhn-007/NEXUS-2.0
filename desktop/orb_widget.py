@@ -17,6 +17,7 @@ class OrbWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setStyleSheet("background: transparent;")
         self.setMinimumSize(220, 220)
         self._phase = 0.0
         self._state = "idle"
