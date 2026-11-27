@@ -62,6 +62,7 @@ class NexusWindow(QMainWindow):
         self.setStyleSheet(STYLE)
         self._snapshots = {}
         self._chat_count = 0
+        self._conversation_started = False
         self._active_page = "HOME"
 
         root = QWidget()
@@ -342,6 +343,10 @@ class NexusWindow(QMainWindow):
         self.command_requested.emit(command)
 
     def _append_conversation_message(self, speaker, message, speaker_color):
+        if not self._conversation_started:
+            self.chat_view.clear()
+            self.home_output.clear()
+            self._conversation_started = True
         safe_speaker = html.escape(str(speaker))
         safe_message = html.escape(str(message or ""))
         entry = (
