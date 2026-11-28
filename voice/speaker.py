@@ -42,6 +42,11 @@ class Speaker:
         self.ollama_url = "http://localhost:11434/api/chat"
         self.ollama_model = DEFAULT_MODEL
 
+        # Optional observer for the desktop UI: called as hook("start", path)
+        # just before a reply is played and hook("end", path) right after.
+        # Nothing happens when it is None.
+        self.playback_hook = None
+
         logger.info(
             "Voice system ready"
         )
@@ -324,6 +329,18 @@ class Speaker:
         with activity("Preparing speech"):
             self._speak(text)
 
+    def _notify_playback(self, event, path):
+
+        hook = self.playback_hook
+
+        if hook is None:
+            return
+
+        try:
+            hook(event, str(path))
+        except Exception as error:
+            logger.debug(f"Playback hook error: {error}")
+
     def _speak(self, text, quiet=False):
 
         # Prepare a speech-only version. The original response remains
@@ -389,15 +406,23 @@ class Speaker:
 
             if output.exists():
 
-                with (nullcontext() if quiet else activity("Speaking")):
+                self._notify_playback("start", output)
 
-                    winsound.PlaySound(
+                try:
 
-                        str(output),
+                    with (nullcontext() if quiet else activity("Speaking")):
 
-                        winsound.SND_FILENAME
+                        winsound.PlaySound(
 
-                    )
+                            str(output),
+
+                            winsound.SND_FILENAME
+
+                        )
+
+                finally:
+
+                    self._notify_playback("end", output)
 
         except Exception as e:
 

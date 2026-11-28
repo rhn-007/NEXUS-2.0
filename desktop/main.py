@@ -6,6 +6,7 @@ Run from the repository root with:
 
 import sys
 
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
 
 from desktop.window import NexusWindow
@@ -14,6 +15,8 @@ from desktop.window import NexusWindow
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("NEXUS")
+    app.setStyle("Fusion")
+    app.setFont(QFont("Segoe UI", 10))
     window = NexusWindow()
     window.showFullScreen()
     return app.exec()
