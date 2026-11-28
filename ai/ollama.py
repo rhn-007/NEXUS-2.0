@@ -433,17 +433,6 @@ class OllamaClient:
             messages = []
 
             # ==========================
-            # NEXUS PERSONALITY
-            # ==========================
-
-            messages.append(
-                {
-                    "role": "system",
-                    "content": SYSTEM_PROMPT
-                }
-            )
-
-            # ==========================
             # CONVERSATION CONTEXT
             # ==========================
 
@@ -493,24 +482,33 @@ class OllamaClient:
                     )
 
             # ==========================
-            # CURRENT USER MESSAGE
+            # AUTHORITATIVE NEXUS PERSONALITY
             # ==========================
 
-            # The assistant records the user's message in the
-            # conversation before building the context, so it is usually
-            # already the last context entry. Only add it when missing,
-            # otherwise the model would receive it twice.
+            # Context can contain saved facts, learned language patterns,
+            # retrieved knowledge, and prior conversation messages. Add the
+            # core system prompt after that context so none of it can
+            # accidentally override NEXUS's mandatory behaviour.
 
             current_message = {
                 "role": "user",
                 "content": str(message)
             }
 
-            if messages[-1] != current_message:
+            # The current user message may already be the final context item.
+            # Remove that copy so it can be placed after the system prompt once.
+            if messages and messages[-1] == current_message:
+                messages.pop()
 
-                messages.append(
-                    current_message
-                )
+            messages.append(
+                {
+                    "role": "system",
+                    "content": SYSTEM_PROMPT
+                }
+            )
+
+            # Keep the current request last and include it exactly once.
+            messages.append(current_message)
 
             # ==========================
             # WHAT THE MODEL SEES
